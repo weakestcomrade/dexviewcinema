@@ -1,54 +1,62 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
+import { ObjectId } from "mongodb"
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { paymentReference, bookingData } = body
+    const { paymentReference, eventId, seats, seatType, customerName, customerEmail, customerPhone, totalAmount } = body
 
     // Verify payment first
-    const verifyResponse = await fetch(
-      `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/payment/verify`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ paymentReference }),
+    const verifyResponse = await fetch(`${request.url.replace("/callback", "/verify")}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-    )
+      body: JSON.stringify({ paymentReference }),
+    })
 
     const verifyResult = await verifyResponse.json()
 
-    if (!verifyResult.success || verifyResult.paymentStatus !== "PAID") {
+    if (!verifyResult.success || !verifyResult.verified) {
       return NextResponse.json({ success: false, error: "Payment not verified" }, { status: 400 })
     }
 
     // Create confirmed booking
     const { db } = await connectToDatabase()
 
-    const booking = {
-      ...bookingData,
+    const bookingData = {
+      customerName,
+      customerEmail,
+      customerPhone,
+      eventId,
+      seats,
+      seatType,
+      amount: totalAmount,
       status: "confirmed",
       paymentReference,
-      paymentStatus: "paid",
-      paidAt: new Date(),
+      transactionReference: verifyResult.transactionReference,
+      bookingDate: new Date().toISOString().split("T")[0],
+      bookingTime: new Date().toTimeString().split(" ")[0],
       createdAt: new Date(),
     }
 
-    const result = await db.collection("bookings").insertOne(booking)
+    const bookingResult = await db.collection("bookings").insertOne(bookingData)
 
     // Update event's booked seats
     await db
       .collection("events")
-      .updateOne({ _id: bookingData.eventId }, { $addToSet: { bookedSeats: { $each: bookingData.seats } } })
+      .updateOne({ _id: new ObjectId(eventId) }, { $addToSet: { bookedSeats: { $each: seats } } })
 
     return NextResponse.json({
       success: true,
-      bookingId: result.insertedId,
+      booking: {
+        ...bookingData,
+        _id: bookingResult.insertedId.toString(),
+      },
     })
   } catch (error) {
     console.error("Payment callback error:", error)
-    return NextResponse.json({ success: false, error: "Failed to process payment callback" }, { status: 500 })
+    return NextResponse.json({ success: false, error: (error as Error).message }, { status: 500 })
   }
 }

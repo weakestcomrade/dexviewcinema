@@ -1,32 +1,42 @@
 "use client"
 
-import { useEffect, useState, Suspense } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { CheckCircle, XCircle, Loader2 } from "lucide-react"
+import { CheckCircle, Loader2, XCircle } from "lucide-react"
 
 function PaymentSuccessContent() {
-  const [paymentDetails, setPaymentDetails] = useState<any>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
   const searchParams = useSearchParams()
   const router = useRouter()
-  const paymentReference = searchParams.get("paymentReference")
+  const [status, setStatus] = useState<"loading" | "success" | "error">("loading")
+  const [bookingDetails, setBookingDetails] = useState<any>(null)
+  const [error, setError] = useState<string>("")
 
   useEffect(() => {
+    const paymentReference = searchParams.get("paymentReference")
+
     if (!paymentReference) {
-      setError("No payment reference found")
-      setLoading(false)
+      setStatus("error")
+      setError("Payment reference not found")
       return
     }
 
-    verifyPayment()
-  }, [paymentReference])
+    verifyPaymentAndCreateBooking(paymentReference)
+  }, [searchParams])
 
-  const verifyPayment = async () => {
+  const verifyPaymentAndCreateBooking = async (paymentReference: string) => {
     try {
-      const response = await fetch("/api/payment/verify", {
+      // Get booking data from localStorage
+      const bookingDataStr = localStorage.getItem(`booking_${paymentReference}`)
+      if (!bookingDataStr) {
+        throw new Error("Booking data not found")
+      }
+
+      const bookingData = JSON.parse(bookingDataStr)
+
+      // Verify payment
+      const verifyResponse = await fetch("/api/payment/verify", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -34,74 +44,66 @@ function PaymentSuccessContent() {
         body: JSON.stringify({ paymentReference }),
       })
 
-      if (!response.ok) {
+      const verifyResult = await verifyResponse.json()
+
+      if (!verifyResult.success || !verifyResult.verified) {
         throw new Error("Payment verification failed")
       }
 
-      const result = await response.json()
+      // Create confirmed booking
+      const callbackResponse = await fetch("/api/payment/callback", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          paymentReference,
+          ...bookingData,
+        }),
+      })
 
-      if (result.success && result.paymentStatus === "PAID") {
-        setPaymentDetails(result)
+      const callbackResult = await callbackResponse.json()
 
-        // Get booking data from localStorage
-        const bookingDataStr = localStorage.getItem(`booking_${paymentReference}`)
-        if (bookingDataStr) {
-          const bookingData = JSON.parse(bookingDataStr)
-
-          // Complete the booking
-          const callbackResponse = await fetch("/api/payment/callback", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              paymentReference,
-              bookingData,
-            }),
-          })
-
-          if (callbackResponse.ok) {
-            // Clear localStorage
-            localStorage.removeItem(`booking_${paymentReference}`)
-          }
-        }
-      } else {
-        setError("Payment was not successful")
+      if (!callbackResult.success) {
+        throw new Error("Failed to create booking")
       }
-    } catch (err) {
-      setError((err as Error).message)
-    } finally {
-      setLoading(false)
+
+      // Clean up localStorage
+      localStorage.removeItem(`booking_${paymentReference}`)
+
+      setBookingDetails(callbackResult.booking)
+      setStatus("success")
+    } catch (error) {
+      console.error("Payment verification error:", error)
+      setStatus("error")
+      setError((error as Error).message)
     }
   }
 
-  if (loading) {
+  if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card className="w-full max-w-md">
-          <CardContent className="flex flex-col items-center justify-center p-6">
-            <Loader2 className="h-8 w-8 animate-spin mb-4" />
-            <p>Verifying payment...</p>
+          <CardContent className="p-6 text-center">
+            <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4" />
+            <h2 className="text-xl font-semibold mb-2">Verifying Payment</h2>
+            <p className="text-gray-600">Please wait while we confirm your payment...</p>
           </CardContent>
         </Card>
       </div>
     )
   }
 
-  if (error) {
+  if (status === "error") {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-red-600">
-              <XCircle className="h-6 w-6" />
-              Payment Failed
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+          <CardContent className="p-6 text-center">
+            <XCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold mb-2">Payment Failed</h2>
             <p className="text-gray-600 mb-4">{error}</p>
             <Button onClick={() => router.push("/")} className="w-full">
-              Return to Home
+              Return Home
             </Button>
           </CardContent>
         </Card>
@@ -110,42 +112,60 @@ function PaymentSuccessContent() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-green-600">
-            <CheckCircle className="h-6 w-6" />
-            Payment Successful!
-          </CardTitle>
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <Card className="w-full max-w-2xl">
+        <CardHeader className="text-center">
+          <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+          <CardTitle className="text-2xl text-green-600">Payment Successful!</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <p className="text-gray-600">Your booking has been confirmed successfully.</p>
-
-            {paymentDetails && (
-              <div className="bg-gray-50 p-4 rounded-lg space-y-2">
-                <div className="flex justify-between">
-                  <span className="font-medium">Amount:</span>
-                  <span>₦{paymentDetails.amount}</span>
+        <CardContent className="space-y-6">
+          {bookingDetails && (
+            <div className="bg-gray-50 p-6 rounded-lg">
+              <h3 className="text-lg font-semibold mb-4">Booking Details</h3>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="font-medium">Booking ID:</p>
+                  <p className="text-gray-600">{bookingDetails._id}</p>
                 </div>
-                <div className="flex justify-between">
-                  <span className="font-medium">Reference:</span>
-                  <span className="text-sm">{paymentDetails.transactionReference}</span>
+                <div>
+                  <p className="font-medium">Customer Name:</p>
+                  <p className="text-gray-600">{bookingDetails.customerName}</p>
                 </div>
-                <div className="flex justify-between">
-                  <span className="font-medium">Status:</span>
-                  <span className="text-green-600 font-medium">PAID</span>
+                <div>
+                  <p className="font-medium">Email:</p>
+                  <p className="text-gray-600">{bookingDetails.customerEmail}</p>
+                </div>
+                <div>
+                  <p className="font-medium">Phone:</p>
+                  <p className="text-gray-600">{bookingDetails.customerPhone}</p>
+                </div>
+                <div>
+                  <p className="font-medium">Seats:</p>
+                  <p className="text-gray-600">{bookingDetails.seats.join(", ")}</p>
+                </div>
+                <div>
+                  <p className="font-medium">Amount Paid:</p>
+                  <p className="text-gray-600">₦{bookingDetails.amount.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="font-medium">Payment Reference:</p>
+                  <p className="text-gray-600">{bookingDetails.paymentReference}</p>
+                </div>
+                <div>
+                  <p className="font-medium">Status:</p>
+                  <p className="text-green-600 font-medium">Confirmed</p>
                 </div>
               </div>
-            )}
+            </div>
+          )}
 
-            <div className="flex gap-2">
-              <Button onClick={() => router.push("/bookings")} className="flex-1">
-                View Bookings
+          <div className="text-center space-y-4">
+            <p className="text-gray-600">A confirmation email has been sent to your email address.</p>
+            <div className="flex gap-4 justify-center">
+              <Button onClick={() => router.push("/bookings")} variant="outline">
+                View My Bookings
               </Button>
-              <Button onClick={() => router.push("/")} variant="outline" className="flex-1">
-                Return Home
-              </Button>
+              <Button onClick={() => router.push("/")}>Return Home</Button>
             </div>
           </div>
         </CardContent>

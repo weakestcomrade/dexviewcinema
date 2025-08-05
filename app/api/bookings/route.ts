@@ -1,85 +1,99 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
+import { revalidatePath } from "next/cache"
 
 export async function GET() {
   try {
     const { db } = await connectToDatabase()
-    const bookings = await db.collection("bookings").find({}).toArray()
+    const bookings = await db.collection("bookings").find({}).sort({ createdAt: -1 }).toArray()
 
-    return NextResponse.json(bookings)
+    // Convert ObjectId to string for client-side
+    const serializableBookings = bookings.map((booking) => ({
+      ...booking,
+      _id: booking._id.toString(),
+      eventId: booking.eventId instanceof ObjectId ? booking.eventId.toString() : booking.eventId,
+    }))
+
+    return NextResponse.json(serializableBookings)
   } catch (error) {
-    console.error("Error fetching bookings:", error)
-    return NextResponse.json({ error: "Failed to fetch bookings" }, { status: 500 })
+    console.error("Failed to fetch bookings:", error)
+    return NextResponse.json({ message: "Failed to fetch bookings", error: (error as Error).message }, { status: 500 })
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
-    const body = await request.json()
+    const { db } = await connectToDatabase()
+    const bookingData = await request.json()
+
     const {
-      eventId,
-      seats,
       customerName,
       customerEmail,
       customerPhone,
+      eventId,
+      eventTitle,
+      eventType,
+      seats,
+      seatType,
+      amount,
+      processingFee,
       totalAmount,
+      status,
+      bookingDate,
+      bookingTime,
+      paymentMethod,
       paymentReference,
-      status = "pending",
-    } = body
+    } = bookingData
 
     // Validate required fields
-    if (!eventId || !seats || !customerName || !customerEmail || !totalAmount) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    const missingFields = []
+    if (!customerName || customerName.trim() === "") missingFields.push("customerName")
+    if (!customerEmail || customerEmail.trim() === "") missingFields.push("customerEmail")
+    if (!eventId || eventId.trim() === "") missingFields.push("eventId")
+    if (!seats || !Array.isArray(seats) || seats.length === 0) missingFields.push("seats")
+    if (!amount || typeof amount !== "number") missingFields.push("amount")
+
+    if (missingFields.length > 0) {
+      return NextResponse.json({ message: `Missing required fields: ${missingFields.join(", ")}` }, { status: 400 })
     }
 
-    const { db } = await connectToDatabase()
-
-    // Check if seats are still available
-    const event = await db.collection("events").findOne({ _id: new ObjectId(eventId) })
-    if (!event) {
-      return NextResponse.json({ error: "Event not found" }, { status: 404 })
-    }
-
-    // Check for seat conflicts
-    const bookedSeats = event.bookedSeats || []
-    const conflictingSeats = seats.filter((seat: string) => bookedSeats.includes(seat))
-
-    if (conflictingSeats.length > 0) {
-      return NextResponse.json({ error: "Some seats are no longer available", conflictingSeats }, { status: 409 })
-    }
-
-    // Create booking
+    // Create booking document
     const booking = {
-      eventId: new ObjectId(eventId),
-      seats,
       customerName,
       customerEmail,
-      customerPhone,
-      totalAmount: Number.parseFloat(totalAmount),
-      paymentReference,
-      status,
-      paymentStatus: status === "confirmed" ? "paid" : "pending",
+      customerPhone: customerPhone || "",
+      eventId,
+      eventTitle: eventTitle || "",
+      eventType: eventType || "",
+      seats,
+      seatType: seatType || "",
+      amount,
+      processingFee: processingFee || 0,
+      totalAmount: totalAmount || amount,
+      status: status || "pending",
+      bookingDate: bookingDate || new Date().toISOString().split("T")[0],
+      bookingTime: bookingTime || new Date().toTimeString().split(" ")[0],
+      paymentMethod: paymentMethod || "card",
+      paymentReference: paymentReference || "",
       createdAt: new Date(),
-      ...(status === "confirmed" && { paidAt: new Date() }),
+      updatedAt: new Date(),
     }
 
     const result = await db.collection("bookings").insertOne(booking)
 
-    // If booking is confirmed, update event's booked seats
-    if (status === "confirmed") {
-      await db
-        .collection("events")
-        .updateOne({ _id: new ObjectId(eventId) }, { $addToSet: { bookedSeats: { $each: seats } } })
+    // Return the created booking with string ID
+    const createdBooking = {
+      ...booking,
+      _id: result.insertedId.toString(),
     }
 
-    return NextResponse.json({
-      success: true,
-      bookingId: result.insertedId,
-      booking: { ...booking, _id: result.insertedId },
-    })
+    revalidatePath("/admin")
+    revalidatePath("/bookings")
+
+    return NextResponse.json(createdBooking, { status: 201 })
   } catch (error) {
-    console.error("Error creating booking:", error)
-    return NextResponse.json({ error: "Failed to create booking" }, { status: 500 })
+    console.error("Failed to create booking:", error)
+    return NextResponse.json({ message: "Failed to create booking", error: (error as Error).message }, { status: 500 })
   }
 }

@@ -1,64 +1,83 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { amount, customerName, customerEmail, paymentReference, redirectUrl } = body
+    const { amount, customerName, customerEmail, customerPhone, paymentReference, paymentDescription, redirectUrl } =
+      body
 
-    // Monnify API endpoint for payment initialization
-    const monnifyUrl = "https://sandbox.monnify.com/api/v1/merchant/transactions/init-transaction"
+    // Validate required fields
+    if (!amount || !customerName || !customerEmail || !paymentReference) {
+      return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 })
+    }
 
-    // Get access token first
-    const authResponse = await fetch("https://sandbox.monnify.com/api/v1/auth/login", {
+    // Monnify API configuration
+    const monnifyApiKey = process.env.MONNIFY_PUBLIC_KEY
+    const monnifySecretKey = process.env.MONNIFY_SECRET_KEY
+    const monnifyBaseUrl = "https://sandbox.monnify.com" // Use production URL for live
+
+    if (!monnifyApiKey || !monnifySecretKey) {
+      return NextResponse.json({ success: false, error: "Payment gateway not configured" }, { status: 500 })
+    }
+
+    // Get access token from Monnify
+    const authString = Buffer.from(`${monnifyApiKey}:${monnifySecretKey}`).toString("base64")
+
+    const tokenResponse = await fetch(`${monnifyBaseUrl}/api/v1/auth/login`, {
       method: "POST",
       headers: {
+        Authorization: `Basic ${authString}`,
         "Content-Type": "application/json",
-        Authorization: `Basic ${Buffer.from(`${process.env.MONNIFY_PUBLIC_KEY}:${process.env.MONNIFY_SECRET_KEY}`).toString("base64")}`,
       },
     })
 
-    if (!authResponse.ok) {
-      throw new Error("Failed to authenticate with Monnify")
+    if (!tokenResponse.ok) {
+      throw new Error("Failed to get access token")
     }
 
-    const authData = await authResponse.json()
-    const accessToken = authData.responseBody.accessToken
+    const tokenData = await tokenResponse.json()
+    const accessToken = tokenData.responseBody.accessToken
 
-    // Initialize payment
+    // Initialize payment with Monnify
     const paymentData = {
-      amount: Number.parseFloat(amount),
+      amount: amount,
+      customerName: customerName,
+      customerEmail: customerEmail,
+      customerPhoneNumber: customerPhone || "",
+      paymentReference: paymentReference,
+      paymentDescription: paymentDescription || `Payment for ${customerName}`,
       currencyCode: "NGN",
-      contractCode: process.env.MONNIFY_PUBLIC_KEY,
-      customerName,
-      customerEmail,
-      paymentReference,
-      paymentDescription: "Cinema Ticket Booking",
-      redirectUrl,
+      contractCode: monnifyApiKey, // Use your contract code
+      redirectUrl: redirectUrl,
       paymentMethods: ["CARD", "ACCOUNT_TRANSFER"],
     }
 
-    const response = await fetch(monnifyUrl, {
+    const paymentResponse = await fetch(`${monnifyBaseUrl}/api/v1/merchant/transactions/init-transaction`, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
         Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(paymentData),
     })
 
-    if (!response.ok) {
+    if (!paymentResponse.ok) {
       throw new Error("Failed to initialize payment")
     }
 
-    const result = await response.json()
+    const paymentResult = await paymentResponse.json()
 
-    return NextResponse.json({
-      success: true,
-      checkoutUrl: result.responseBody.checkoutUrl,
-      paymentReference: result.responseBody.transactionReference,
-    })
+    if (paymentResult.requestSuccessful) {
+      return NextResponse.json({
+        success: true,
+        checkoutUrl: paymentResult.responseBody.checkoutUrl,
+        paymentReference: paymentReference,
+      })
+    } else {
+      throw new Error(paymentResult.responseMessage || "Payment initialization failed")
+    }
   } catch (error) {
     console.error("Payment initialization error:", error)
-    return NextResponse.json({ success: false, error: "Failed to initialize payment" }, { status: 500 })
+    return NextResponse.json({ success: false, error: (error as Error).message }, { status: 500 })
   }
 }
