@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { notFound, useRouter } from "next/navigation" // Corrected import for useRouter
+import { notFound, useRouter, useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -32,6 +32,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { getMonnifyKeys } from "@/app/actions/get-monnify-public-key" // Import the server action
+import { Skeleton } from "@/components/ui/skeleton"
 
 // Define types for event fetched from the database
 interface Event {
@@ -58,6 +60,13 @@ interface Event {
     standardMatchSeats?: { price: number; count: number; available?: number } // New for standard match halls
   }
   bookedSeats?: string[] // Added to store booked seat IDs
+  date: string
+  time: string
+  hall: {
+    name: string
+    seats: { row: string; number: number; status: string }[]
+  }
+  price: number
 }
 
 interface Seat {
@@ -67,6 +76,26 @@ interface Seat {
   type: string
   isBooked: boolean
   price: number
+}
+
+interface MonnifyInitializeOptions {
+  amount: number
+  currency: string
+  reference: string
+  customerName: string
+  customerEmail: string
+  apiKey: string
+  contractCode: string
+  paymentDescription: string
+  onComplete: (response: any) => void
+  onClose: () => void
+}
+
+// Extend Window interface to include MonnifySDK
+declare global {
+  interface Window {
+    MonnifySDK: any
+  }
 }
 
 // Helper to map hall_id to display name and total seats
@@ -188,12 +217,14 @@ const generateMovieSeats = (eventPricing: Event["pricing"], hallId: string, book
   return seats
 }
 
-export default function BookingPage({ params }: { params: { id: string } }) {
+export default function BookingPage() {
+  const { id } = useParams()
+  const router = useRouter()
+  const { toast } = useToast()
   const [event, setEvent] = useState<Event | null>(null)
+  const [selectedSeats, setSelectedSeats] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
-  const [selectedSeats, setSelectedSeats] = useState<string[]>([])
   const [selectedSeatType, setSelectedSeatType] = useState<string>("")
   const [customerInfo, setCustomerInfo] = useState({
     name: "",
@@ -203,16 +234,16 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   const [paymentMethod, setPaymentMethod] = useState("card")
   const [isBookingConfirmed, setIsBookingConfirmed] = useState(false)
   const [bookingDetails, setBookingDetails] = useState<any>(null)
-  const { toast } = useToast()
-  const router = useRouter() // Initialize useRouter
+  const [monnifyKeys, setMonnifyKeys] = useState<{ publicKey: string; contractCode: string } | null>(null)
+  const [isPaymentProcessing, setIsPaymentProcessing] = useState(false)
 
-  const eventId = params.id
+  //const eventId = params.id
 
   const fetchEvent = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
-      const res = await fetch(`/api/events/${eventId}`)
+      const res = await fetch(`/api/events/${id}`)
       if (!res.ok) {
         if (res.status === 404) {
           notFound()
@@ -260,6 +291,13 @@ export default function BookingPage({ params }: { params: { id: string } }) {
         hall_id: data.hall_id, // Use the actual hall_id from DB
         pricing: calculatedPricing,
         bookedSeats: data.bookedSeats || [], // Use actual booked seats from DB
+        date: data.event_date,
+        time: data.event_time,
+        hall: {
+          name: getHallDisplayName(data.hall_id),
+          seats: [],
+        },
+        price: 100,
       }
       setEvent(formattedEvent)
     } catch (err) {
@@ -267,14 +305,58 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     } finally {
       setLoading(false)
     }
-  }, [eventId])
+  }, [id])
 
   useEffect(() => {
     fetchEvent()
-  }, [fetchEvent])
+
+    const fetchMonnifyKeys = async () => {
+      try {
+        const keysString = await getMonnifyKeys() // Call the server action
+        if (keysString) {
+          const keys = JSON.parse(keysString)
+          setMonnifyKeys(keys)
+        } else {
+          toast({
+            title: "Error",
+            description: "Failed to load payment configuration.",
+            variant: "destructive",
+          })
+        }
+      } catch (error) {
+        console.error("Error fetching Monnify keys:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load payment configuration.",
+          variant: "destructive",
+        })
+      }
+    }
+
+    fetchMonnifyKeys()
+  }, [fetchEvent, toast])
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center text-white">Loading event details...</div>
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gray-100 dark:bg-gray-900">
+        <Card className="w-full max-w-2xl">
+          <CardHeader>
+            <Skeleton className="h-8 w-3/4" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Skeleton className="h-6 w-1/2" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-full" />
+            <div className="grid grid-cols-10 gap-2">
+              {Array.from({ length: 50 }).map((_, i) => (
+                <Skeleton key={i} className="h-8 w-8 rounded-md" />
+              ))}
+            </div>
+            <Skeleton className="h-10 w-full" />
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   if (error) {
@@ -282,15 +364,35 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   }
 
   if (!event) {
-    return <div className="min-h-screen flex items-center justify-center text-white">Event not found</div>
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gray-100 dark:bg-gray-900">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Event Not Found</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p>The event you are looking for does not exist or has been removed.</p>
+            <Button onClick={() => router.push("/")} className="mt-4">
+              Go to Home
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
-  const seats =
+  const seatsData =
     event.event_type === "match"
       ? event.hall_id === "vip_hall"
         ? generateVipMatchSeats(event.pricing, event.bookedSeats)
         : generateStandardMatchSeats(event.pricing, event.hall_id, event.bookedSeats)
       : generateMovieSeats(event.pricing, event.hall_id, event.bookedSeats)
+
+  const seats = seatsData.map((seat) => ({
+    row: seat.row || "A",
+    number: Number.parseInt(seat.id.replace(/[^0-9]/g, "")),
+    status: seat.isBooked ? "booked" : "available",
+  }))
 
   const handleSeatClick = (seatId: string, seatType: string, isBooked: boolean, seatPrice: number) => {
     if (isBooked) return
@@ -336,12 +438,25 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     }
   }
 
+  const calculateTotalPrice = () => {
+    if (!event) return 0
+
+    let total = 0
+    selectedSeats.forEach((seatId) => {
+      const seat = seatsData.find((s) => s.id === seatId)
+      if (seat) {
+        total += seat.price
+      }
+    })
+    return total
+  }
+
   const getSeatPrice = () => {
     if (selectedSeats.length === 0) return 0
 
     let total = 0
     selectedSeats.forEach((seatId) => {
-      const seat = seats.find((s) => s.id === seatId)
+      const seat = seatsData.find((s) => s.id === seatId)
       if (seat) {
         total += seat.price
       }
@@ -350,28 +465,10 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   }
 
   const totalAmount = getSeatPrice()
-  const processingFee = Math.round(totalAmount * 0.02) // 2% processing fee
-  const finalAmount = totalAmount + processingFee
+  const processingFee = 0 // Removed processing fee as requested
+  const finalAmount = totalAmount // Final amount is just the total seat price
 
-  const handleBooking = async () => {
-    if (selectedSeats.length === 0) {
-      toast({
-        title: "No Seats Selected",
-        description: "Please select at least one seat.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (!customerInfo.name || !customerInfo.email || !customerInfo.phone) {
-      toast({
-        title: "Missing Information",
-        description: "Please fill in all customer information.",
-        variant: "destructive",
-      })
-      return
-    }
-
+  const handleBooking = async (transactionReference: string) => {
     try {
       // 1. Create the booking record
       const bookingData = {
@@ -384,12 +481,13 @@ export default function BookingPage({ params }: { params: { id: string } }) {
         seats: selectedSeats,
         seatType: selectedSeatType,
         amount: totalAmount,
-        processingFee: processingFee,
+        processingFee: 0, // Explicitly set to 0
         totalAmount: finalAmount,
         status: "confirmed",
         bookingDate: format(new Date(), "yyyy-MM-dd"),
         bookingTime: format(new Date(), "HH:mm"),
-        paymentMethod: paymentMethod,
+        paymentMethod: "Monnify", // Payment method is Monnify
+        transactionReference: transactionReference, // Add Monnify transaction reference
       }
 
       const bookingRes = await fetch("/api/bookings", {
@@ -426,19 +524,193 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       setSelectedSeats([]) // Clear selected seats after booking
       setSelectedSeatType("")
       setCustomerInfo({ name: "", email: "", phone: "" })
-      setPaymentMethod("card")
+      setPaymentMethod("card") // Reset to default
       toast({
         title: "Booking Confirmed!",
         description: `Your booking for ${event.title} is successful.`,
       })
       // Re-fetch event data to update the UI with newly booked seats
       await fetchEvent()
-      // revalidatePath("/admin") // Revalidate admin page to show new booking - handled by API route
     } catch (error) {
       console.error("Failed to book seats:", error)
       toast({
         title: "Booking Failed",
         description: (error as Error).message,
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleBookTickets = async () => {
+    if (!event || selectedSeats.length === 0 || !monnifyKeys) {
+      toast({
+        title: "Validation Error",
+        description: "Please select at least one seat and ensure payment configuration is loaded.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsPaymentProcessing(true)
+
+    const totalAmount = calculateTotalPrice()
+    const transactionReference = `booking_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`
+
+    if (window.MonnifySDK) {
+      window.MonnifySDK.initialize({
+        amount: totalAmount,
+        currency: "NGN",
+        reference: transactionReference,
+        customerName: customerInfo.name, // Replace with actual user name
+        customerEmail: customerInfo.email, // Replace with actual user email
+        apiKey: monnifyKeys.publicKey,
+        contractCode: monnifyKeys.contractCode,
+        paymentDescription: `Booking for ${event.title}`,
+        onComplete: async (response: any) => {
+          console.log("Monnify payment complete:", response)
+          if (response.status === "SUCCESS") {
+            try {
+              const bookingData = {
+                eventId: event._id,
+                userId: "652a1234567890abcdef012345", // Placeholder User ID
+                selectedSeats: selectedSeats,
+                totalPrice: totalAmount,
+                paymentStatus: "completed",
+                transactionReference: response.transactionReference,
+                processingFee: response.transactionHash?.processingFees || 0,
+              }
+
+              const res = await fetch("/api/bookings", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify(bookingData),
+              })
+
+              if (!res.ok) {
+                throw new Error("Failed to save booking")
+              }
+
+              toast({
+                title: "Payment Successful",
+                description: "Your booking has been confirmed!",
+              })
+              router.push(`/bookings`) // Redirect to bookings page
+            } catch (error) {
+              console.error("Error saving booking:", error)
+              toast({
+                title: "Booking Error",
+                description: "Payment was successful, but there was an error saving your booking.",
+                variant: "destructive",
+              })
+            }
+          } else {
+            toast({
+              title: "Payment Failed",
+              description: "Your payment could not be processed.",
+              variant: "destructive",
+            })
+          }
+          setIsPaymentProcessing(false)
+        },
+        onClose: () => {
+          console.log("Monnify payment closed.")
+          toast({
+            title: "Payment Cancelled",
+            description: "You closed the payment window.",
+          })
+          setIsPaymentProcessing(false)
+        },
+      })
+    } else {
+      toast({
+        title: "Error",
+        description: "Monnify SDK not loaded. Please try again.",
+        variant: "destructive",
+      })
+      setIsPaymentProcessing(false)
+    }
+  }
+
+  const handleMonnifyPayment = async () => {
+    if (selectedSeats.length === 0) {
+      toast({
+        title: "No Seats Selected",
+        description: "Please select at least one seat.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!customerInfo.name || !customerInfo.email || !customerInfo.phone) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in all customer information.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Fetch Monnify keys securely from the server
+    const monnifyKeysString = await getMonnifyKeys()
+    if (!monnifyKeysString) {
+      toast({
+        title: "Payment Configuration Error",
+        description: "Monnify public key or contract code could not be retrieved. Please check server configuration.",
+        variant: "destructive",
+      })
+      return
+    }
+    const { publicKey, contractCode } = JSON.parse(monnifyKeysString)
+
+    if (!publicKey || !contractCode) {
+      toast({
+        title: "Payment Configuration Error",
+        description: "Monnify public key or contract code is missing. Please check environment variables.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const transactionReference = `BOOKING-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`
+
+    if (typeof window !== "undefined" && window.MonnifySDK) {
+      window.MonnifySDK.initialize({
+        amount: finalAmount, // Use finalAmount (which is totalAmount)
+        currency: "NGN",
+        reference: transactionReference,
+        customerName: customerInfo.name,
+        customerEmail: customerInfo.email,
+        customerPhone: customerInfo.phone,
+        apiKey: publicKey, // Use fetched public key
+        contractCode: contractCode, // Use fetched contract code
+        paymentDescription: `Booking for ${event.title}`,
+        onComplete: async (response: any) => {
+          console.log("Monnify payment complete:", response)
+          if (response.status === "SUCCESS") {
+            await handleBooking(transactionReference) // Proceed with booking creation
+          } else {
+            toast({
+              title: "Payment Failed",
+              description: "Monnify payment was not successful. Please try again.",
+              variant: "destructive",
+            })
+          }
+        },
+        onClose: (data: any) => {
+          console.log("Monnify payment closed:", data)
+          toast({
+            title: "Payment Cancelled",
+            description: "You closed the payment window.",
+            variant: "info",
+          })
+        },
+      })
+    } else {
+      toast({
+        title: "Payment Error",
+        description: "Monnify SDK not loaded. Please refresh the page or check your network connection.",
         variant: "destructive",
       })
     }
@@ -733,7 +1005,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                                 {row}
                               </div>
                               <div className="flex gap-4 flex-wrap justify-center sm:justify-start">
-                                {seats
+                                {seatsData
                                   .filter((seat) => seat.row === row && seat.type === "sofa")
                                   .map((seat) => (
                                     <button
@@ -773,7 +1045,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                                 {row}
                               </div>
                               <div className="flex gap-4 flex-wrap justify-center sm:justify-start">
-                                {seats
+                                {seatsData
                                   .filter((seat) => seat.row === row && seat.type === "regular")
                                   .map((seat) => (
                                     <button
@@ -810,7 +1082,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                             event.hall_id === "hallA" ? "grid-cols-6 sm:grid-cols-8" : "grid-cols-6 sm:grid-cols-10"
                           }`}
                         >
-                          {seats
+                          {seatsData
                             .filter((seat) => seat.type === "standardMatch")
                             .map((seat) => (
                               <button
@@ -841,7 +1113,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                     <div>
                       <h4 className="text-lg font-bold text-cyber-green-300 mb-4">VIP Single Seats</h4>
                       <div className="grid grid-cols-5 sm:grid-cols-10 gap-3">
-                        {seats
+                        {seatsData
                           .filter((seat) => seat.type === "vipSingle")
                           .map((seat) => (
                             <button
@@ -869,7 +1141,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                     <div>
                       <h4 className="text-lg font-bold text-cyber-purple-300 mb-4">VIP Couple Seats</h4>
                       <div className="grid grid-cols-3 sm:grid-cols-7 gap-4">
-                        {seats
+                        {seatsData
                           .filter((seat) => seat.type === "vipCouple")
                           .map((seat) => (
                             <button
@@ -897,7 +1169,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                     <div>
                       <h4 className="text-lg font-bold text-brand-red-300 mb-4">VIP Family Seats (4+ members)</h4>
                       <div className="grid grid-cols-2 sm:grid-cols-7 gap-4">
-                        {seats
+                        {seatsData
                           .filter((seat) => seat.type === "vipFamily")
                           .map((seat) => (
                             <button
@@ -931,7 +1203,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                           event.hall_id === "hallA" ? "grid-cols-6 sm:grid-cols-8" : "grid-cols-6 sm:grid-cols-10"
                         }`}
                       >
-                        {seats
+                        {seatsData
                           .filter((seat) => seat.type === "standardSingle")
                           .map((seat) => (
                             <button
@@ -1079,7 +1351,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                     <span className="text-white font-bold">₦{totalAmount.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-sm sm:text-base">
-                    <span className="text-cyber-slate-400">Processing Fee (2%)</span>
+                    <span className="text-cyber-slate-400">Processing Fee (0%)</span> {/* Updated text */}
                     <span className="text-cyber-slate-300 font-semibold">₦{processingFee.toLocaleString()}</span>
                   </div>
                 </div>
@@ -1097,11 +1369,11 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
                 <Button
                   className="w-full bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 text-white shadow-glow-red rounded-3xl transform hover:scale-105 transition-all duration-300 group font-bold text-base sm:text-lg py-4 sm:py-6 h-auto"
-                  onClick={handleBooking}
-                  disabled={selectedSeats.length === 0}
+                  onClick={handleBookTickets} // Call Monnify payment initiator
+                  disabled={selectedSeats.length === 0 || isPaymentProcessing || !monnifyKeys}
                 >
                   <CreditCard className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3 group-hover:rotate-12 transition-transform" />
-                  Proceed to Payment
+                  {isPaymentProcessing ? "Processing Payment..." : "Proceed to Payment"}
                   <div className="absolute inset-0 bg-gradient-to-r from-brand-red-400/20 to-brand-red-600/20 rounded-3xl blur-xl group-hover:blur-2xl transition-all duration-500"></div>
                 </Button>
 

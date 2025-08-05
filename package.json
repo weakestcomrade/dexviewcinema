@@ -62,6 +62,7 @@
     "react-hook-form": "latest",
     "react-resizable-panels": "latest",
     "recharts": "latest",
+    "server-only": "latest",
     "snappy": "latest",
     "socks": "latest",
     "sonner": "latest",
