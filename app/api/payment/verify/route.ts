@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { paymentReference } = body
@@ -9,16 +9,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "Payment reference is required" }, { status: 400 })
     }
 
-    // Monnify API configuration
     const monnifyApiKey = process.env.MONNIFY_PUBLIC_KEY
     const monnifySecretKey = process.env.MONNIFY_SECRET_KEY
-    const monnifyBaseUrl = "https://sandbox.monnify.com" // Use production URL for live
 
     if (!monnifyApiKey || !monnifySecretKey) {
       return NextResponse.json({ success: false, error: "Payment gateway not configured" }, { status: 500 })
     }
 
-    // Get access token from Monnify
+    const monnifyBaseUrl = "https://sandbox.monnify.com"
+
+    // Get access token
     const authString = Buffer.from(`${monnifyApiKey}:${monnifySecretKey}`).toString("base64")
 
     const tokenResponse = await fetch(`${monnifyBaseUrl}/api/v1/auth/login`, {
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     const tokenData = await tokenResponse.json()
     const accessToken = tokenData.responseBody.accessToken
 
-    // Verify payment status
+    // Verify payment
     const verifyResponse = await fetch(
       `${monnifyBaseUrl}/api/v2/transactions/${encodeURIComponent(paymentReference)}`,
       {
@@ -61,17 +61,22 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         success: true,
-        paymentStatus: paymentStatus,
-        transactionReference: transactionReference,
-        amountPaid: amountPaid,
-        paymentReference: paymentReference,
-        verified: paymentStatus === "PAID",
+        paymentStatus,
+        transactionReference,
+        amountPaid,
+        paymentData: verifyResult.responseBody,
       })
     } else {
       throw new Error(verifyResult.responseMessage || "Payment verification failed")
     }
   } catch (error) {
     console.error("Payment verification error:", error)
-    return NextResponse.json({ success: false, error: (error as Error).message }, { status: 500 })
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to verify payment",
+      },
+      { status: 500 },
+    )
   }
 }

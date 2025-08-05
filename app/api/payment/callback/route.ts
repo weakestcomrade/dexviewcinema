@@ -1,14 +1,18 @@
-import { NextResponse } from "next/server"
-import { connectToDatabase } from "@/lib/mongodb"
-import { ObjectId } from "mongodb"
+import type { NextRequest } from "next/server"
+import { redirect } from "next/navigation"
 
-export async function POST(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { paymentReference, eventId, seats, seatType, customerName, customerEmail, customerPhone, totalAmount } = body
+    const searchParams = request.nextUrl.searchParams
+    const paymentReference = searchParams.get("paymentReference")
+    const status = searchParams.get("status")
 
-    // Verify payment first
-    const verifyResponse = await fetch(`${request.url.replace("/callback", "/verify")}`, {
+    if (!paymentReference) {
+      return redirect("/payment/failed?error=missing-reference")
+    }
+
+    // Verify payment status
+    const verifyResponse = await fetch(`${request.nextUrl.origin}/api/payment/verify`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -18,45 +22,15 @@ export async function POST(request: Request) {
 
     const verifyResult = await verifyResponse.json()
 
-    if (!verifyResult.success || !verifyResult.verified) {
-      return NextResponse.json({ success: false, error: "Payment not verified" }, { status: 400 })
+    if (verifyResult.success && verifyResult.paymentStatus === "PAID") {
+      // Payment successful, redirect to success page
+      return redirect(`/payment/success?paymentReference=${paymentReference}`)
+    } else {
+      // Payment failed or pending
+      return redirect(`/payment/failed?paymentReference=${paymentReference}&status=${verifyResult.paymentStatus}`)
     }
-
-    // Create confirmed booking
-    const { db } = await connectToDatabase()
-
-    const bookingData = {
-      customerName,
-      customerEmail,
-      customerPhone,
-      eventId,
-      seats,
-      seatType,
-      amount: totalAmount,
-      status: "confirmed",
-      paymentReference,
-      transactionReference: verifyResult.transactionReference,
-      bookingDate: new Date().toISOString().split("T")[0],
-      bookingTime: new Date().toTimeString().split(" ")[0],
-      createdAt: new Date(),
-    }
-
-    const bookingResult = await db.collection("bookings").insertOne(bookingData)
-
-    // Update event's booked seats
-    await db
-      .collection("events")
-      .updateOne({ _id: new ObjectId(eventId) }, { $addToSet: { bookedSeats: { $each: seats } } })
-
-    return NextResponse.json({
-      success: true,
-      booking: {
-        ...bookingData,
-        _id: bookingResult.insertedId.toString(),
-      },
-    })
   } catch (error) {
     console.error("Payment callback error:", error)
-    return NextResponse.json({ success: false, error: (error as Error).message }, { status: 500 })
+    return redirect("/payment/failed?error=callback-error")
   }
 }

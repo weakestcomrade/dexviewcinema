@@ -1,47 +1,48 @@
-import { NextResponse } from "next/server"
-import { connectToDatabase } from "@/lib/mongodb"
+import { type NextRequest, NextResponse } from "next/server"
+import { MongoClient } from "mongodb"
 
-export async function POST(request: Request) {
+const client = new MongoClient(process.env.MONGODB_URI!)
+
+export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
 
-    // Log webhook data for debugging
-    console.log("Monnify Webhook received:", body)
+    console.log("Webhook received:", body)
 
     // Verify webhook signature if needed
     // const signature = request.headers.get('monnify-signature')
-    // if (!verifyWebhookSignature(body, signature)) {
-    //   return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
-    // }
 
     const { eventType, eventData } = body
 
     if (eventType === "SUCCESSFUL_TRANSACTION") {
-      const { paymentReference, transactionReference, amountPaid, paymentStatus } = eventData
+      const { paymentReference, transactionReference, amountPaid, paymentStatus, customerName, customerEmail } =
+        eventData
 
-      if (paymentStatus === "PAID") {
-        // Update booking status in database
-        const { db } = await connectToDatabase()
+      // Update booking status in database
+      await client.connect()
+      const db = client.db(process.env.MONGODB_DB)
 
-        await db.collection("bookings").updateOne(
-          { paymentReference: paymentReference },
-          {
-            $set: {
-              status: "confirmed",
-              transactionReference: transactionReference,
-              amountPaid: amountPaid,
-              paymentCompletedAt: new Date(),
-            },
+      const result = await db.collection("bookings").updateOne(
+        { paymentReference },
+        {
+          $set: {
+            paymentStatus: "PAID",
+            transactionReference,
+            amountPaid,
+            paidAt: new Date(),
+            status: "confirmed",
           },
-        )
+        },
+      )
 
-        console.log(`Payment confirmed for reference: ${paymentReference}`)
-      }
+      console.log("Booking updated:", result)
     }
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Webhook processing error:", error)
-    return NextResponse.json({ success: false, error: (error as Error).message }, { status: 500 })
+    console.error("Webhook error:", error)
+    return NextResponse.json({ success: false }, { status: 500 })
+  } finally {
+    await client.close()
   }
 }
