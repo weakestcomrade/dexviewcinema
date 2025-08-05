@@ -28,8 +28,6 @@ if (process.env.NODE_ENV === "development") {
 
 export async function connectToDatabase(): Promise<{ client: MongoClient; db: Db }> {
   const connectedClient = await clientPromise
-  const db = connectedClient.db(process.env.MONGODB_DB || "cinema_db") // Use MONGODB_DB env var
+  const db = connectedClient.db("cinema_db") // Replace with your database name
   return { client: connectedClient, db }
 }
-
-export default clientPromise // Export clientPromise as default
