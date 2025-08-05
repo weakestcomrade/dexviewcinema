@@ -9,6 +9,9 @@ import { Separator } from "@/components/ui/separator"
 import { CheckCircle, Download, Home, Calendar, Clock, MapPin, CreditCard, User, Mail, Phone } from "lucide-react"
 import Link from "next/link"
 
+// Make this page dynamic
+export const dynamic = "force-dynamic"
+
 interface BookingDetails {
   _id: string
   customerName: string
@@ -390,7 +393,7 @@ export default function PaymentSuccessPage() {
         </div>
       }
     >
-      <PaymentSuccessPage />
+      <PaymentSuccessContent />
     </Suspense>
   )
 }

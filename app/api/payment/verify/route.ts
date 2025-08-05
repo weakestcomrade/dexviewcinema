@@ -1,28 +1,25 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
-    const body = await request.json()
-    const { paymentReference } = body
+    const { paymentReference } = await request.json()
 
     if (!paymentReference) {
       return NextResponse.json({ success: false, error: "Payment reference is required" }, { status: 400 })
     }
 
-    // Check if environment variables are set
-    const monnifyApiKey = process.env.MONNIFY_PUBLIC_KEY
-    const monnifySecretKey = process.env.MONNIFY_SECRET_KEY
+    // Validate required environment variables
+    const apiKey = process.env.MONNIFY_PUBLIC_KEY
+    const secretKey = process.env.MONNIFY_SECRET_KEY
 
-    if (!monnifyApiKey || !monnifySecretKey) {
-      return NextResponse.json({ success: false, error: "Payment gateway not configured" }, { status: 500 })
+    if (!apiKey || !secretKey) {
+      return NextResponse.json({ success: false, error: "Payment service configuration error" }, { status: 500 })
     }
 
-    const monnifyBaseUrl = "https://sandbox.monnify.com"
+    // Get access token
+    const authString = Buffer.from(`${apiKey}:${secretKey}`).toString("base64")
 
-    // Get access token from Monnify
-    const authString = Buffer.from(`${monnifyApiKey}:${monnifySecretKey}`).toString("base64")
-
-    const tokenResponse = await fetch(`${monnifyBaseUrl}/api/v1/auth/login`, {
+    const tokenResponse = await fetch("https://sandbox.monnify.com/api/v1/auth/login", {
       method: "POST",
       headers: {
         Authorization: `Basic ${authString}`,
@@ -31,15 +28,19 @@ export async function POST(request: NextRequest) {
     })
 
     if (!tokenResponse.ok) {
-      throw new Error("Failed to get access token")
+      return NextResponse.json({ success: false, error: "Failed to authenticate" }, { status: 500 })
     }
 
     const tokenData = await tokenResponse.json()
+    if (!tokenData.requestSuccessful || !tokenData.responseBody?.accessToken) {
+      return NextResponse.json({ success: false, error: "Failed to get access token" }, { status: 500 })
+    }
+
     const accessToken = tokenData.responseBody.accessToken
 
     // Verify payment status
     const verifyResponse = await fetch(
-      `${monnifyBaseUrl}/api/v2/transactions/${encodeURIComponent(paymentReference)}`,
+      `https://sandbox.monnify.com/api/v2/transactions/${encodeURIComponent(paymentReference)}`,
       {
         method: "GET",
         headers: {
@@ -50,33 +51,30 @@ export async function POST(request: NextRequest) {
     )
 
     if (!verifyResponse.ok) {
-      throw new Error("Failed to verify payment")
+      return NextResponse.json({ success: false, error: "Failed to verify payment" }, { status: 500 })
     }
 
     const verifyResult = await verifyResponse.json()
 
+    if (!verifyResult.requestSuccessful) {
+      return NextResponse.json({ success: false, error: verifyResult.responseMessage }, { status: 400 })
+    }
+
+    const transaction = verifyResult.responseBody
+    const isPaid = transaction.paymentStatus === "PAID"
+
     return NextResponse.json({
       success: true,
-      paymentStatus: verifyResult.responseBody.paymentStatus,
-      transactionReference: verifyResult.responseBody.transactionReference,
-      paymentReference: verifyResult.responseBody.paymentReference,
-      amountPaid: verifyResult.responseBody.amountPaid,
-      totalPayable: verifyResult.responseBody.totalPayable,
-      settlementAmount: verifyResult.responseBody.settlementAmount,
-      paidOn: verifyResult.responseBody.paidOn,
-      paymentMethod: verifyResult.responseBody.paymentMethod,
-      currency: verifyResult.responseBody.currency,
-      paymentDescription: verifyResult.responseBody.paymentDescription,
-      customer: verifyResult.responseBody.customer,
+      verified: isPaid,
+      paymentStatus: transaction.paymentStatus,
+      transactionReference: transaction.transactionReference,
+      amountPaid: transaction.amountPaid,
+      paidOn: transaction.paidOn,
+      paymentMethod: transaction.paymentMethod,
+      paymentDescription: transaction.paymentDescription,
     })
   } catch (error) {
     console.error("Payment verification error:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to verify payment",
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ success: false, error: (error as Error).message }, { status: 500 })
   }
 }

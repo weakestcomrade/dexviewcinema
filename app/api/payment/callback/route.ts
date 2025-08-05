@@ -1,20 +1,20 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { MongoClient, ObjectId } from "mongodb"
+import { NextResponse } from "next/server"
 
-const client = new MongoClient(process.env.MONGODB_URI!)
+// Make this route dynamic
+export const dynamic = "force-dynamic"
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url)
-    const paymentReference = searchParams.get("paymentReference")
-    const transactionReference = searchParams.get("transactionReference")
+    const url = new URL(request.url)
+    const paymentReference = url.searchParams.get("paymentReference")
+    const transactionReference = url.searchParams.get("transactionReference")
 
     if (!paymentReference) {
-      return NextResponse.redirect(new URL("/payment/failed?error=missing-reference", request.url))
+      return NextResponse.redirect(new URL("/payment/failed?error=missing-reference", url.origin))
     }
 
-    // Verify payment with Monnify
-    const verifyResponse = await fetch(`${request.nextUrl.origin}/api/payment/verify`, {
+    // Verify payment status
+    const verifyResponse = await fetch(`${url.origin}/api/payment/verify`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -24,58 +24,21 @@ export async function GET(request: NextRequest) {
 
     const verifyResult = await verifyResponse.json()
 
-    if (!verifyResult.success || verifyResult.paymentStatus !== "PAID") {
-      return NextResponse.redirect(new URL("/payment/failed?error=payment-not-confirmed", request.url))
+    if (verifyResult.success && verifyResult.verified && verifyResult.paymentStatus === "PAID") {
+      // Payment successful, redirect to success page
+      return NextResponse.redirect(new URL(`/payment/success?paymentReference=${paymentReference}`, url.origin))
+    } else {
+      // Payment failed or pending
+      return NextResponse.redirect(
+        new URL(
+          `/payment/failed?paymentReference=${paymentReference}&status=${verifyResult.paymentStatus || "unknown"}`,
+          url.origin,
+        ),
+      )
     }
-
-    // Connect to MongoDB
-    await client.connect()
-    const db = client.db(process.env.MONGODB_DB)
-
-    // Get booking data from localStorage (this would be handled differently in production)
-    // For now, we'll create the booking record here
-    const bookingsCollection = db.collection("bookings")
-
-    // Check if booking already exists
-    const existingBooking = await bookingsCollection.findOne({ paymentReference })
-
-    if (!existingBooking) {
-      // This shouldn't happen in normal flow, but handle it gracefully
-      return NextResponse.redirect(new URL("/payment/failed?error=booking-not-found", request.url))
-    }
-
-    // Update booking with payment confirmation
-    await bookingsCollection.updateOne(
-      { paymentReference },
-      {
-        $set: {
-          paymentStatus: "completed",
-          transactionReference: verifyResult.transactionReference,
-          amountPaid: verifyResult.amountPaid,
-          paidOn: verifyResult.paidOn,
-          paymentMethod: verifyResult.paymentMethod,
-          updatedAt: new Date(),
-        },
-      },
-    )
-
-    // Update event's booked seats
-    const eventsCollection = db.collection("events")
-    await eventsCollection.updateOne(
-      { _id: new ObjectId(existingBooking.eventId) },
-      {
-        $addToSet: {
-          bookedSeats: { $each: existingBooking.seats },
-        },
-      },
-    )
-
-    // Redirect to success page
-    return NextResponse.redirect(new URL(`/payment/success?paymentReference=${paymentReference}`, request.url))
   } catch (error) {
     console.error("Payment callback error:", error)
-    return NextResponse.redirect(new URL("/payment/failed?error=processing-error", request.url))
-  } finally {
-    await client.close()
+    const url = new URL(request.url)
+    return NextResponse.redirect(new URL("/payment/failed?error=callback-error", url.origin))
   }
 }

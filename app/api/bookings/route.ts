@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { MongoClient, ObjectId } from "mongodb"
-
-const client = new MongoClient(process.env.MONGODB_URI!)
+import { connectToDatabase } from "@/lib/mongodb"
+import { ObjectId } from "mongodb"
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,9 +26,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Missing required booking information" }, { status: 400 })
     }
 
-    // Connect to MongoDB
-    await client.connect()
-    const db = client.db(process.env.MONGODB_DB)
+    const { db } = await connectToDatabase()
 
     // Check if event exists
     const eventsCollection = db.collection("events")
@@ -55,7 +52,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create booking record
-    const bookingData = {
+    const booking = {
       customerName,
       customerEmail,
       customerPhone,
@@ -76,13 +73,15 @@ export async function POST(request: NextRequest) {
       updatedAt: new Date(),
     }
 
-    const bookingsCollection = db.collection("bookings")
-    const result = await bookingsCollection.insertOne(bookingData)
+    const result = await db.collection("bookings").insertOne(booking)
 
     return NextResponse.json({
       success: true,
-      bookingId: result.insertedId,
-      message: "Booking created successfully",
+      bookingId: result.insertedId.toString(),
+      booking: {
+        ...booking,
+        _id: result.insertedId.toString(),
+      },
     })
   } catch (error) {
     console.error("Booking creation error:", error)
@@ -93,45 +92,39 @@ export async function POST(request: NextRequest) {
       },
       { status: 500 },
     )
-  } finally {
-    await client.close()
   }
 }
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const customerEmail = searchParams.get("customerEmail")
     const paymentReference = searchParams.get("paymentReference")
+    const customerEmail = searchParams.get("customerEmail")
 
-    // Connect to MongoDB
-    await client.connect()
-    const db = client.db(process.env.MONGODB_DB)
-    const bookingsCollection = db.collection("bookings")
+    const { db } = await connectToDatabase()
 
-    let query = {}
-    if (customerEmail) {
-      query = { customerEmail }
-    } else if (paymentReference) {
-      query = { paymentReference }
+    const query: any = {}
+    if (paymentReference) {
+      query.paymentReference = paymentReference
+    } else if (customerEmail) {
+      query.customerEmail = customerEmail
     }
 
-    const bookings = await bookingsCollection.find(query).sort({ createdAt: -1 }).toArray()
+    const bookings = await db.collection("bookings").find(query).sort({ createdAt: -1 }).toArray()
+
+    // Convert ObjectId to string for JSON serialization
+    const serializedBookings = bookings.map((booking) => ({
+      ...booking,
+      _id: booking._id.toString(),
+      eventId: booking.eventId.toString(),
+    }))
 
     return NextResponse.json({
       success: true,
-      bookings,
+      bookings: serializedBookings,
     })
   } catch (error) {
-    console.error("Booking retrieval error:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to retrieve bookings",
-      },
-      { status: 500 },
-    )
-  } finally {
-    await client.close()
+    console.error("Error fetching bookings:", error)
+    return NextResponse.json({ success: false, error: (error as Error).message }, { status: 500 })
   }
 }

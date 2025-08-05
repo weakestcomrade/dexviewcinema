@@ -1,68 +1,43 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { MongoClient } from "mongodb"
+import { NextResponse } from "next/server"
+import { connectToDatabase } from "@/lib/mongodb"
+import { ObjectId } from "mongodb"
 
-const client = new MongoClient(process.env.MONGODB_URI!)
-
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const body = await request.json()
-
     console.log("Webhook received:", body)
 
-    // Verify webhook signature if needed (recommended for production)
-    // const signature = request.headers.get('monnify-signature')
+    const { eventType, eventData } = body
 
-    const {
-      eventType,
-      eventData: {
-        transactionReference,
-        paymentReference,
-        amountPaid,
-        totalPayable,
-        settlementAmount,
-        paidOn,
-        paymentStatus,
-        paymentDescription,
-        currency,
-        paymentMethod,
-        customer,
-      },
-    } = body
+    if (eventType === "SUCCESSFUL_TRANSACTION") {
+      const { paymentReference, transactionReference, amountPaid, paidOn, paymentMethod } = eventData
 
-    if (eventType === "SUCCESSFUL_TRANSACTION" && paymentStatus === "PAID") {
-      // Connect to MongoDB
-      await client.connect()
-      const db = client.db(process.env.MONGODB_DB)
+      // Connect to database
+      const { db } = await connectToDatabase()
 
-      // Update booking status in database
-      const bookingsCollection = db.collection("bookings")
-
-      const updateResult = await bookingsCollection.updateOne(
-        { paymentReference: paymentReference },
+      // Update booking with payment confirmation
+      const result = await db.collection("bookings").updateOne(
+        { paymentReference },
         {
           $set: {
             paymentStatus: "completed",
-            transactionReference: transactionReference,
-            amountPaid: amountPaid,
-            paidOn: paidOn,
-            paymentMethod: paymentMethod,
+            transactionReference,
+            amountPaid,
+            paidOn,
+            paymentMethod,
             updatedAt: new Date(),
           },
         },
       )
 
-      console.log("Booking updated:", updateResult)
-
-      // You can also update the event's booked seats here
-      if (updateResult.matchedCount > 0) {
-        // Get the booking details
-        const booking = await bookingsCollection.findOne({ paymentReference: paymentReference })
+      if (result.matchedCount > 0) {
+        // Get the booking to update event seats
+        const booking = await db.collection("bookings").findOne({ paymentReference })
 
         if (booking) {
-          // Update the event's booked seats
-          const eventsCollection = db.collection("events")
-          await eventsCollection.updateOne(
-            { _id: booking.eventId },
+          // Update event's booked seats
+          await db.collection("events").updateOne(
+            { _id: new ObjectId(booking.eventId) },
             {
               $addToSet: {
                 bookedSeats: { $each: booking.seats },
@@ -70,20 +45,14 @@ export async function POST(request: NextRequest) {
             },
           )
         }
+
+        console.log("Booking updated successfully via webhook")
       }
     }
 
-    return NextResponse.json({ success: true, message: "Webhook processed successfully" })
+    return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Webhook processing error:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to process webhook",
-      },
-      { status: 500 },
-    )
-  } finally {
-    await client.close()
+    return NextResponse.json({ success: false, error: (error as Error).message }, { status: 500 })
   }
 }
