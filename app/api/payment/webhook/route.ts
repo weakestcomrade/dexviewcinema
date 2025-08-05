@@ -1,53 +1,39 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
-import crypto from "crypto"
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const body = await request.text()
-    const signature = request.headers.get("monnify-signature")
+    const body = await request.json()
 
-    // Verify webhook signature (optional but recommended for production)
-    const secretKey = process.env.MONNIFY_SECRET_KEY
-    if (secretKey && signature) {
-      const expectedSignature = crypto.createHmac("sha512", secretKey).update(body).digest("hex")
+    // Log webhook for debugging
+    console.log("Monnify webhook received:", body)
 
-      if (signature !== expectedSignature) {
-        console.error("Invalid webhook signature")
-        return NextResponse.json({ message: "Invalid signature" }, { status: 401 })
-      }
-    }
+    // Verify webhook signature if needed
+    // const signature = request.headers.get('monnify-signature')
 
-    const webhookData = JSON.parse(body)
-    const { paymentReference, paymentStatus, transactionReference } = webhookData
+    const { transactionReference, paymentStatus, amount } = body
 
-    if (!paymentReference) {
-      return NextResponse.json({ message: "Invalid webhook data" }, { status: 400 })
-    }
-
-    // Update payment status in database
-    const { db } = await connectToDatabase()
-    await db.collection("payment_references").updateOne(
-      { paymentReference: paymentReference },
-      {
-        $set: {
-          status: paymentStatus.toLowerCase(),
-          transactionReference: transactionReference,
-          webhookReceivedAt: new Date(),
-          webhookData: webhookData,
-        },
-      },
-    )
-
-    // If payment is successful, you might want to trigger additional actions here
     if (paymentStatus === "PAID") {
-      console.log(`Payment confirmed for reference: ${paymentReference}`)
-      // Additional logic for successful payment can be added here
+      // Update booking status in database
+      const { db } = await connectToDatabase()
+
+      await db.collection("bookings").updateOne(
+        { paymentReference: transactionReference },
+        {
+          $set: {
+            status: "confirmed",
+            paymentStatus: "paid",
+            paidAt: new Date(),
+          },
+        },
+      )
+
+      console.log(`Payment confirmed for reference: ${transactionReference}`)
     }
 
-    return NextResponse.json({ message: "Webhook processed successfully" })
+    return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Webhook processing error:", error)
-    return NextResponse.json({ message: "Webhook processing failed" }, { status: 500 })
+    return NextResponse.json({ success: false, error: "Failed to process webhook" }, { status: 500 })
   }
 }
