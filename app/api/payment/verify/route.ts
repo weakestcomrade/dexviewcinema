@@ -9,6 +9,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Payment reference is required" }, { status: 400 })
     }
 
+    // Check if environment variables are set
     const monnifyApiKey = process.env.MONNIFY_PUBLIC_KEY
     const monnifySecretKey = process.env.MONNIFY_SECRET_KEY
 
@@ -18,7 +19,7 @@ export async function POST(request: NextRequest) {
 
     const monnifyBaseUrl = "https://sandbox.monnify.com"
 
-    // Get access token
+    // Get access token from Monnify
     const authString = Buffer.from(`${monnifyApiKey}:${monnifySecretKey}`).toString("base64")
 
     const tokenResponse = await fetch(`${monnifyBaseUrl}/api/v1/auth/login`, {
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
     const tokenData = await tokenResponse.json()
     const accessToken = tokenData.responseBody.accessToken
 
-    // Verify payment
+    // Verify payment status
     const verifyResponse = await fetch(
       `${monnifyBaseUrl}/api/v2/transactions/${encodeURIComponent(paymentReference)}`,
       {
@@ -54,21 +55,20 @@ export async function POST(request: NextRequest) {
 
     const verifyResult = await verifyResponse.json()
 
-    if (verifyResult.requestSuccessful) {
-      const paymentStatus = verifyResult.responseBody.paymentStatus
-      const transactionReference = verifyResult.responseBody.transactionReference
-      const amountPaid = verifyResult.responseBody.amountPaid
-
-      return NextResponse.json({
-        success: true,
-        paymentStatus,
-        transactionReference,
-        amountPaid,
-        paymentData: verifyResult.responseBody,
-      })
-    } else {
-      throw new Error(verifyResult.responseMessage || "Payment verification failed")
-    }
+    return NextResponse.json({
+      success: true,
+      paymentStatus: verifyResult.responseBody.paymentStatus,
+      transactionReference: verifyResult.responseBody.transactionReference,
+      paymentReference: verifyResult.responseBody.paymentReference,
+      amountPaid: verifyResult.responseBody.amountPaid,
+      totalPayable: verifyResult.responseBody.totalPayable,
+      settlementAmount: verifyResult.responseBody.settlementAmount,
+      paidOn: verifyResult.responseBody.paidOn,
+      paymentMethod: verifyResult.responseBody.paymentMethod,
+      currency: verifyResult.responseBody.currency,
+      paymentDescription: verifyResult.responseBody.paymentDescription,
+      customer: verifyResult.responseBody.customer,
+    })
   } catch (error) {
     console.error("Payment verification error:", error)
     return NextResponse.json(

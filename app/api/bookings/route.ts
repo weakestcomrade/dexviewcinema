@@ -24,18 +24,22 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (!customerName || !customerEmail || !eventId || !seats || seats.length === 0 || !paymentReference) {
-      return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 })
+      return NextResponse.json({ success: false, error: "Missing required booking information" }, { status: 400 })
     }
 
+    // Connect to MongoDB
     await client.connect()
     const db = client.db(process.env.MONGODB_DB)
 
-    // Check if seats are still available
-    const event = await db.collection("events").findOne({ _id: new ObjectId(eventId) })
+    // Check if event exists
+    const eventsCollection = db.collection("events")
+    const event = await eventsCollection.findOne({ _id: new ObjectId(eventId) })
+
     if (!event) {
       return NextResponse.json({ success: false, error: "Event not found" }, { status: 404 })
     }
 
+    // Check if any of the selected seats are already booked
     const bookedSeats = event.bookedSeats || []
     const conflictingSeats = seats.filter((seat: string) => bookedSeats.includes(seat))
 
@@ -43,14 +47,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: `Seats ${conflictingSeats.join(", ")} are no longer available`,
+          error: "Some selected seats are no longer available",
+          conflictingSeats,
         },
         { status: 409 },
       )
     }
 
-    // Create booking
-    const booking = {
+    // Create booking record
+    const bookingData = {
       customerName,
       customerEmail,
       customerPhone,
@@ -64,29 +69,20 @@ export async function POST(request: NextRequest) {
       totalAmount,
       paymentReference,
       paymentMethod,
-      paymentStatus: "PENDING",
-      status: "pending",
+      paymentStatus: "pending",
       bookingDate: new Date().toISOString().split("T")[0],
-      bookingTime: new Date().toTimeString().split(" ")[0].substring(0, 5),
+      bookingTime: new Date().toTimeString().split(" ")[0],
       createdAt: new Date(),
       updatedAt: new Date(),
     }
 
-    const result = await db.collection("bookings").insertOne(booking)
-
-    // Reserve seats temporarily (will be confirmed after payment)
-    await db.collection("events").updateOne(
-      { _id: new ObjectId(eventId) },
-      {
-        $addToSet: { bookedSeats: { $each: seats } },
-        $inc: { totalBookings: 1 },
-      },
-    )
+    const bookingsCollection = db.collection("bookings")
+    const result = await bookingsCollection.insertOne(bookingData)
 
     return NextResponse.json({
       success: true,
       bookingId: result.insertedId,
-      booking: { ...booking, _id: result.insertedId },
+      message: "Booking created successfully",
     })
   } catch (error) {
     console.error("Booking creation error:", error)
@@ -104,12 +100,14 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams
+    const { searchParams } = new URL(request.url)
     const customerEmail = searchParams.get("customerEmail")
     const paymentReference = searchParams.get("paymentReference")
 
+    // Connect to MongoDB
     await client.connect()
     const db = client.db(process.env.MONGODB_DB)
+    const bookingsCollection = db.collection("bookings")
 
     let query = {}
     if (customerEmail) {
@@ -118,18 +116,18 @@ export async function GET(request: NextRequest) {
       query = { paymentReference }
     }
 
-    const bookings = await db.collection("bookings").find(query).sort({ createdAt: -1 }).toArray()
+    const bookings = await bookingsCollection.find(query).sort({ createdAt: -1 }).toArray()
 
     return NextResponse.json({
       success: true,
       bookings,
     })
   } catch (error) {
-    console.error("Booking fetch error:", error)
+    console.error("Booking retrieval error:", error)
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to fetch bookings",
+        error: error instanceof Error ? error.message : "Failed to retrieve bookings",
       },
       { status: 500 },
     )

@@ -60,6 +60,9 @@ export async function POST(request: NextRequest) {
     const accessToken = tokenData.responseBody.accessToken
 
     // Initialize payment with Monnify
+    // Note: For sandbox, we'll use a default contract code. In production, you need your actual contract code
+    const contractCode = process.env.MONNIFY_CONTRACT_CODE || monnifyApiKey // Fallback to API key if contract code not set
+
     const paymentData = {
       amount: Number(amount),
       customerName: customerName,
@@ -68,12 +71,16 @@ export async function POST(request: NextRequest) {
       paymentReference: paymentReference,
       paymentDescription: paymentDescription || `Payment for ${customerName}`,
       currencyCode: "NGN",
-      contractCode: monnifyApiKey, // Use your contract code
+      contractCode: contractCode,
       redirectUrl: redirectUrl,
       paymentMethods: ["CARD", "ACCOUNT_TRANSFER"],
+      incomeSplitConfig: [], // Required field for some Monnify accounts
     }
 
-    console.log("Initializing payment with data:", paymentData)
+    console.log("Initializing payment with data:", {
+      ...paymentData,
+      contractCode: contractCode?.substring(0, 10) + "...",
+    })
 
     const paymentResponse = await fetch(`${monnifyBaseUrl}/api/v1/merchant/transactions/init-transaction`, {
       method: "POST",
@@ -86,20 +93,33 @@ export async function POST(request: NextRequest) {
 
     console.log("Payment response status:", paymentResponse.status)
 
-    if (!paymentResponse.ok) {
-      const errorText = await paymentResponse.text()
-      console.error("Failed to initialize payment:", errorText)
-      throw new Error(`Failed to initialize payment: ${paymentResponse.status} ${errorText}`)
-    }
-
     const paymentResult = await paymentResponse.json()
     console.log("Payment result:", paymentResult)
+
+    if (!paymentResponse.ok) {
+      console.error("Failed to initialize payment:", paymentResult)
+
+      // Handle specific Monnify errors
+      if (paymentResult.responseMessage === "Could not find specified contract") {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Payment gateway configuration error. Please contact support.",
+            details: "Invalid contract code",
+          },
+          { status: 422 },
+        )
+      }
+
+      throw new Error(`Failed to initialize payment: ${paymentResponse.status} ${JSON.stringify(paymentResult)}`)
+    }
 
     if (paymentResult.requestSuccessful && paymentResult.responseBody?.checkoutUrl) {
       return NextResponse.json({
         success: true,
         checkoutUrl: paymentResult.responseBody.checkoutUrl,
         paymentReference: paymentReference,
+        transactionReference: paymentResult.responseBody.transactionReference,
       })
     } else {
       console.error("Payment initialization failed:", paymentResult)

@@ -9,39 +9,80 @@ export async function POST(request: NextRequest) {
 
     console.log("Webhook received:", body)
 
-    // Verify webhook signature if needed
+    // Verify webhook signature if needed (recommended for production)
     // const signature = request.headers.get('monnify-signature')
 
-    const { eventType, eventData } = body
+    const {
+      eventType,
+      eventData: {
+        transactionReference,
+        paymentReference,
+        amountPaid,
+        totalPayable,
+        settlementAmount,
+        paidOn,
+        paymentStatus,
+        paymentDescription,
+        currency,
+        paymentMethod,
+        customer,
+      },
+    } = body
 
-    if (eventType === "SUCCESSFUL_TRANSACTION") {
-      const { paymentReference, transactionReference, amountPaid, paymentStatus, customerName, customerEmail } =
-        eventData
-
-      // Update booking status in database
+    if (eventType === "SUCCESSFUL_TRANSACTION" && paymentStatus === "PAID") {
+      // Connect to MongoDB
       await client.connect()
       const db = client.db(process.env.MONGODB_DB)
 
-      const result = await db.collection("bookings").updateOne(
-        { paymentReference },
+      // Update booking status in database
+      const bookingsCollection = db.collection("bookings")
+
+      const updateResult = await bookingsCollection.updateOne(
+        { paymentReference: paymentReference },
         {
           $set: {
-            paymentStatus: "PAID",
-            transactionReference,
-            amountPaid,
-            paidAt: new Date(),
-            status: "confirmed",
+            paymentStatus: "completed",
+            transactionReference: transactionReference,
+            amountPaid: amountPaid,
+            paidOn: paidOn,
+            paymentMethod: paymentMethod,
+            updatedAt: new Date(),
           },
         },
       )
 
-      console.log("Booking updated:", result)
+      console.log("Booking updated:", updateResult)
+
+      // You can also update the event's booked seats here
+      if (updateResult.matchedCount > 0) {
+        // Get the booking details
+        const booking = await bookingsCollection.findOne({ paymentReference: paymentReference })
+
+        if (booking) {
+          // Update the event's booked seats
+          const eventsCollection = db.collection("events")
+          await eventsCollection.updateOne(
+            { _id: booking.eventId },
+            {
+              $addToSet: {
+                bookedSeats: { $each: booking.seats },
+              },
+            },
+          )
+        }
+      }
     }
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, message: "Webhook processed successfully" })
   } catch (error) {
-    console.error("Webhook error:", error)
-    return NextResponse.json({ success: false }, { status: 500 })
+    console.error("Webhook processing error:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to process webhook",
+      },
+      { status: 500 },
+    )
   } finally {
     await client.close()
   }
