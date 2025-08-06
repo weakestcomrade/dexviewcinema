@@ -19,31 +19,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import {
-  CalendarIcon,
-  Clock,
-  Edit,
-  Eye,
-  Film,
-  Plus,
-  Settings,
-  Trash2,
-  Trophy,
-  Users,
-  TrendingUp,
-  Shield,
-  Activity,
-  Sparkles,
-  BarChart3,
-  Monitor,
-  MapPin,
-  Star,
-  Printer,
-  Filter,
-  Search,
-  ImageIcon,
-  ShoppingCart,
-} from "lucide-react"
+import { CalendarIcon, Clock, Edit, Eye, Film, Plus, Settings, Trash2, Trophy, Users, TrendingUp, Shield, Activity, Sparkles, BarChart3, Monitor, MapPin, Star, Printer, Filter, Search, ImageIcon, ShoppingCart } from 'lucide-react'
 import Link from "next/link"
 import Image from "next/image"
 import { useToast } from "@/components/ui/use-toast"
@@ -393,7 +369,13 @@ export default function AdminDashboard() {
   const [isCreateBookingOpen, setIsCreateBookingOpen] = useState(false) // New state for create booking dialog
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null) // Use Booking type
 
-  const [newEvent, setNewEvent] = useState<NewEventData>(initialNewEventState)
+  // Initialize newEvent with a placeholder hall_id, it will be updated after halls are fetched
+  const [newEvent, setNewEvent] = useState<NewEventData>({
+    ...initialNewEventState,
+    hall_id: "", // Ensure it's empty initially so the default logic can apply
+    total_seats: 0,
+    pricing: {},
+  })
   const [newBooking, setNewBooking] = useState<CreateBookingData>(initialNewBookingState) // New state for new booking form
   const [selectedEventForBooking, setSelectedEventForBooking] = useState<Event | null>(null) // To hold the selected event object for booking
   const [currentEventSeats, setCurrentEventSeats] = useState<Seat[]>([]) // Seats for the selected event in admin booking
@@ -423,16 +405,20 @@ export default function AdminDashboard() {
       }
       const data: Hall[] = await res.json()
       setHalls(data)
-      // Set initial new event state based on fetched halls
-      if (data.length > 0 && newEvent.hall_id === "") {
-        const defaultHall = data[0] // Use the first hall as default
-        setNewEvent((prev) => ({
-          ...prev,
-          hall_id: defaultHall._id,
-          total_seats: defaultHall.capacity,
-          pricing: defaultHall.type === "vip" ? defaultVipMoviePricing : defaultStandardMoviePricingHallA, // Default pricing based on hall type
-        }))
-      }
+      // Set initial new event state based on fetched halls if not already set
+      // This logic should run only once when halls are first loaded
+      setNewEvent((prev) => {
+        if (data.length > 0 && prev.hall_id === "") {
+          const defaultHall = data[0]
+          return {
+            ...prev,
+            hall_id: defaultHall._id,
+            total_seats: defaultHall.capacity,
+            pricing: defaultHall.type === "vip" ? defaultVipMoviePricing : defaultStandardMoviePricingHallA,
+          }
+        }
+        return prev
+      })
     } catch (error) {
       console.error("Failed to fetch halls:", error)
       toast({
@@ -441,7 +427,7 @@ export default function AdminDashboard() {
         variant: "destructive",
       })
     }
-  }, [newEvent.hall_id, toast])
+  }, [toast]) // Removed newEvent.hall_id from dependencies to make this callback stable
 
   const fetchEvents = useCallback(async () => {
     try {
@@ -490,8 +476,8 @@ export default function AdminDashboard() {
   }, [toast])
 
   useEffect(() => {
-    fetchHalls() // Fetch halls first
-  }, [fetchHalls])
+    fetchHalls() // Fetch halls once on mount
+  }, [fetchHalls]) // fetchHalls is stable due to useCallback with only `toast` dependency
 
   useEffect(() => {
     fetchBookings() // Fetch bookings first
