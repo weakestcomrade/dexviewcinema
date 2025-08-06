@@ -416,17 +416,13 @@ export default function BookingPage({ params }: { params: { id: string } }) {
         throw new Error(errorData.message || `Failed to update event seats: ${updateEventRes.statusText}`)
       }
 
-      // Redirect to the new receipt page
-      router.push(`/receipt/${confirmedBooking._id}`)
-
-      setSelectedSeats([]) // Clear selected seats after booking
-      setSelectedSeatType("")
-      setCustomerInfo({ name: "", email: "", phone: "" })
-      setPaymentMethod("card")
       toast({
         title: "Booking Confirmed!",
         description: `Your booking for ${event.title} is successful.`,
       })
+      // Redirect to the new receipt page
+      router.push(`/receipt/${confirmedBooking._id}`)
+
       // Re-fetch event data to update the UI with newly booked seats
       await fetchAllData() // Call fetchAllData to re-fetch both event and halls
     } catch (error) {
@@ -828,9 +824,10 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                               {seat.id.split("-")[1]}
                             </button>
                           ))}
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )
                 ) : getHallType(event.hall_id, halls) === "vip" ? (
                   <div className="space-y-8">
                     {/* VIP Single Seats */}

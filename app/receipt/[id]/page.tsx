@@ -1,21 +1,21 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { notFound, useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { ArrowLeft, Printer, Loader2 } from 'lucide-react'
+import { notFound } from "next/navigation"
 import Link from "next/link"
-import { type Hall } from "@/types/hall"
+import { Button } from "@/components/ui/button"
+import { Printer, ArrowLeft, Loader2 } from 'lucide-react'
+import { format } from "date-fns"
 
-// Define a type for booking data (should match the API response)
+// Define a type for booking data
 interface Booking {
   _id: string
   customerName: string
   customerEmail: string
   customerPhone: string
-  eventId: string // Reference to the event ID
+  eventId: string
   eventTitle: string
-  eventType: "movie" | "match"
+  eventType: "match" | "movie"
   seats: string[]
   seatType: string
   amount: number
@@ -29,50 +29,29 @@ interface Booking {
   updatedAt: string
 }
 
-// Define types for event fetched from the database (minimal for receipt)
-interface Event {
+// Define a type for hall data (needed for getHallDisplayName)
+interface Hall {
   _id: string
-  title: string
-  hall_id: string
-  event_date: string
-  event_time: string
+  name: string
+  type: "vip" | "standard"
+  capacity: number
+  // Add other hall properties if necessary
 }
 
 export default function ReceiptPage({ params }: { params: { id: string } }) {
   const [booking, setBooking] = useState<Booking | null>(null)
-  const [event, setEvent] = useState<Event | null>(null) // State for event details
-  const [halls, setHalls] = useState<Hall[]>([]);
+  const [halls, setHalls] = useState<Hall[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const router = useRouter()
 
   const bookingId = params.id
 
-  const fetchData = useCallback(async () => {
+  const fetchBookingAndHalls = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
 
-      // Fetch the specific booking
-      const bookingRes = await fetch(`/api/bookings?id=${bookingId}`)
-      if (!bookingRes.ok) {
-        if (bookingRes.status === 404) {
-          notFound()
-        }
-        throw new Error(`Failed to fetch booking: ${bookingRes.statusText}`)
-      }
-      const bookingData: Booking = await bookingRes.json()
-      setBooking(bookingData)
-
-      // Fetch the event associated with the booking
-      const eventRes = await fetch(`/api/events/${bookingData.eventId}`)
-      if (!eventRes.ok) {
-        throw new Error(`Failed to fetch event: ${eventRes.statusText}`)
-      }
-      const eventData: Event = await eventRes.json()
-      setEvent(eventData)
-
-      // Fetch all halls
+      // Fetch halls first
       const hallsRes = await fetch("/api/halls")
       if (!hallsRes.ok) {
         throw new Error(`Failed to fetch halls: ${hallsRes.statusText}`)
@@ -80,6 +59,19 @@ export default function ReceiptPage({ params }: { params: { id: string } }) {
       const allHalls: Hall[] = await hallsRes.json()
       setHalls(allHalls)
 
+      // Fetch booking details
+      const bookingRes = await fetch(`/api/bookings?id=${bookingId}`) // Assuming API supports fetching by ID
+      if (!bookingRes.ok) {
+        if (bookingRes.status === 404) {
+          notFound()
+        }
+        throw new Error(`HTTP error! status: ${bookingRes.status}`)
+      }
+      const data: Booking[] = await bookingRes.json()
+      if (data.length === 0) {
+        notFound() // If no booking found for the ID
+      }
+      setBooking(data[0]) // Assuming the API returns an array, take the first one
     } catch (err) {
       setError((err as Error).message)
     } finally {
@@ -88,14 +80,13 @@ export default function ReceiptPage({ params }: { params: { id: string } }) {
   }, [bookingId])
 
   useEffect(() => {
-    fetchData()
-  }, [fetchData])
+    fetchBookingAndHalls()
+  }, [fetchBookingAndHalls])
 
   const printReceipt = () => {
     window.print()
   }
 
-  // Helper to get hall display name
   const getHallDisplayName = (hallId: string, allHalls: Hall[]) => {
     const hall = allHalls.find(h => h._id === hallId);
     return hall ? hall.name : hallId;
@@ -103,7 +94,7 @@ export default function ReceiptPage({ params }: { params: { id: string } }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 flex items-center justify-center text-white">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 text-white">
         <Loader2 className="mr-2 h-6 w-6 animate-spin" />
         Loading receipt...
       </div>
@@ -112,18 +103,22 @@ export default function ReceiptPage({ params }: { params: { id: string } }) {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 flex items-center justify-center text-red-500">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 text-red-500">
         Error: {error}
       </div>
     )
   }
 
-  if (!booking || !event || halls.length === 0) {
-    return notFound()
+  if (!booking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 text-white">
+        Booking not found.
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 relative overflow-hidden flex flex-col items-center py-8">
       {/* Cyber-Glassmorphism background elements */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-brand-red-500/20 to-cyber-purple-500/20 rounded-full blur-3xl animate-float"></div>
@@ -135,8 +130,7 @@ export default function ReceiptPage({ params }: { params: { id: string } }) {
         <div className="absolute top-1/3 left-1/3 w-16 h-16 border border-cyber-purple-500/20 rounded-full animate-pulse-slow"></div>
       </div>
 
-      {/* Header with glassmorphism */}
-      <header className="relative backdrop-blur-xl bg-glass-white border-b border-white/10 shadow-cyber-card z-50 print:hidden">
+      <header className="relative backdrop-blur-xl bg-glass-white border-b border-white/10 shadow-cyber-card z-50 w-full">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center h-20">
             <Link href="/">
@@ -155,108 +149,110 @@ export default function ReceiptPage({ params }: { params: { id: string } }) {
         </div>
       </header>
 
-      <div className="relative max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="receipt-container bg-white text-black p-8 md:p-12 rounded-lg shadow-lg print:shadow-none print:p-0" id="receipt">
-          <div className="text-center mb-6 md:mb-8">
-            <h1 className="text-3xl md:text-4xl font-bold text-brand-red-600 mb-2">Dex View Cinema</h1>
-            <p className="text-gray-600 text-base md:text-lg">Premium Entertainment Experience</p>
-            <div className="border-b-2 border-brand-red-600 mt-4 md:mt-6"></div>
+      <div className="relative max-w-3xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-white text-black p-8 rounded-lg shadow-lg" id="receipt">
+          <div className="text-center mb-6">
+            <h1 className="text-3xl font-bold text-brand-red-600 mb-2">Dex View Cinema</h1>
+            <p className="text-gray-600">Premium Entertainment Experience</p>
+            <div className="border-b-2 border-brand-red-600 mt-4"></div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8 mb-6 md:mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-6">
             <div>
-              <h3 className="font-bold text-lg md:text-xl mb-3 text-brand-red-600">Customer Information</h3>
-              <p className="text-gray-800">
+              <h3 className="font-bold text-lg mb-3 text-brand-red-600">Customer Information</h3>
+              <p>
                 <strong>Name:</strong> {booking.customerName}
               </p>
-              <p className="text-gray-800">
+              <p>
                 <strong>Email:</strong> {booking.customerEmail}
               </p>
-              <p className="text-gray-800">
+              <p>
                 <strong>Phone:</strong> {booking.customerPhone}
               </p>
             </div>
             <div>
-              <h3 className="font-bold text-lg md:text-xl mb-3 text-brand-red-600">Booking Details</h3>
-              <p className="text-gray-800">
+              <h3 className="font-bold text-lg mb-3 text-brand-red-600">Booking Details</h3>
+              <p>
                 <strong>Booking ID:</strong> {booking._id}
               </p>
-              <p className="text-gray-800">
+              <p>
                 <strong>Date:</strong> {booking.bookingDate}
               </p>
-              <p className="text-gray-800">
+              <p>
                 <strong>Time:</strong> {booking.bookingTime}
               </p>
-              <p className="text-gray-800">
+              <p>
                 <strong>Payment:</strong> {booking.paymentMethod}
               </p>
             </div>
           </div>
 
-          <div className="mb-6 md:mb-8">
-            <h3 className="font-bold text-lg md:text-xl mb-3 text-brand-red-600">Event Information</h3>
-            <p className="text-gray-800">
+          <div className="mb-6">
+            <h3 className="font-bold text-lg mb-3 text-brand-red-600">Event Information</h3>
+            <p>
               <strong>Event:</strong> {booking.eventTitle}
             </p>
-            <p className="text-gray-800">
+            <p>
               <strong>Type:</strong> {booking.eventType === "match" ? "Sports Match" : "Movie"}
             </p>
-            <p className="text-gray-800">
-              <strong>Venue:</strong> {getHallDisplayName(event.hall_id, halls)}
+            <p>
+              <strong>Venue:</strong> {getHallDisplayName(booking.eventId, halls)} {/* Assuming eventId is hall_id for simplicity here */}
             </p>
-            <p className="text-gray-800">
+            <p>
               <strong>Seats:</strong>{" "}
               {booking.seats
                 .map((seatId: string) => (seatId.includes('-') ? seatId.split('-').pop() : seatId))
                 .join(", ")}
             </p>
-            <p className="text-gray-800">
+            <p>
               <strong>Seat Type:</strong> {booking.seatType}
             </p>
           </div>
 
-          <div className="border-t-2 border-gray-300 pt-4 md:pt-6 mb-6 md:mb-8">
-            <h3 className="font-bold text-lg md:text-xl mb-3 text-brand-red-600">Payment Summary</h3>
-            <div className="flex justify-between mb-2 text-gray-800">
+          <div className="border-t-2 border-gray-300 pt-4 mb-6">
+            <h3 className="font-bold text-lg mb-3 text-brand-red-600">Payment Summary</h3>
+            <div className="flex justify-between mb-2">
               <span>Base Amount:</span>
               <span>₦{booking.amount.toLocaleString()}</span>
             </div>
-            <div className="flex justify-between mb-2 text-gray-800">
+            <div className="flex justify-between mb-2">
               <span>Processing Fee:</span>
-              <span>₦{booking.processingFee.toLocaleString()}</span>
+              <span>₦{booking.processingFee}</span>
             </div>
-            <div className="flex justify-between font-bold text-lg md:text-xl border-t border-gray-300 pt-2 text-gray-900">
+            <div className="flex justify-between font-bold text-lg border-t border-gray-300 pt-2">
               <span>Total Amount:</span>
               <span>₦{booking.totalAmount.toLocaleString()}</span>
             </div>
           </div>
 
-          <div className="text-center text-sm text-gray-500 border-t border-gray-300 pt-4 md:pt-6">
+          <div className="text-center text-sm text-gray-500 border-t border-gray-300 pt-4">
             <p>Thank you for choosing Dex View Cinema!</p>
             <p>For support, visit us at www.dexviewcinema.com or call +234-XXX-XXX-XXXX</p>
             <p className="mt-2">Developed by SydaTech - www.sydatech.com.ng</p>
           </div>
         </div>
 
-        <div className="flex justify-center gap-4 mt-8 print:hidden">
-          <Button
-            onClick={() => router.push("/bookings")}
-            className="bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 text-white rounded-2xl"
-          >
-            View All My Bookings
-          </Button>
+        <div className="flex justify-center gap-4 mt-8 no-print">
           <Button
             onClick={printReceipt}
-            className="bg-gradient-to-r from-cyber-green-500 via-cyber-green-600 to-cyber-green-700 hover:from-cyber-green-600 hover:via-cyber-green-700 hover:to-cyber-green-800 text-white rounded-2xl"
+            className="bg-gradient-to-r from-cyber-green-500 via-cyber-green-600 to-cyber-green-700 hover:from-cyber-green-600 hover:via-cyber-green-700 hover:to-cyber-green-800 text-white rounded-2xl shadow-cyber-card"
           >
             <Printer className="w-4 h-4 mr-2" />
             Print Receipt
           </Button>
+          <Link href="/bookings">
+            <Button
+              variant="outline"
+              className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl shadow-cyber-card"
+            >
+              View All My Bookings
+            </Button>
+          </Link>
         </div>
       </div>
 
       {/* Footer */}
-      <footer className="bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 text-white py-12 relative overflow-hidden border-t border-white/10 mt-20 print:hidden">
+      <footer className="bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 text-white py-12 relative overflow-hidden border-t border-white/10 mt-20 w-full">
         <div className="absolute inset-0 bg-gradient-to-r from-brand-red-900/10 via-transparent to-brand-red-900/10"></div>
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-500"></div>
 
@@ -294,11 +290,10 @@ export default function ReceiptPage({ params }: { params: { id: string } }) {
             left: 0;
             top: 0;
             width: 100%;
-            margin: 0;
-            padding: 0;
+            box-shadow: none; /* Remove shadow for print */
           }
-          .print\\:hidden {
-            display: none !important;
+          .no-print {
+            display: none;
           }
         }
       `}</style>
