@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/c
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
-import { Calendar, Clock, MapPin, Film, Trophy, ArrowLeft, Search, Ticket, Printer, Eye, Loader2 } from "lucide-react"
+import { Calendar, Clock, MapPin, Film, Trophy, ArrowLeft, Search, Ticket, Printer, Eye, Loader2 } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -42,8 +42,6 @@ interface Booking {
 export default function BookingsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [customerEmail, setCustomerEmail] = useState("")
-  const [customerName, setCustomerName] = useState("")
-  const [customerPhone, setCustomerPhone] = useState("")
   const [fetchedBookings, setFetchedBookings] = useState<Booking[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [hasSearched, setHasSearched] = useState(false) // To show "No bookings found" only after a search
@@ -57,8 +55,6 @@ export default function BookingsPage() {
 
     const params = new URLSearchParams()
     if (customerEmail) params.append("email", customerEmail)
-    if (customerName) params.append("name", customerName)
-    if (customerPhone) params.append("phone", customerPhone)
 
     try {
       const response = await fetch(`/api/bookings?${params.toString()}`)
@@ -73,7 +69,7 @@ export default function BookingsPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [customerEmail, customerName, customerPhone])
+  }, [customerEmail])
 
   // Filter fetched bookings based on the client-side search query
   const displayedBookings = fetchedBookings.filter(
@@ -130,9 +126,9 @@ export default function BookingsPage() {
         <Card className="mb-8 bg-glass-white-strong backdrop-blur-xl shadow-cyber-card border border-white/20 rounded-3xl p-6">
           <CardTitle className="text-white text-xl font-bold mb-4">Find My Bookings</CardTitle>
           <CardDescription className="text-cyber-slate-300 mb-4">
-            Enter your email, name, or phone number to retrieve your bookings.
+            Enter your email to retrieve your bookings.
           </CardDescription>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-1 gap-4 mb-4">
             <Input
               type="email"
               placeholder="Your Email"
@@ -140,24 +136,10 @@ export default function BookingsPage() {
               onChange={(e) => setCustomerEmail(e.target.value)}
               className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-400 focus:ring-brand-red-400 shadow-cyber-card"
             />
-            <Input
-              type="text"
-              placeholder="Your Name"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-400 focus:ring-brand-red-400 shadow-cyber-card"
-            />
-            <Input
-              type="tel"
-              placeholder="Your Phone Number"
-              value={customerPhone}
-              onChange={(e) => setCustomerPhone(e.target.value)}
-              className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-400 focus:ring-brand-red-400 shadow-cyber-card"
-            />
           </div>
           <Button
             onClick={fetchBookings}
-            disabled={isLoading || (!customerEmail && !customerName && !customerPhone)}
+            disabled={isLoading || !customerEmail}
             className="w-full bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 text-white rounded-2xl shadow-cyber-card"
           >
             {isLoading ? (
