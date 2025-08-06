@@ -19,31 +19,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import {
-  CalendarIcon,
-  Clock,
-  Edit,
-  Eye,
-  Film,
-  Plus,
-  Settings,
-  Trash2,
-  Trophy,
-  Users,
-  TrendingUp,
-  Shield,
-  Activity,
-  Sparkles,
-  BarChart3,
-  Monitor,
-  MapPin,
-  Star,
-  Printer,
-  Filter,
-  Search,
-  ImageIcon,
-  ShoppingCart,
-} from "lucide-react"
+import { CalendarIcon, Clock, Edit, Eye, Film, Plus, Settings, Trash2, Trophy, Users, TrendingUp, Shield, Activity, Sparkles, BarChart3, Monitor, MapPin, Star, Printer, Filter, Search, ImageIcon, ShoppingCart } from 'lucide-react'
 import Link from "next/link"
 import Image from "next/image"
 import { useToast } from "@/components/ui/use-toast"
@@ -1326,7 +1302,18 @@ export default function AdminDashboard() {
                 </Button>
               </Link>
               <Dialog open={isCreateEventOpen} onOpenChange={setIsCreateEventOpen}>
-                <DialogTrigger asChild>
+                <DialogTrigger asChild
+                  onClick={() => {
+                    const defaultHall = halls.length > 0 ? halls[0] : null;
+                    setNewEvent({
+                      ...initialNewEventState,
+                      hall_id: defaultHall?._id || "",
+                      total_seats: defaultHall?.capacity || 0,
+                      pricing: defaultHall?.type === "vip" ? defaultVipMoviePricing : defaultStandardMoviePricingHallA,
+                    });
+                    setIsCreateEventOpen(true);
+                  }}
+                >
                   <Button
                     size="sm"
                     className="bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 shadow-glow-red text-white group rounded-2xl w-full sm:w-auto h-10 sm:h-9"
