@@ -19,3 +19,21 @@ export async function GET() {
     return NextResponse.json({ message: "Failed to fetch halls", error: (error as Error).message }, { status: 500 })
   }
 }
+
+export async function POST(req: Request) {
+  try {
+    const { db } = await connectToDatabase()
+    const { name, capacity, type } = await req.json()
+
+    if (!name || !capacity || !type) {
+      return NextResponse.json({ message: "Missing required fields: name, capacity, type" }, { status: 400 })
+    }
+
+    const result = await db.collection("halls").insertOne({ name, capacity, type, createdAt: new Date() })
+
+    return NextResponse.json({ message: "Hall created successfully", hallId: result.insertedId.toString() }, { status: 201 })
+  } catch (error) {
+    console.error("Failed to create hall:", error)
+    return NextResponse.json({ message: "Failed to create hall", error: (error as Error).message }, { status: 500 })
+  }
+}

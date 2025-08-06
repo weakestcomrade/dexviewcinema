@@ -19,7 +19,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { CalendarIcon, Clock, Edit, Eye, Film, Plus, Settings, Trash2, Trophy, Users, TrendingUp, Shield, Activity, Sparkles, BarChart3, Monitor, MapPin, Star, Printer, Filter, Search, ImageIcon, ShoppingCart } from 'lucide-react'
+import { CalendarIcon, Clock, Edit, Eye, Film, Plus, Settings, Trash2, Trophy, Users, TrendingUp, Shield, Activity, Sparkles, BarChart3, Monitor, MapPin, Star, Printer, Filter, Search, ImageIcon, ShoppingCart, Building } from 'lucide-react'
 import Link from "next/link"
 import Image from "next/image"
 import { useToast } from "@/components/ui/use-toast"
@@ -146,6 +146,14 @@ interface CreateBookingData {
   paymentMethod: string
 }
 
+// New interface for Hall form data
+interface NewHallData {
+  _id?: string // Optional for new halls, required for editing
+  name: string
+  capacity: number
+  type: "vip" | "standard"
+}
+
 // Helper to map hall_id to display name and total seats (for client-side generation)
 const hallMappingArray: Hall[] = [
   { _id: "hallA", name: "Hall A", capacity: 48, type: "standard" },
@@ -225,6 +233,13 @@ const initialNewBookingState: CreateBookingData = {
   bookingDate: new Date().toISOString().split("T")[0], // Current date
   bookingTime: new Date().toTimeString().split(" ")[0].substring(0, 5), // Current time (HH:MM)
   paymentMethod: "Cash",
+}
+
+// Initial state for new hall form
+const initialNewHallState: NewHallData = {
+  name: "",
+  capacity: 0,
+  type: "standard",
 }
 
 type RevenueTimeFrame = "all" | "day" | "week" | "month" | "custom"
@@ -374,6 +389,11 @@ export default function AdminDashboard() {
   const [selectedEventForBooking, setSelectedEventForBooking] = useState<Event | null>(null) // To hold the selected event object for booking
   const [currentEventSeats, setCurrentEventSeats] = useState<Seat[]>([]) // Seats for the selected event in admin booking
   const [selectedSeatsForAdminBooking, setSelectedSeatsForAdminBooking] = useState<string[]>([]) // Selected seats in admin booking
+
+  // New states for Hall Management
+  const [isManageHallsOpen, setIsManageHallsOpen] = useState(false) // State for Hall Management dialog
+  const [isCreateEditHallOpen, setIsCreateEditHallOpen] = useState(false) // State for Create/Edit Hall dialog
+  const [currentHall, setCurrentHall] = useState<NewHallData>(initialNewHallState) // State for the hall being created/edited
 
   // State for reports filter
   const [reportStartDate, setReportStartDate] = useState<string>("")
@@ -1163,6 +1183,120 @@ export default function AdminDashboard() {
     }
   }
 
+  // --- Hall Management Functions ---
+  const handleCreateHall = async () => {
+    try {
+      const res = await fetch("/api/halls", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(currentHall),
+      })
+
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.message || `HTTP error! status: ${res.status}`)
+      }
+
+      toast({
+        title: "Hall created successfully!",
+        description: `${currentHall.name} has been added.`,
+      })
+      setIsCreateEditHallOpen(false)
+      setCurrentHall(initialNewHallState) // Reset form
+      fetchHalls() // Refresh the list
+    } catch (error) {
+      console.error("Failed to create hall:", error)
+      toast({
+        title: "Error creating hall",
+        description: (error as Error).message,
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleEditHallClick = (hall: Hall) => {
+    setCurrentHall({
+      _id: hall._id,
+      name: hall.name,
+      capacity: hall.capacity,
+      type: hall.type,
+    })
+    setIsCreateEditHallOpen(true)
+  }
+
+  const handleUpdateHall = async () => {
+    if (!currentHall._id) {
+      toast({
+        title: "Error updating hall",
+        description: "Hall ID is missing.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      const res = await fetch(`/api/halls/${currentHall._id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(currentHall),
+      })
+
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.message || `HTTP error! status: ${res.status}`)
+      }
+
+      toast({
+        title: "Hall updated successfully!",
+        description: `${currentHall.name} has been updated.`,
+      })
+      setIsCreateEditHallOpen(false)
+      setCurrentHall(initialNewHallState) // Reset form
+      fetchHalls() // Refresh the list
+    } catch (error) {
+      console.error("Failed to update hall:", error)
+      toast({
+        title: "Error updating hall",
+        description: (error as Error).message,
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleDeleteHall = async (id: string, name: string) => {
+    if (!window.confirm(`Are you sure you want to delete hall "${name}"? This action cannot be undone.`)) {
+      return
+    }
+
+    try {
+      const res = await fetch(`/api/halls/${id}`, {
+        method: "DELETE",
+      })
+
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.message || `HTTP error! status: ${res.status}`)
+      }
+
+      toast({
+        title: "Hall deleted successfully!",
+        description: `${name} has been removed.`,
+      })
+      fetchHalls() // Refresh the list
+    } catch (error) {
+      console.error("Failed to delete hall:", error)
+      toast({
+        title: "Error deleting hall",
+        description: (error as Error).message,
+        variant: "destructive",
+      })
+    }
+  }
+
   // --- Analytics Calculations ---
   const filteredBookingsForRevenue = actualBookings.filter((booking) => {
     const bookingDate = new Date(booking.bookingDate)
@@ -1302,18 +1436,7 @@ export default function AdminDashboard() {
                 </Button>
               </Link>
               <Dialog open={isCreateEventOpen} onOpenChange={setIsCreateEventOpen}>
-                <DialogTrigger asChild
-                  onClick={() => {
-                    const defaultHall = halls.length > 0 ? halls[0] : null;
-                    setNewEvent({
-                      ...initialNewEventState,
-                      hall_id: defaultHall?._id || "",
-                      total_seats: defaultHall?.capacity || 0,
-                      pricing: defaultHall?.type === "vip" ? defaultVipMoviePricing : defaultStandardMoviePricingHallA,
-                    });
-                    setIsCreateEventOpen(true);
-                  }}
-                >
+                <DialogTrigger asChild>
                   <Button
                     size="sm"
                     className="bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 shadow-glow-red text-white group rounded-2xl w-full sm:w-auto h-10 sm:h-9"
@@ -3031,6 +3154,14 @@ export default function AdminDashboard() {
               <span className="sm:hidden">Bookings</span>
             </TabsTrigger>
             <TabsTrigger
+              value="halls"
+              className="data-[state=active]:bg-brand-red-500/30 data-[state=active]:text-white text-cyber-slate-300 font-semibold rounded-2xl h-10 sm:h-8 text-sm sm:text-base"
+            >
+              <Building className="w-4 h-4 mr-2" />
+              <span className="hidden sm:inline">Halls Management</span>
+              <span className="sm:hidden">Halls</span>
+            </TabsTrigger>
+            <TabsTrigger
               value="reports"
               className="data-[state=active]:bg-brand-red-500/30 data-[state=active]:text-white text-cyber-slate-300 font-semibold rounded-2xl h-10 sm:h-8 text-sm sm:text-base"
             >
@@ -3395,6 +3526,167 @@ export default function AdminDashboard() {
                         <TableRow>
                           <TableCell colSpan={8} className="text-center text-cyber-slate-400 py-8">
                             No bookings found matching the selected filters.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Halls Management Tab Content */}
+          <TabsContent value="halls">
+            <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-white text-xl font-bold">Hall/Venue Management</CardTitle>
+                  <CardDescription className="text-cyber-slate-300">
+                    Create, update, or delete cinema halls and venues.
+                  </CardDescription>
+                </div>
+                <Dialog open={isCreateEditHallOpen} onOpenChange={setIsCreateEditHallOpen}>
+                  <DialogTrigger asChild>
+                    <Button
+                      size="sm"
+                      className="bg-gradient-to-r from-cyber-purple-500 via-cyber-purple-600 to-cyber-purple-700 hover:from-cyber-purple-600 hover:via-cyber-purple-700 hover:to-cyber-purple-800 shadow-glow-purple text-white group rounded-2xl"
+                      onClick={() => setCurrentHall(initialNewHallState)} // Reset form for new hall
+                    >
+                      <Plus className="w-4 h-4 mr-2 group-hover:rotate-180 transition-transform duration-300" />
+                      Create Hall
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[500px] bg-glass-dark-strong backdrop-blur-xl border border-white/20 text-white shadow-cyber-hover rounded-4xl">
+                    <DialogHeader>
+                      <DialogTitle className="text-white text-xl font-bold bg-gradient-to-r from-white to-cyber-purple-200 bg-clip-text text-transparent">
+                        {currentHall._id ? "Edit Hall" : "Create New Hall"}
+                      </DialogTitle>
+                      <DialogDescription className="text-cyber-slate-300">
+                        {currentHall._id ? "Modify details for this hall." : "Add a new cinema hall or venue."}
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="grid gap-3">
+                        <Label htmlFor="hall-name" className="text-cyber-slate-200 font-semibold">
+                          Hall Name
+                        </Label>
+                        <Input
+                          id="hall-name"
+                          value={currentHall.name}
+                          onChange={(e) => setCurrentHall({ ...currentHall, name: e.target.value })}
+                          placeholder="e.g., Hall C, Deluxe Hall"
+                          className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
+                        />
+                      </div>
+                      <div className="grid gap-3">
+                        <Label htmlFor="hall-capacity" className="text-cyber-slate-200 font-semibold">
+                          Capacity (Total Seats)
+                        </Label>
+                        <Input
+                          id="hall-capacity"
+                          type="number"
+                          value={currentHall.capacity}
+                          onChange={(e) => setCurrentHall({ ...currentHall, capacity: Number(e.target.value) })}
+                          placeholder="e.g., 50"
+                          className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
+                        />
+                      </div>
+                      <div className="grid gap-3">
+                        <Label htmlFor="hall-type" className="text-cyber-slate-200 font-semibold">
+                          Hall Type
+                        </Label>
+                        <Select
+                          value={currentHall.type}
+                          onValueChange={(value: "vip" | "standard") =>
+                            setCurrentHall({ ...currentHall, type: value })
+                          }
+                        >
+                          <SelectTrigger className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl">
+                            <SelectValue placeholder="Select hall type" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-glass-dark-strong border-white/20 backdrop-blur-xl rounded-2xl">
+                            <SelectItem value="standard">Standard</SelectItem>
+                            <SelectItem value="vip">VIP</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsCreateEditHallOpen(false)}
+                        className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={currentHall._id ? handleUpdateHall : handleCreateHall}
+                        className="bg-gradient-to-r from-cyber-purple-500 via-cyber-purple-600 to-cyber-purple-700 hover:from-cyber-purple-600 hover:via-cyber-purple-700 hover:to-cyber-purple-800 text-white rounded-2xl"
+                      >
+                        {currentHall._id ? "Save Changes" : "Create Hall"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-white/20 hover:bg-glass-white">
+                        <TableHead className="text-cyber-slate-200 font-semibold">Hall ID</TableHead>
+                        <TableHead className="text-cyber-slate-200 font-semibold">Name</TableHead>
+                        <TableHead className="text-cyber-slate-200 font-semibold">Capacity</TableHead>
+                        <TableHead className="text-cyber-slate-200 font-semibold">Type</TableHead>
+                        <TableHead className="text-cyber-slate-200 font-semibold">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {halls.length > 0 ? (
+                        halls.map((hall) => (
+                          <TableRow key={hall._id} className="border-white/20 hover:bg-glass-white transition-colors">
+                            <TableCell className="font-medium text-white font-mono">{hall._id}</TableCell>
+                            <TableCell className="text-cyber-slate-200">{hall.name}</TableCell>
+                            <TableCell className="text-cyber-slate-200">{hall.capacity} seats</TableCell>
+                            <TableCell>
+                              <Badge
+                                variant="outline"
+                                className={
+                                  hall.type === "vip"
+                                    ? "bg-brand-red-500/30 text-brand-red-300 border-brand-red-500/50 rounded-2xl"
+                                    : "bg-cyber-blue-500/30 text-cyber-blue-300 border-cyber-blue-500/50 rounded-2xl"
+                                }
+                              >
+                                {hall.type.toUpperCase()}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleEditHallClick(hall)}
+                                  className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleDeleteHall(hall._id, hall.name)}
+                                  className="border-brand-red-500/50 text-brand-red-400 hover:bg-brand-red-500/20 bg-transparent backdrop-blur-sm rounded-2xl"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center text-cyber-slate-400 py-8">
+                            No halls found. Create one to get started!
                           </TableCell>
                         </TableRow>
                       )}
