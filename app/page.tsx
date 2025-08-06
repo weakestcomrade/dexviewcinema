@@ -19,10 +19,19 @@ interface Event {
   image_url?: string // Optional image URL
   description?: string
   duration?: string
-  // Correctly define pricing as an object with ticket_price
+  // Correctly define pricing as an object with nested price properties
   pricing: {
-    ticket_price: number
-    [key: string]: any // Allow for other properties in pricing object
+    ticket_price?: number; // General ticket price, if applicable
+    vipSingle?: { price: number };
+    vipCouple?: { price: number };
+    vipFamily?: { price: number };
+    vipSofaSeats?: { price: number };
+    vipRegularSeats?: { price: number };
+    standardSingle?: { price: number };
+    standardCouple?: { price: number };
+    standardFamily?: { price: number };
+    standardMatchSeats?: { price: number };
+    [key: string]: any; // Allow for other properties in pricing object
   }
   status: "active" | "draft" | "cancelled"
   total_seats?: number // Add total_seats if it's part of your schema
@@ -52,11 +61,8 @@ export default async function Home() {
       hall_name: hallMap.get(event.hall_id?.toString()) || "Unknown Venue", // Get hall name from map
       // Add a default image if image_url is missing
       image_url: event.image_url || `/placeholder.svg?height=300&width=500&text=${encodeURIComponent(event.title)}`,
-      // Ensure pricing and ticket_price are correctly structured and defaulted
-      pricing: {
-        ticket_price: typeof event.pricing?.ticket_price === "number" ? event.pricing.ticket_price : 0,
-        ...(event.pricing || {}), // Copy other pricing properties if they exist
-      },
+      // Ensure pricing is correctly structured and defaulted
+      pricing: event.pricing || {},
     })) as Event[]
   } catch (err) {
     console.error("Failed to fetch events for homepage:", err)
@@ -224,20 +230,31 @@ export default async function Home() {
                     </div>
                     <div className="flex justify-between items-center mt-6">
                       <div className="flex flex-col items-start">
-                        {Object.entries(event.pricing).map(([type, price]) => {
-                          // Filter out non-numeric or internal keys if necessary, e.g., '_id'
-                          if (typeof price !== 'number' || type === '_id') return null;
-
-                          // Customize display for 'ticket_price' or other specific types
-                          const displayType = type === 'ticket_price' ? 'Ticket Price' : type.replace(/_/g, ' '); // Replace underscores for better display
-                          return (
-                            <div key={type} className="flex items-center gap-1 text-lg font-semibold text-white">
-                              <span className="text-brand-red-300 capitalize">{displayType}:</span>
-                              <span className="bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
-                                ₦{price.toLocaleString()}
-                              </span>
-                            </div>
-                          );
+                        {Object.entries(event.pricing).map(([type, priceObj]) => {
+                          // Ensure priceObj is an object and has a 'price' property
+                          if (typeof priceObj === 'object' && priceObj !== null && 'price' in priceObj && typeof priceObj.price === 'number') {
+                            const displayType = type === 'ticket_price' ? 'Ticket Price' : type.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase()); // Format camelCase to "Camel Case"
+                            return (
+                              <div key={type} className="flex items-center gap-1 text-lg font-semibold text-white">
+                                <span className="text-brand-red-300 capitalize">{displayType}:</span>
+                                <span className="bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
+                                  ₦{priceObj.price.toLocaleString()}
+                                </span>
+                              </div>
+                            );
+                          }
+                          // Handle the case where ticket_price might be directly a number (legacy or simpler events)
+                          if (type === 'ticket_price' && typeof priceObj === 'number') {
+                            return (
+                              <div key={type} className="flex items-center gap-1 text-lg font-semibold text-white">
+                                <span className="text-brand-red-300 capitalize">Ticket Price:</span>
+                                <span className="bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
+                                  ₦{priceObj.toLocaleString()}
+                                </span>
+                              </div>
+                            );
+                          }
+                          return null;
                         })}
                       </div>
                       <Link href={`/book/${event._id}`}>
