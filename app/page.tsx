@@ -2,8 +2,9 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, Clock, MapPin, Users, Film, Trophy, Sparkles, ArrowRight } from "lucide-react"
+import { Calendar, Clock, MapPin, Users, Film, Trophy, Sparkles, ArrowRight } from 'lucide-react'
 import { connectToDatabase } from "@/lib/mongodb" // Import the MongoDB connection utility
+import { Hall } from "@/types/hall" // Import the Hall interface
 
 // Define the Event interface to match your MongoDB schema
 interface Event {
@@ -14,6 +15,7 @@ interface Event {
   event_date: string // Assuming date is stored as a string
   event_time: string // Assuming time is stored as a string
   hall_id: string // Assuming hall_id is a string
+  hall_name?: string // Add hall_name to the Event interface
   image_url?: string // Optional image URL
   description?: string
   duration?: string
@@ -33,13 +35,21 @@ export default async function Home() {
   try {
     const { db } = await connectToDatabase()
     const fetchedEvents = await db.collection("events").find({ status: "active" }).toArray() // Fetch only active events
+    const fetchedHalls = await db.collection("halls").find({}).toArray() // Fetch all halls
+
+    // Create a map for quick lookup of hall names by their _id
+    const hallMap = new Map<string, string>()
+    fetchedHalls.forEach((hall: Hall) => {
+      hallMap.set(hall._id.toString(), hall.name)
+    })
 
     // Map MongoDB documents to the Event interface, converting _id to string
     events = fetchedEvents.map((event) => ({
       ...event,
       _id: event._id.toString(),
       // Ensure hall_id is a string if it's an ObjectId in DB, or map as needed
-      hall_id: event.hall_id ? event.hall_id.toString() : "Unknown Hall",
+      hall_id: event.hall_id ? event.hall_id.toString() : "Unknown Hall ID",
+      hall_name: hallMap.get(event.hall_id?.toString()) || "Unknown Venue", // Get hall name from map
       // Add a default image if image_url is missing
       image_url: event.image_url || `/placeholder.svg?height=300&width=500&text=${encodeURIComponent(event.title)}`,
       // Ensure pricing and ticket_price are correctly structured and defaulted
@@ -205,7 +215,7 @@ export default async function Home() {
                       </div>
                       <div className="flex items-center gap-2">
                         <MapPin className="w-4 h-4 text-brand-red-400" />
-                        {event.hall_id}
+                        {event.hall_name} {/* Display hall name (venue) */}
                       </div>
                       <div className="flex items-center gap-2">
                         <Users className="w-4 h-4 text-brand-red-400" />
@@ -223,7 +233,7 @@ export default async function Home() {
                           size="sm"
                         >
                           Book Now
-                          <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                          <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
                         </Button>
                       </Link>
                     </div>
