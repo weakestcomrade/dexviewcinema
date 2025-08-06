@@ -25,15 +25,39 @@ interface BookingDocument {
   updatedAt: Date
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const { db } = await connectToDatabase()
-    const bookings = await db.collection("bookings").find({}).toArray()
+    const { searchParams } = new URL(request.url)
+
+    const email = searchParams.get("email")
+    const name = searchParams.get("name")
+    const phone = searchParams.get("phone")
+
+    let query: any = {}
+    const orConditions = []
+
+    if (email) {
+      orConditions.push({ customerEmail: email })
+    }
+    if (name) {
+      orConditions.push({ customerName: { $regex: name, $options: "i" } }) // Case-insensitive partial match
+    }
+    if (phone) {
+      orConditions.push({ customerPhone: phone })
+    }
+
+    if (orConditions.length > 0) {
+      query = { $or: orConditions }
+    }
+
+    const bookings = await db.collection("bookings").find(query).toArray()
 
     const serializableBookings = bookings.map((booking) => ({
       ...booking,
       _id: booking._id.toString(),
-      eventId: booking.eventId.toString(), // Ensure eventId is string if it's ObjectId in DB
+      // Ensure eventId is string if it's ObjectId in DB, assuming it's stored as string for simplicity here
+      // If eventId is stored as ObjectId, you'd need: eventId: booking.eventId.toString(),
     }))
 
     return NextResponse.json(serializableBookings)
@@ -90,6 +114,8 @@ export async function POST(request: Request) {
     }
 
     // Check for duplicate bookings for the same event and seats
+    // Note: For a real application, you might want to check seat availability in the event document itself
+    // and handle transactions to ensure atomicity.
     const existingBooking = await db.collection("bookings").findOne({
       eventId: new ObjectId(eventId),
       seats: { $in: seats }, // Check if any of the selected seats are already booked for this event

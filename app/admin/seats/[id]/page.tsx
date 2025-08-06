@@ -321,7 +321,7 @@ export default function AdminSeatsPage({ params }: { params: { id: string } }) {
                   <div className="bg-gradient-to-r from-brand-red-100/20 via-brand-red-50/20 to-brand-red-100/20 text-white text-center py-6 rounded-5xl mb-8 border-2 border-brand-red-500/30 shadow-cyber-card backdrop-blur-sm">
                     <span className="text-lg font-bold flex items-center justify-center gap-3">
                       <Sparkles className="w-6 h-6 text-brand-red-400 animate-spin-slow" />
-                      {event.event_type === "match" ? "🏟️ FOOTBALL FIELD VIEW 🏟️" : "🎬 PREMIUM SCREEN VIEW 🎬"}
+                      {event.event_type === "match" ? "🏟️ FOOTBALL FIELD VIEW 🏟️" : "���� PREMIUM SCREEN VIEW 🎬"}
                       <Sparkles className="w-6 h-6 text-brand-400 animate-spin-slow" />
                     </span>
                   </div>
