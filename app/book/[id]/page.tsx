@@ -1235,6 +1235,9 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                   <strong>Type:</strong> {bookingDetails.eventType === "match" ? "Sports Match" : "Movie"}
                 </p>
                 <p>
+                  <strong>Venue:</strong> {getHallDisplayName(event.hall_id, halls)}
+                </p>
+                <p>
                   <strong>Seats:</strong> {bookingDetails.seats.join(", ")}
                 </p>
                 <p>
