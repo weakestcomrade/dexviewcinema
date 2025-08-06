@@ -814,22 +814,22 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                           }`}
                         >
                           {seats
-                            .filter((seat) => seat.type === "standardMatch")
+                            .filter((seat) => seat.type === "standardMatch") // Corrected filter
                             .map((seat) => (
                               <button
                                 key={seat.id}
                                 onClick={() => handleSeatClick(seat.id, seat.type, seat.isBooked, seat.price)}
                                 disabled={seat.isBooked}
                                 className={`
-                                 w-12 h-12 sm:w-14 sm:h-14 rounded-2xl border-2 text-xs font-bold transition-all duration-300 transform hover:scale-110 shadow-cyber-card flex items-center justify-center
-                                 ${
-                                   seat.isBooked
-                                     ? "bg-brand-red-100/20 text-brand-red-400/60 border-brand-red-300/30 cursor-not-allowed opacity-60"
-                                     : selectedSeats.includes(seat.id)
-                                       ? "bg-gradient-to-br from-cyber-green-500 to-cyber-green-600 text-white border-cyber-green-400 shadow-glow-green scale-110"
-                                       : "bg-glass-white-strong text-cyber-slate-300 border-white/30 hover:border-cyber-green-400/50 hover:bg-cyber-green-500/20 shadow-cyber-card"
-                                 }
-                               `}
+                               w-12 h-12 sm:w-14 sm:h-14 rounded-2xl border-2 text-xs font-bold transition-all duration-300 transform hover:scale-110 shadow-cyber-card flex items-center justify-center
+                               ${
+                                 seat.isBooked
+                                   ? "bg-brand-red-100/20 text-brand-red-400/60 border-brand-red-300/30 cursor-not-allowed opacity-60"
+                                   : selectedSeats.includes(seat.id)
+                                     ? "bg-gradient-to-br from-cyber-green-500 to-cyber-green-600 text-white border-cyber-green-400 shadow-glow-green scale-110"
+                                     : "bg-glass-white-strong text-cyber-slate-300 border-white/30 hover:border-cyber-green-400/50 hover:bg-cyber-green-500/20 shadow-cyber-card"
+                               }
+                             `}
                               >
                                 {seat.id.split("-")[1]}
                               </button>
