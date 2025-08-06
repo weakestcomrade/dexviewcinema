@@ -13,7 +13,7 @@ interface Booking {
   customerName: string
   customerEmail: string
   customerPhone: string
-  eventId: string
+  eventId: string // This is the event's _id
   eventTitle: string
   eventType: "match" | "movie"
   seats: string[]
@@ -38,20 +38,28 @@ interface Hall {
   // Add other hall properties if necessary
 }
 
+// Define types for event fetched from the database (minimal for receipt)
+interface Event {
+  _id: string
+  hall_id: string // The ID of the hall where the event is held
+  // Add other event properties if necessary for display, e.g., title, date, time
+}
+
 export default function ReceiptPage({ params }: { params: { id: string } }) {
   const [booking, setBooking] = useState<Booking | null>(null)
+  const [event, setEvent] = useState<Event | null>(null) // State to store event details
   const [halls, setHalls] = useState<Hall[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const bookingId = params.id
 
-  const fetchBookingAndHalls = useCallback(async () => {
+  const fetchBookingEventAndHalls = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
 
-      // Fetch halls first
+      // 1. Fetch halls first
       const hallsRes = await fetch("/api/halls")
       if (!hallsRes.ok) {
         throw new Error(`Failed to fetch halls: ${hallsRes.statusText}`)
@@ -59,19 +67,29 @@ export default function ReceiptPage({ params }: { params: { id: string } }) {
       const allHalls: Hall[] = await hallsRes.json()
       setHalls(allHalls)
 
-      // Fetch booking details
-      const bookingRes = await fetch(`/api/bookings?id=${bookingId}`) // Assuming API supports fetching by ID
+      // 2. Fetch booking details
+      const bookingRes = await fetch(`/api/bookings?id=${bookingId}`)
       if (!bookingRes.ok) {
         if (bookingRes.status === 404) {
           notFound()
         }
         throw new Error(`HTTP error! status: ${bookingRes.status}`)
       }
-      const data: Booking[] = await bookingRes.json()
-      if (data.length === 0) {
+      const bookingData: Booking[] = await bookingRes.json()
+      if (bookingData.length === 0) {
         notFound() // If no booking found for the ID
       }
-      setBooking(data[0]) // Assuming the API returns an array, take the first one
+      const fetchedBooking = bookingData[0]
+      setBooking(fetchedBooking)
+
+      // 3. Fetch event details using eventId from the fetched booking
+      const eventRes = await fetch(`/api/events/${fetchedBooking.eventId}`)
+      if (!eventRes.ok) {
+        throw new Error(`Failed to fetch event details: ${eventRes.statusText}`)
+      }
+      const eventData: Event = await eventRes.json()
+      setEvent(eventData)
+
     } catch (err) {
       setError((err as Error).message)
     } finally {
@@ -80,8 +98,8 @@ export default function ReceiptPage({ params }: { params: { id: string } }) {
   }, [bookingId])
 
   useEffect(() => {
-    fetchBookingAndHalls()
-  }, [fetchBookingAndHalls])
+    fetchBookingEventAndHalls()
+  }, [fetchBookingEventAndHalls])
 
   const printReceipt = () => {
     window.print()
@@ -109,10 +127,10 @@ export default function ReceiptPage({ params }: { params: { id: string } }) {
     )
   }
 
-  if (!booking) {
+  if (!booking || !event || halls.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 text-white">
-        Booking not found.
+        Booking, Event, or Hall data not found.
       </div>
     )
   }
@@ -196,7 +214,7 @@ export default function ReceiptPage({ params }: { params: { id: string } }) {
               <strong>Type:</strong> {booking.eventType === "match" ? "Sports Match" : "Movie"}
             </p>
             <p>
-              <strong>Venue:</strong> {getHallDisplayName(booking.eventId, halls)} {/* Assuming eventId is hall_id for simplicity here */}
+              <strong>Venue:</strong> {getHallDisplayName(event.hall_id, halls)}
             </p>
             <p>
               <strong>Seats:</strong>{" "}
