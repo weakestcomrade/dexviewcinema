@@ -62,7 +62,8 @@ interface Seat {
 const getHallDetails = (hallId: string, allHalls: Hall[]) => allHalls.find(hall => hall._id === hallId);
 const getHallDisplayName = (hallId: string, allHalls: Hall[]) => getHallDetails(hallId, allHalls)?.name || hallId;
 const getHallType = (hallId: string, allHalls: Hall[]) => getHallDetails(hallId, allHalls)?.type || "standard";
-const getHallTotalSeats = (hallId: string, allHalls: Hall[]) => getHallDetails(hallId, allHalls)?.total_seats || 0;
+// FIX: Changed from .total_seats to .capacity
+const getHallTotalSeats = (hallId: string, allHalls: Hall[]) => getHallDetails(hallId, allHalls)?.capacity || 0;
 
 
 // Seat layout for VIP Hall matches (10 sofa, 12 regular)
@@ -236,7 +237,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
           calculatedPricing = {
             standardMatchSeats: {
               price: calculatedPricing.standardMatchSeats?.price || 0,
-              count: hallDetails.total_seats, // Use total_seats from fetched hall
+              count: hallDetails.capacity, // Use capacity from fetched hall
             },
           }
         }
@@ -251,7 +252,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
           calculatedPricing = {
             standardSingle: {
               price: calculatedPricing.standardSingle?.price || 0,
-              count: hallDetails.total_seats, // Use total_seats from fetched hall
+              count: hallDetails.capacity, // Use capacity from fetched hall
             },
           }
         }
@@ -603,7 +604,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                     </div>
                   ) : (
                     // Standard Match Hall (Hall A or Hall B)
-                    event.pricing?.standardMatchSeats && ( // Removed redundant hall_id check
+                    event.pricing?.standardMatchSeats && (
                       <div className="grid grid-cols-1 gap-6">
                         <div className="bg-glass-white p-4 rounded-3xl border border-cyber-green-500/30">
                           <div className="flex items-center gap-3 mb-3">
@@ -832,10 +833,10 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                                      : "bg-glass-white-strong text-cyber-slate-300 border-white/30 hover:border-cyber-green-400/50 hover:bg-cyber-green-500/20 shadow-cyber-card"
                                }
                              `}
-                              >
-                                {seat.id.split("-")[1]}
-                              </button>
-                            ))}
+                            >
+                              {seat.id.split("-")[1]}
+                            </button>
+                          ))}
                         </div>
                       </div>
                     </div>
@@ -1229,7 +1230,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 <h3 className="font-bold text-lg mb-3 text-brand-red-600">Event Information</h3>
                 <p>
                   <strong>Event:</strong> {bookingDetails.eventTitle}
-                </p>
+                  </p>
                 <p>
                   <strong>Type:</strong> {bookingDetails.eventType === "match" ? "Sports Match" : "Movie"}
                 </p>
