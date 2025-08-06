@@ -9,7 +9,7 @@ interface BookingDocument {
   customerName: string
   customerEmail: string
   customerPhone: string
-  eventId: ObjectId // Reference to the event ID
+  eventId: string // Reference to the event ID
   eventTitle: string
   eventType: "movie" | "match"
   seats: string[] // Array of seat identifiers (e.g., ["A1", "A2"])
@@ -17,12 +17,10 @@ interface BookingDocument {
   amount: number // Base amount for seats
   processingFee: number
   totalAmount: number
-  status: "confirmed" | "pending" | "cancelled" | "failed" // Added 'failed'
+  status: "confirmed" | "pending" | "cancelled"
   bookingDate: string // Date of booking
   bookingTime: string // Time of booking
   paymentMethod: string
-  transactionReference?: string // Optional for non-Monnify bookings
-  paymentReference?: string // Optional for non-Monnify bookings
   createdAt: Date
   updatedAt: Date
 }
@@ -58,7 +56,8 @@ export async function GET(request: Request) {
     const serializableBookings = bookings.map((booking) => ({
       ...booking,
       _id: booking._id.toString(),
-      eventId: booking.eventId.toString(), // Ensure eventId is string for client
+      // Ensure eventId is string if it's ObjectId in DB, assuming it's stored as string for simplicity here
+      // If eventId is stored as ObjectId, you'd need: eventId: booking.eventId.toString(),
     }))
 
     return NextResponse.json(serializableBookings)
@@ -68,9 +67,6 @@ export async function GET(request: Request) {
   }
 }
 
-// This POST endpoint is now primarily for internal updates (e.g., by webhook)
-// or for direct booking creation if not using a payment gateway.
-// The Monnify initiation now creates a 'pending' booking.
 export async function POST(request: Request) {
   try {
     const { db } = await connectToDatabase()
@@ -93,8 +89,6 @@ export async function POST(request: Request) {
       bookingDate,
       bookingTime,
       paymentMethod,
-      transactionReference, // Added for Monnify updates
-      paymentReference, // Added for Monnify updates
     } = newBookingData
 
     const missingFields = []
@@ -120,8 +114,8 @@ export async function POST(request: Request) {
     }
 
     // Check for duplicate bookings for the same event and seats
-    // This check is more critical for direct bookings or before payment initiation.
-    // For Monnify, the 'pending' status and transactionReference will manage uniqueness.
+    // Note: For a real application, you might want to check seat availability in the event document itself
+    // and handle transactions to ensure atomicity.
     const existingBooking = await db.collection("bookings").findOne({
       eventId: new ObjectId(eventId),
       seats: { $in: seats }, // Check if any of the selected seats are already booked for this event

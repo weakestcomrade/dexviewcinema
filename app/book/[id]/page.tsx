@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { type Hall } from "@/types/hall" // Import the Hall type
+import { usePaystackPayment } from "@/hooks/usePaystackPayment" // Import the new hook
 
 // Define types for event fetched from the database
 interface Event {
@@ -187,9 +188,9 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     email: "",
     phone: "",
   })
-  const [paymentMethod, setPaymentMethod] = useState("card") // Default to card, but Monnify handles this
+  const [paymentMethod, setPaymentMethod] = useState("card") // Default to card, but Paystack handles it
   const [isBookingConfirmed, setIsBookingConfirmed] = useState(false)
-  const [bookingDetails, setBookingDetails] = useState<any>(null) // This will be set by the webhook callback
+  const [bookingDetails, setBookingDetails] = useState<any>(null)
   const { toast } = useToast()
   const router = useRouter()
 
@@ -274,54 +275,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     fetchAllData()
-
-    // Check for Monnify callback parameters on page load
-    const urlParams = new URLSearchParams(window.location.search)
-    const status = urlParams.get("status")
-    const transactionReference = urlParams.get("transactionReference")
-
-    if (status === "monnify_callback" && transactionReference) {
-      // This means Monnify redirected back. The webhook should have handled the booking.
-      // We can now fetch the booking details to display the receipt.
-      const fetchBookingStatus = async () => {
-        try {
-          const res = await fetch(`/api/bookings?transactionReference=${transactionReference}`)
-          if (!res.ok) {
-            throw new Error("Failed to fetch booking details after payment.")
-          }
-          const bookings = await res.json()
-          const confirmedBooking = bookings.find((b: any) => b.transactionReference === transactionReference && b.status === "confirmed")
-
-          if (confirmedBooking) {
-            setBookingDetails(confirmedBooking)
-            setIsBookingConfirmed(true)
-            toast({
-              title: "Payment Successful!",
-              description: "Your booking has been confirmed.",
-            })
-            // Clear URL parameters to prevent re-triggering on refresh
-            router.replace(window.location.pathname, undefined)
-          } else {
-            toast({
-              title: "Payment Status Unknown",
-              description: "We are verifying your payment. Please check your bookings page later.",
-              variant: "destructive",
-            })
-            router.replace(window.location.pathname, undefined)
-          }
-        } catch (err) {
-          console.error("Error fetching booking after Monnify callback:", err)
-          toast({
-            title: "Error",
-            description: "Could not retrieve booking details. Please check your bookings page.",
-            variant: "destructive",
-          })
-          router.replace(window.location.pathname, undefined)
-        }
-      }
-      fetchBookingStatus()
-    }
-  }, [fetchAllData, router, toast])
+  }, [fetchAllData])
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center text-white">Loading event details...</div>
@@ -405,6 +359,107 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   const processingFee = Math.round(totalAmount * 0.02) // 2% processing fee
   const finalAmount = totalAmount + processingFee
 
+  // Paystack configuration
+  const paystackConfig = {
+    key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || "", // Replace with your actual public key
+    email: customerInfo.email,
+    amount: finalAmount * 100, // Amount in kobo
+    ref: new Date().getTime().toString(), // Unique reference for the transaction
+    metadata: {
+      customerName: customerInfo.name,
+      customerPhone: customerInfo.phone,
+      eventId: event._id,
+      eventTitle: event.title,
+      seats: selectedSeats,
+    },
+    currency: "NGN", // Nigerian Naira
+    channels: ['card', 'bank_transfer', 'ussd', 'qr', 'mobile_money'], // Payment channels
+    onSuccess: async (response: any) => {
+      // Payment successful, now proceed with booking creation
+      console.log("Paystack Success Response:", response);
+      try {
+        const bookingData = {
+          customerName: customerInfo.name,
+          customerEmail: customerInfo.email,
+          customerPhone: customerInfo.phone,
+          eventId: event._id,
+          eventTitle: event.title,
+          eventType: event.event_type,
+          seats: selectedSeats,
+          seatType: selectedSeatType,
+          amount: totalAmount,
+          processingFee: processingFee,
+          totalAmount: finalAmount,
+          status: "confirmed",
+          bookingDate: format(new Date(), "yyyy-MM-dd"),
+          bookingTime: format(new Date(), "HH:mm"),
+          paymentMethod: "Paystack - " + response.channel, // Indicate payment method and channel
+          paystackReference: response.reference, // Store Paystack reference
+        }
+
+        const bookingRes = await fetch("/api/bookings", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(bookingData),
+        })
+
+        if (!bookingRes.ok) {
+          const errorData = await bookingRes.json()
+          throw new Error(errorData.message || `HTTP error! status: ${bookingRes.status}`)
+        }
+
+        const confirmedBooking = await bookingRes.json()
+
+        // 2. Update the event's booked seats
+        const updateEventRes = await fetch(`/api/events/${event._id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ newBookedSeats: selectedSeats }),
+        })
+
+        if (!updateEventRes.ok) {
+          const errorData = await updateEventRes.json()
+          throw new Error(errorData.message || `Failed to update event seats: ${updateEventRes.statusText}`)
+        }
+
+        setBookingDetails(confirmedBooking)
+        setIsBookingConfirmed(true)
+        setSelectedSeats([]) // Clear selected seats after booking
+        setSelectedSeatType("")
+        setCustomerInfo({ name: "", email: "", phone: "" })
+        setPaymentMethod("card")
+        toast({
+          title: "Booking Confirmed!",
+          description: `Your booking for ${event.title} is successful.`,
+        })
+        // Re-fetch event data to update the UI with newly booked seats
+        await fetchAllData() // Call fetchAllData to re-fetch both event and halls
+      } catch (error) {
+        console.error("Failed to book seats after Paystack success:", error)
+        toast({
+          title: "Booking Failed",
+          description: (error as Error).message,
+          variant: "destructive",
+        })
+      }
+    },
+    onClose: () => {
+      // User closed the payment modal
+      console.log("Paystack modal closed.");
+      toast({
+        title: "Payment Cancelled",
+        description: "You closed the payment window. Please try again.",
+        variant: "destructive",
+      });
+    },
+  };
+
+  const initializePayment = usePaystackPayment(paystackConfig);
+
   const handleBooking = async () => {
     if (selectedSeats.length === 0) {
       toast({
@@ -424,45 +479,17 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       return
     }
 
-    try {
-      // Initiate Monnify payment
-      const initiatePaymentRes = await fetch("/api/monnify/initiate-payment", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          customerName: customerInfo.name,
-          customerEmail: customerInfo.email,
-          customerPhone: customerInfo.phone,
-          eventId: event._id,
-          eventTitle: event.title,
-          eventType: event.event_type,
-          seats: selectedSeats,
-          seatType: selectedSeatType,
-          amount: totalAmount,
-          processingFee: processingFee,
-          totalAmount: finalAmount,
-        }),
-      })
-
-      if (!initiatePaymentRes.ok) {
-        const errorData = await initiatePaymentRes.json()
-        throw new Error(errorData.message || `Failed to initiate payment: ${initiatePaymentRes.statusText}`)
-      }
-
-      const { checkoutUrl } = await initiatePaymentRes.json()
-
-      // Redirect user to Monnify checkout page
-      window.location.href = checkoutUrl
-    } catch (error) {
-      console.error("Failed to initiate Monnify payment:", error)
+    if (!process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY) {
       toast({
-        title: "Payment Initiation Failed",
-        description: (error as Error).message,
+        title: "Payment Gateway Error",
+        description: "Paystack public key is not configured. Please contact support.",
         variant: "destructive",
-      })
+      });
+      return;
     }
+
+    // Initiate Paystack payment
+    initializePayment();
   }
 
   const getSeatTypeName = (type: string) => {
@@ -1121,7 +1148,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 <Button
                   className="w-full bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 text-white shadow-glow-red rounded-3xl transform hover:scale-105 transition-all duration-300 group font-bold text-base sm:text-lg py-4 sm:py-6 h-auto"
                   onClick={handleBooking}
-                  disabled={selectedSeats.length === 0}
+                  disabled={selectedSeats.length === 0 || !customerInfo.name || !customerInfo.email || !customerInfo.phone}
                 >
                   <CreditCard className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3 group-hover:rotate-12 transition-transform" />
                   Proceed to Payment
@@ -1129,7 +1156,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 </Button>
 
                 <p className="text-xs text-cyber-slate-400 text-center leading-relaxed">
-                  Secure payment processing • Receipt will be generated upon successful booking
+                  Secure payment processing via Paystack • Receipt will be generated upon successful booking
                 </p>
               </CardContent>
             </Card>
