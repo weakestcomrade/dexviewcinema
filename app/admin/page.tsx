@@ -19,31 +19,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import {
-  CalendarIcon,
-  Clock,
-  Edit,
-  Eye,
-  Film,
-  Plus,
-  Settings,
-  Trash2,
-  Trophy,
-  Users,
-  TrendingUp,
-  Shield,
-  Activity,
-  Sparkles,
-  BarChart3,
-  Monitor,
-  MapPin,
-  Star,
-  Printer,
-  Filter,
-  Search,
-  ImageIcon,
-  ShoppingCart,
-} from "lucide-react"
+import { CalendarIcon, Clock, Edit, Eye, Film, Plus, Settings, Trash2, Trophy, Users, TrendingUp, Shield, Activity, Sparkles, BarChart3, Monitor, MapPin, Star, Printer, Filter, Search, ImageIcon, ShoppingCart } from 'lucide-react'
 import Link from "next/link"
 import Image from "next/image"
 import { useToast } from "@/components/ui/use-toast"
