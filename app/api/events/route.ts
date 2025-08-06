@@ -54,40 +54,10 @@ export async function POST(request: Request) {
     if (!hall_id || hall_id.trim() === "") missingFields.push("hall_id")
     if (!description || description.trim() === "") missingFields.push("description")
     if (!duration || duration.trim() === "") missingFields.push("duration")
+    if (!pricing || typeof pricing.ticket_price !== "number" || pricing.ticket_price <= 0)
+      missingFields.push("pricing.ticket_price")
     if (typeof total_seats !== "number" || total_seats <= 0) missingFields.push("total_seats")
     if (!status || status.trim() === "") missingFields.push("status")
-
-    // Dynamic pricing validation based on event_type and hall_id
-    if (!pricing) {
-      missingFields.push("pricing")
-    } else {
-      if (event_type === "movie") {
-        if (hall_id === "vip_hall") {
-          if (!pricing.vipSingle?.price || pricing.vipSingle.price <= 0) missingFields.push("pricing.vipSingle.price")
-          if (!pricing.vipCouple?.price || pricing.vipCouple.price <= 0) missingFields.push("pricing.vipCouple.price")
-          if (!pricing.vipFamily?.price || pricing.vipFamily.price <= 0) missingFields.push("pricing.vipFamily.price")
-        } else if (hall_id === "hallA" || hall_id === "hallB") {
-          if (!pricing.standardSingle?.price || pricing.standardSingle.price <= 0)
-            missingFields.push("pricing.standardSingle.price")
-        } else {
-          missingFields.push("pricing (unknown movie hall type)")
-        }
-      } else if (event_type === "match") {
-        if (hall_id === "vip_hall") {
-          if (!pricing.vipSofaSeats?.price || pricing.vipSofaSeats.price <= 0)
-            missingFields.push("pricing.vipSofaSeats.price")
-          if (!pricing.vipRegularSeats?.price || pricing.vipRegularSeats.price <= 0)
-            missingFields.push("pricing.vipRegularSeats.price")
-        } else if (hall_id === "hallA" || hall_id === "hallB") {
-          if (!pricing.standardMatchSeats?.price || pricing.standardMatchSeats.price <= 0)
-            missingFields.push("pricing.standardMatchSeats.price")
-        } else {
-          missingFields.push("pricing (unknown match hall type)")
-        }
-      } else {
-        missingFields.push("pricing (unknown event type)")
-      }
-    }
 
     if (missingFields.length > 0) {
       console.error("Missing required fields in new event data:", missingFields.join(", "), newEventData)

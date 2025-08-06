@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { notFound, useRouter } from "next/navigation" // Corrected import for useRouter
+import { notFound } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -204,7 +204,6 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   const [isBookingConfirmed, setIsBookingConfirmed] = useState(false)
   const [bookingDetails, setBookingDetails] = useState<any>(null)
   const { toast } = useToast()
-  const router = useRouter() // Initialize useRouter
 
   const eventId = params.id
 
@@ -1153,7 +1152,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row justify-between items-center">
             <p className="text-cyber-slate-300 text-lg mb-4 sm:mb-0">
-              &copy; 2025 Dex View Cinema. All rights reserved.
+              &copy; 2024 Dex View Cinema. All rights reserved.
             </p>
             <p className="text-cyber-slate-300 text-lg">
               Developed by{" "}

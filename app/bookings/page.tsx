@@ -1,13 +1,13 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
-import { Calendar, Clock, MapPin, Film, Trophy, ArrowLeft, Search, Ticket, Printer, Eye, Loader2 } from "lucide-react"
+import { Calendar, Clock, MapPin, Film, Trophy, ArrowLeft, Search, Ticket, Printer, Eye } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -17,73 +17,83 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 
-// Define a type for booking data
-interface Booking {
-  id: string
-  customerName: string
-  customerEmail: string
-  customerPhone: string
-  eventTitle: string
-  eventType: "match" | "movie"
-  eventDate: string
-  eventTime: string
-  eventHall: string
-  seats: string[]
-  seatType: string
-  amount: number
-  processingFee: number
-  totalAmount: number
-  status: "confirmed" | "pending" | "cancelled"
-  bookingDate: string
-  bookingTime: string
-  paymentMethod: string
-}
+// Demo booking data
+const bookings = [
+  {
+    id: "BK001",
+    customerName: "John Doe",
+    customerEmail: "john@example.com",
+    customerPhone: "+234-801-234-5678",
+    eventTitle: "El Clasico - Real Madrid vs Barcelona",
+    eventType: "match",
+    eventDate: "2024-03-15",
+    eventTime: "20:00",
+    eventHall: "VIP Hall",
+    seats: ["A1", "A2"],
+    seatType: "VIP Sofa",
+    amount: 6000,
+    processingFee: 120,
+    totalAmount: 6120,
+    status: "confirmed",
+    bookingDate: "2024-03-10",
+    bookingTime: "14:30",
+    paymentMethod: "Card",
+  },
+  {
+    id: "BK002",
+    customerName: "Jane Smith",
+    customerEmail: "jane@example.com",
+    customerPhone: "+234-802-345-6789",
+    eventTitle: "Dune: Part Two",
+    eventType: "movie",
+    eventDate: "2024-03-16",
+    eventTime: "19:30",
+    eventHall: "Cinema Hall 1",
+    seats: ["B5"],
+    seatType: "VIP Single",
+    amount: 7500,
+    processingFee: 150,
+    totalAmount: 7650,
+    status: "confirmed",
+    bookingDate: "2024-03-11",
+    bookingTime: "16:45",
+    paymentMethod: "Bank Transfer",
+  },
+  {
+    id: "BK003",
+    customerName: "Alice Johnson",
+    customerEmail: "alice@example.com",
+    customerPhone: "+234-803-456-7890",
+    eventTitle: "Manchester United vs Liverpool",
+    eventType: "match",
+    eventDate: "2024-03-17",
+    eventTime: "16:00",
+    eventHall: "VIP Hall",
+    seats: ["S1", "S2", "S3"],
+    seatType: "VIP Regular",
+    amount: 7500,
+    processingFee: 150,
+    totalAmount: 7650,
+    status: "pending",
+    bookingDate: "2024-03-12",
+    bookingTime: "10:00",
+    paymentMethod: "Card",
+  },
+]
 
 export default function BookingsPage() {
   const [searchQuery, setSearchQuery] = useState("")
-  const [customerEmail, setCustomerEmail] = useState("")
-  const [customerName, setCustomerName] = useState("")
-  const [customerPhone, setCustomerPhone] = useState("")
-  const [fetchedBookings, setFetchedBookings] = useState<Booking[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [hasSearched, setHasSearched] = useState(false) // To show "No bookings found" only after a search
-  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
+  const [selectedBooking, setSelectedBooking] = useState<(typeof bookings)[0] | null>(null)
   const [isReceiptOpen, setIsReceiptOpen] = useState(false)
 
-  const fetchBookings = useCallback(async () => {
-    setIsLoading(true)
-    setHasSearched(true) // Mark that a search has been initiated
-    setFetchedBookings([]) // Clear previous results
-
-    const params = new URLSearchParams()
-    if (customerEmail) params.append("email", customerEmail)
-    if (customerName) params.append("name", customerName)
-    if (customerPhone) params.append("phone", customerPhone)
-
-    try {
-      const response = await fetch(`/api/bookings?${params.toString()}`)
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      const data: Booking[] = await response.json()
-      setFetchedBookings(data)
-    } catch (error) {
-      console.error("Failed to fetch bookings:", error)
-      // Optionally, display an error message to the user
-    } finally {
-      setIsLoading(false)
-    }
-  }, [customerEmail, customerName, customerPhone])
-
-  // Filter fetched bookings based on the client-side search query
-  const displayedBookings = fetchedBookings.filter(
+  const filteredBookings = bookings.filter(
     (booking) =>
-      (booking.id?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
-      (booking.customerName?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
-      (booking.eventTitle?.toLowerCase() || "").includes(searchQuery.toLowerCase()),
+      booking.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      booking.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      booking.eventTitle.toLowerCase().includes(searchQuery.toLowerCase()),
   )
 
-  const handleViewReceipt = (booking: Booking) => {
+  const handleViewReceipt = (booking: (typeof bookings)[0]) => {
     setSelectedBooking(booking)
     setIsReceiptOpen(true)
   }
@@ -126,61 +136,12 @@ export default function BookingsPage() {
       </header>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Section to find bookings by customer details */}
-        <Card className="mb-8 bg-glass-white-strong backdrop-blur-xl shadow-cyber-card border border-white/20 rounded-3xl p-6">
-          <CardTitle className="text-white text-xl font-bold mb-4">Find My Bookings</CardTitle>
-          <CardDescription className="text-cyber-slate-300 mb-4">
-            Enter your email, name, or phone number to retrieve your bookings.
-          </CardDescription>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <Input
-              type="email"
-              placeholder="Your Email"
-              value={customerEmail}
-              onChange={(e) => setCustomerEmail(e.target.value)}
-              className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-400 focus:ring-brand-red-400 shadow-cyber-card"
-            />
-            <Input
-              type="text"
-              placeholder="Your Name"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-400 focus:ring-brand-red-400 shadow-cyber-card"
-            />
-            <Input
-              type="tel"
-              placeholder="Your Phone Number"
-              value={customerPhone}
-              onChange={(e) => setCustomerPhone(e.target.value)}
-              className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-400 focus:ring-brand-red-400 shadow-cyber-card"
-            />
-          </div>
-          <Button
-            onClick={fetchBookings}
-            disabled={isLoading || (!customerEmail && !customerName && !customerPhone)}
-            className="w-full bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 text-white rounded-2xl shadow-cyber-card"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Searching...
-              </>
-            ) : (
-              "Search My Bookings"
-            )}
-          </Button>
-          {/* Security Note: In a real application, fetching bookings by email/name/phone without authentication
-              is a security risk. This implementation assumes a future authentication system where the user
-              is verified before accessing their bookings. */}
-        </Card>
-
-        {/* Existing search bar for client-side filtering of fetched results */}
         <div className="mb-8">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-cyber-slate-400" />
             <Input
               type="text"
-              placeholder="Filter results by booking ID, customer name, or event title..."
+              placeholder="Search by booking ID, customer name, or event title..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 rounded-2xl bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-400 focus:ring-brand-red-400 shadow-cyber-card"
@@ -189,18 +150,8 @@ export default function BookingsPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {isLoading && (
-            <div className="col-span-full text-center text-cyber-slate-400 text-lg py-10 flex items-center justify-center">
-              <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-              Loading bookings...
-            </div>
-          )}
-          {!isLoading && hasSearched && displayedBookings.length === 0 ? (
-            <div className="col-span-full text-center text-cyber-slate-400 text-lg py-10">
-              No bookings found matching your search criteria.
-            </div>
-          ) : (
-            displayedBookings.map((booking) => (
+          {filteredBookings.length > 0 ? (
+            filteredBookings.map((booking) => (
               <Card
                 key={booking.id}
                 className="bg-glass-white-strong backdrop-blur-xl shadow-cyber-card hover:shadow-cyber-hover transition-all duration-300 border border-white/20 group relative overflow-hidden rounded-3xl"
@@ -280,6 +231,10 @@ export default function BookingsPage() {
                 </CardContent>
               </Card>
             ))
+          ) : (
+            <div className="col-span-full text-center text-cyber-slate-400 text-lg py-10">
+              No bookings found matching your search.
+            </div>
           )}
         </div>
       </div>
@@ -399,7 +354,7 @@ export default function BookingsPage() {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row justify-between items-center">
             <p className="text-cyber-slate-300 text-lg mb-4 sm:mb-0">
-              &copy; 2025 Dex View Cinema. All rights reserved.
+              &copy; 2024 Dex View Cinema. All rights reserved.
             </p>
             <p className="text-cyber-slate-300 text-lg">
               Developed by{" "}

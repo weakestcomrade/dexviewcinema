@@ -19,7 +19,31 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { CalendarIcon, Clock, Edit, Eye, Film, Plus, Settings, Trash2, Trophy, Users, TrendingUp, Shield, Activity, Sparkles, BarChart3, Monitor, MapPin, Star, Printer, Filter, Search, ImageIcon, ShoppingCart } from 'lucide-react'
+import {
+  CalendarIcon,
+  Clock,
+  Edit,
+  Eye,
+  Film,
+  Plus,
+  Settings,
+  Trash2,
+  Trophy,
+  Users,
+  TrendingUp,
+  Shield,
+  Activity,
+  Sparkles,
+  BarChart3,
+  Monitor,
+  MapPin,
+  Star,
+  Printer,
+  Filter,
+  Search,
+  ImageIcon,
+  ShoppingCart,
+} from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { useToast } from "@/components/ui/use-toast"
@@ -369,13 +393,7 @@ export default function AdminDashboard() {
   const [isCreateBookingOpen, setIsCreateBookingOpen] = useState(false) // New state for create booking dialog
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null) // Use Booking type
 
-  // Initialize newEvent with a placeholder hall_id, it will be updated after halls are fetched
-  const [newEvent, setNewEvent] = useState<NewEventData>({
-    ...initialNewEventState,
-    hall_id: "", // Ensure it's empty initially so the default logic can apply
-    total_seats: 0,
-    pricing: {},
-  })
+  const [newEvent, setNewEvent] = useState<NewEventData>(initialNewEventState)
   const [newBooking, setNewBooking] = useState<CreateBookingData>(initialNewBookingState) // New state for new booking form
   const [selectedEventForBooking, setSelectedEventForBooking] = useState<Event | null>(null) // To hold the selected event object for booking
   const [currentEventSeats, setCurrentEventSeats] = useState<Seat[]>([]) // Seats for the selected event in admin booking
@@ -405,20 +423,16 @@ export default function AdminDashboard() {
       }
       const data: Hall[] = await res.json()
       setHalls(data)
-      // Set initial new event state based on fetched halls if not already set
-      // This logic should run only once when halls are first loaded
-      setNewEvent((prev) => {
-        if (data.length > 0 && prev.hall_id === "") {
-          const defaultHall = data[0]
-          return {
-            ...prev,
-            hall_id: defaultHall._id,
-            total_seats: defaultHall.capacity,
-            pricing: defaultHall.type === "vip" ? defaultVipMoviePricing : defaultStandardMoviePricingHallA,
-          }
-        }
-        return prev
-      })
+      // Set initial new event state based on fetched halls
+      if (data.length > 0 && newEvent.hall_id === "") {
+        const defaultHall = data[0] // Use the first hall as default
+        setNewEvent((prev) => ({
+          ...prev,
+          hall_id: defaultHall._id,
+          total_seats: defaultHall.capacity,
+          pricing: defaultHall.type === "vip" ? defaultVipMoviePricing : defaultStandardMoviePricingHallA, // Default pricing based on hall type
+        }))
+      }
     } catch (error) {
       console.error("Failed to fetch halls:", error)
       toast({
@@ -427,7 +441,7 @@ export default function AdminDashboard() {
         variant: "destructive",
       })
     }
-  }, [toast]) // Removed newEvent.hall_id from dependencies to make this callback stable
+  }, [newEvent.hall_id, toast])
 
   const fetchEvents = useCallback(async () => {
     try {
@@ -476,8 +490,8 @@ export default function AdminDashboard() {
   }, [toast])
 
   useEffect(() => {
-    fetchHalls() // Fetch halls once on mount
-  }, [fetchHalls]) // fetchHalls is stable due to useCallback with only `toast` dependency
+    fetchHalls() // Fetch halls first
+  }, [fetchHalls])
 
   useEffect(() => {
     fetchBookings() // Fetch bookings first
@@ -1011,16 +1025,16 @@ export default function AdminDashboard() {
               .map(([hallName, data]) => {
                 const occupancy = data.total > 0 ? (data.booked / data.total) * 100 : 0
                 return `
-          <div class="mb-4">
-            <div class="flex justify-between text-lg mb-2">
-              <span>${hallName}:</span>
-              <span class="font-bold">${occupancy.toFixed(0)}% Occupancy</span>
+            <div class="mb-4">
+              <div class="flex justify-between text-lg mb-2">
+                <span>${hallName}:</span>
+                <span class="font-bold">${occupancy.toFixed(0)}% Occupancy</span>
+              </div>
+              <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+                <div class="bg-blue-500 h-4 rounded-full" style="width: ${occupancy}%"></div>
+              </div>
             </div>
-            <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
-              <div class="bg-blue-500 h-4 rounded-full" style="width: ${occupancy}%"></div>
-            </div>
-          </div>
-        `
+          `
               })
               .join("")
           : `<p>No hall performance data available for these filters.</p>`
@@ -3845,7 +3859,7 @@ export default function AdminDashboard() {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row justify-between items-center">
             <p className="text-cyber-slate-300 text-lg mb-4 sm:mb-0">
-              &copy; 2025 Dex View Cinema Admin Dashboard. All rights reserved.
+              &copy; 2024 Dex View Cinema Admin Dashboard. All rights reserved.
             </p>
             <p className="text-cyber-slate-300 text-lg">
               Developed by{" "}
