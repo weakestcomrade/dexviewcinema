@@ -223,10 +223,23 @@ export default async function Home() {
                       </div>
                     </div>
                     <div className="flex justify-between items-center mt-6">
-                      <span className="text-2xl font-bold bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
-                        ₦{((event.pricing?.ticket_price ?? 0) as number).toLocaleString()}{" "}
-                        {/* Safely access nested ticket_price */}
-                      </span>
+                      <div className="flex flex-col items-start">
+                        {Object.entries(event.pricing).map(([type, price]) => {
+                          // Filter out non-numeric or internal keys if necessary, e.g., '_id'
+                          if (typeof price !== 'number' || type === '_id') return null;
+
+                          // Customize display for 'ticket_price' or other specific types
+                          const displayType = type === 'ticket_price' ? 'Ticket Price' : type.replace(/_/g, ' '); // Replace underscores for better display
+                          return (
+                            <div key={type} className="flex items-center gap-1 text-lg font-semibold text-white">
+                              <span className="text-brand-red-300 capitalize">{displayType}:</span>
+                              <span className="bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
+                                ₦{price.toLocaleString()}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
                       <Link href={`/book/${event._id}`}>
                         <Button
                           className="bg-gradient-to-r from-brand-red-500 to-brand-red-600 hover:from-brand-red-600 hover:to-brand-red-700 text-white shadow-glow-red rounded-2xl group"
