@@ -1247,7 +1247,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 </div>
                 <div className="flex justify-between mb-2">
                   <span>Processing Fee:</span>
-                  <span>₦{processingDetails.processingFee}</span>
+                  <span>₦{bookingDetails.processingFee}</span>
                 </div>
                 <div className="flex justify-between font-bold text-lg border-t border-gray-300 pt-2">
                   <span>Total Amount:</span>
