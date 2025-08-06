@@ -1021,16 +1021,16 @@ export default function AdminDashboard() {
               .map(([hallName, data]) => {
                 const occupancy = data.total > 0 ? (data.booked / data.total) * 100 : 0
                 return `
-            <div class="mb-4">
-              <div class="flex justify-between text-lg mb-2">
-                <span>${hallName}:</span>
-                <span class="font-bold">${occupancy.toFixed(0)}% Occupancy</span>
-              </div>
-              <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
-                <div class="bg-blue-500 h-4 rounded-full" style="width: ${occupancy}%"></div>
-              </div>
+          <div class="mb-4">
+            <div class="flex justify-between text-lg mb-2">
+              <span>${hallName}:</span>
+              <span class="font-bold">${occupancy.toFixed(0)}% Occupancy</span>
             </div>
-          `
+            <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+              <div class="bg-blue-500 h-4 rounded-full" style="width: ${occupancy}%"></div>
+            </div>
+          </div>
+        `
               })
               .join("")
           : `<p>No hall performance data available for these filters.</p>`

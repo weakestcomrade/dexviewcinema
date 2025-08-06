@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
 import type { Hall } from "@/types/hall"
+import { ObjectId } from "mongodb"
 
 export async function GET() {
   try {
