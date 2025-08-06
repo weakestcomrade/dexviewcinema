@@ -603,24 +603,26 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                     </div>
                   ) : (
                     // Standard Match Hall (Hall A or Hall B)
-                    <div className="grid grid-cols-1 gap-6">
-                      <div className="bg-glass-white p-4 rounded-3xl border border-cyber-green-500/30">
-                        <div className="flex items-center gap-3 mb-3">
-                          <Users className="w-6 h-6 text-cyber-green-400" />
-                          <h3 className="text-lg font-bold text-white">Standard Match Seats</h3>
+                    event.pricing?.standardMatchSeats && ( // Removed redundant hall_id check
+                      <div className="grid grid-cols-1 gap-6">
+                        <div className="bg-glass-white p-4 rounded-3xl border border-cyber-green-500/30">
+                          <div className="flex items-center gap-3 mb-3">
+                            <Users className="w-6 h-6 text-cyber-green-400" />
+                            <h3 className="text-lg font-bold text-white">Standard Match Seats</h3>
+                          </div>
+                          <p className="text-cyber-slate-300 mb-2">Individual standard match seat</p>
+                          <p className="text-2xl font-bold text-cyber-green-300">
+                            ₦{event.pricing.standardMatchSeats.price.toLocaleString()}
+                          </p>
+                          <p className="text-sm text-cyber-slate-400">
+                            Available:{" "}
+                            {event.pricing.standardMatchSeats.count -
+                              (event.bookedSeats?.filter((s) => s.startsWith(event.hall_id.toUpperCase())).length || 0)}
+                            /{event.pricing.standardMatchSeats.count}
+                          </p>
                         </div>
-                        <p className="text-cyber-slate-300 mb-2">Individual standard match seat</p>
-                        <p className="text-2xl font-bold text-cyber-green-300">
-                          ₦{event.pricing?.standardMatchSeats?.price?.toLocaleString()}
-                        </p>
-                        <p className="text-sm text-cyber-slate-400">
-                          Available:{" "}
-                          {event.pricing?.standardMatchSeats?.count -
-                            (event.bookedSeats?.filter((s) => s.startsWith(event.hall_id.toUpperCase())).length || 0)}
-                          /{event.pricing?.standardMatchSeats?.count}
-                        </p>
                       </div>
-                    </div>
+                    )
                   )
                 ) : getHallType(event.hall_id, halls) === "vip" ? (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -814,7 +816,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                           }`}
                         >
                           {seats
-                            .filter((seat) => seat.type === "standardMatch") // Corrected filter
+                            .filter((seat) => seat.type === "standardMatch")
                             .map((seat) => (
                               <button
                                 key={seat.id}
