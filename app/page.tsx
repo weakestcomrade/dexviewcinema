@@ -40,11 +40,12 @@ interface Event {
 export default async function Home() {
   let events: Event[] = []
   let error: string | null = null
+  let fetchedHalls: Hall[] = [] // Declare fetchedHalls here to be accessible
 
   try {
     const { db } = await connectToDatabase()
     const fetchedEvents = await db.collection("events").find({ status: "active" }).toArray() // Fetch only active events
-    const fetchedHalls = await db.collection("halls").find({}).toArray() // Fetch all halls
+    fetchedHalls = await db.collection("halls").find({}).toArray() // Fetch all halls
 
     // Create a map for quick lookup of hall names by their _id
     const hallMap = new Map<string, string>()
@@ -177,85 +178,148 @@ export default async function Home() {
           <div className="text-center text-cyber-slate-300 text-lg">No upcoming events found.</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-            {events.map((event) => (
-              <Card
-                key={event._id}
-                className="bg-glass-white-strong backdrop-blur-xl shadow-cyber-card hover:shadow-cyber-hover transition-all duration-300 border border-white/20 group relative overflow-hidden rounded-3xl"
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-brand-red-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl"></div>
-                <CardContent className="p-0 relative z-10">
-                  <img
-                    src={event.image_url || "/placeholder.svg"}
-                    alt={event.title}
-                    className="w-full h-48 object-cover rounded-t-3xl group-hover:scale-105 transition-transform duration-500"
-                  />
-                  <div className="p-6">
-                    <div className="flex justify-between items-start mb-3">
-                      <CardTitle className="text-xl font-bold text-white leading-tight">{event.title}</CardTitle>
-                      <Badge
-                        className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                          event.event_type === "match"
-                            ? "bg-brand-red-500/30 text-brand-red-300 border-brand-red-500/50"
-                            : "bg-cyber-blue-500/30 text-cyber-blue-300 border-cyber-blue-500/50"
-                        }`}
-                      >
+            {events.map((event) => {
+              const currentHall = fetchedHalls.find(hall => hall._id.toString() === event.hall_id);
+              const hallType = currentHall?.type;
+
+              return (
+                <Card
+                  key={event._id}
+                  className="bg-glass-white-strong backdrop-blur-xl shadow-cyber-card hover:shadow-cyber-hover transition-all duration-300 border border-white/20 group relative overflow-hidden rounded-3xl"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-brand-red-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl"></div>
+                  <CardContent className="p-0 relative z-10">
+                    <img
+                      src={event.image_url || "/placeholder.svg"}
+                      alt={event.title}
+                      className="w-full h-48 object-cover rounded-t-3xl group-hover:scale-105 transition-transform duration-500"
+                    />
+                    <div className="p-6">
+                      <div className="flex justify-between items-start mb-3">
+                        <CardTitle className="text-xl font-bold text-white leading-tight">{event.title}</CardTitle>
+                        <Badge
+                          className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                            event.event_type === "match"
+                              ? "bg-brand-red-500/30 text-brand-red-300 border-brand-red-500/50"
+                              : "bg-cyber-blue-500/30 text-cyber-blue-300 border-cyber-blue-500/50"
+                          }`}
+                        >
+                          {event.event_type === "match" ? (
+                            <Trophy className="w-3 h-3 mr-1" />
+                          ) : (
+                            <Film className="w-3 h-3 mr-1" />
+                          )}
+                          {event.event_type}
+                        </Badge>
+                      </div>
+                      <CardDescription className="text-cyber-slate-300 mb-4 line-clamp-2">
+                        {event.description}
+                      </CardDescription>
+                      <div className="grid grid-cols-2 gap-3 text-sm text-cyber-slate-400 mb-4">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="w-4 h-4 text-brand-red-400" />
+                          {new Date(event.event_date).toLocaleDateString()}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-brand-red-400" />
+                          {event.event_time}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <MapPin className="w-4 h-4 text-brand-red-400" />
+                          {event.hall_name} {/* Display hall name (venue) */}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Users className="w-4 h-4 text-brand-red-400" />
+                          {event.duration}
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-start mt-6">
                         {event.event_type === "match" ? (
-                          <Trophy className="w-3 h-3 mr-1" />
-                        ) : (
-                          <Film className="w-3 h-3 mr-1" />
+                          hallType === "vip" ? (
+                            // VIP Match pricing
+                            <>
+                              {event.pricing.vipSofaSeats?.price && (
+                                <div className="flex items-center gap-1 text-lg font-semibold text-white">
+                                  <span className="text-brand-red-300 capitalize">VIP Sofa:</span>
+                                  <span className="bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
+                                    ₦{event.pricing.vipSofaSeats.price.toLocaleString()}
+                                  </span>
+                                </div>
+                              )}
+                              {event.pricing.vipRegularSeats?.price && (
+                                <div className="flex items-center gap-1 text-lg font-semibold text-white">
+                                  <span className="text-brand-red-300 capitalize">VIP Regular:</span>
+                                  <span className="bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
+                                    ₦{event.pricing.vipRegularSeats.price.toLocaleString()}
+                                  </span>
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            // Standard Match pricing
+                            event.pricing.standardMatchSeats?.price && (
+                              <div className="flex items-center gap-1 text-lg font-semibold text-white">
+                                <span className="text-brand-red-300 capitalize">Standard Match:</span>
+                                <span className="bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
+                                  ₦{event.pricing.standardMatchSeats.price.toLocaleString()}
+                                </span>
+                              </div>
+                            )
+                          )
+                        ) : ( // Movie event
+                          hallType === "vip" ? (
+                            // VIP Movie pricing
+                            <>
+                              {event.pricing.vipSingle?.price && (
+                                <div className="flex items-center gap-1 text-lg font-semibold text-white">
+                                  <span className="text-brand-red-300 capitalize">VIP Single:</span>
+                                  <span className="bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
+                                    ₦{event.pricing.vipSingle.price.toLocaleString()}
+                                  </span>
+                                </div>
+                              )}
+                              {event.pricing.vipCouple?.price && (
+                                <div className="flex items-center gap-1 text-lg font-semibold text-white">
+                                  <span className="text-brand-red-300 capitalize">VIP Couple:</span>
+                                  <span className="bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
+                                    ₦{event.pricing.vipCouple.price.toLocaleString()}
+                                  </span>
+                                </div>
+                              )}
+                              {event.pricing.vipFamily?.price && (
+                                <div className="flex items-center gap-1 text-lg font-semibold text-white">
+                                  <span className="text-brand-red-300 capitalize">VIP Family:</span>
+                                  <span className="bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
+                                    ₦{event.pricing.vipFamily.price.toLocaleString()}
+                                  </span>
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            // Standard Movie pricing
+                            event.pricing.standardSingle?.price && (
+                              <div className="flex items-center gap-1 text-lg font-semibold text-white">
+                                <span className="text-brand-red-300 capitalize">Standard Single:</span>
+                                <span className="bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
+                                  ₦{event.pricing.standardSingle.price.toLocaleString()}
+                                </span>
+                              </div>
+                            )
+                          )
                         )}
-                        {event.event_type}
-                      </Badge>
-                    </div>
-                    <CardDescription className="text-cyber-slate-300 mb-4 line-clamp-2">
-                      {event.description}
-                    </CardDescription>
-                    <div className="grid grid-cols-2 gap-3 text-sm text-cyber-slate-400 mb-4">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4 text-brand-red-400" />
-                        {new Date(event.event_date).toLocaleDateString()}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-brand-red-400" />
-                        {event.event_time}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-brand-red-400" />
-                        {event.hall_name} {/* Display hall name (venue) */}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Users className="w-4 h-4 text-brand-red-400" />
-                        {event.duration}
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center mt-6">
-                      <div className="flex flex-col items-start">
-                        {Object.entries(event.pricing).map(([type, priceObj]) => {
-                          // Ensure priceObj is an object and has a 'price' property
-                          if (typeof priceObj === 'object' && priceObj !== null && 'price' in priceObj && typeof priceObj.price === 'number') {
-                            const displayType = type === 'ticket_price' ? 'Ticket Price' : type.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase()); // Format camelCase to "Camel Case"
-                            return (
-                              <div key={type} className="flex items-center gap-1 text-lg font-semibold text-white">
-                                <span className="text-brand-red-300 capitalize">{displayType}:</span>
-                                <span className="bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
-                                  ₦{priceObj.price.toLocaleString()}
-                                </span>
-                              </div>
-                            );
-                          }
-                          // Handle the case where ticket_price might be directly a number (legacy or simpler events)
-                          if (type === 'ticket_price' && typeof priceObj === 'number') {
-                            return (
-                              <div key={type} className="flex items-center gap-1 text-lg font-semibold text-white">
-                                <span className="text-brand-red-300 capitalize">Ticket Price:</span>
-                                <span className="bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
-                                  ₦{priceObj.toLocaleString()}
-                                </span>
-                              </div>
-                            );
-                          }
-                          return null;
-                        })}
+                        {/* Fallback for general ticket_price if no specific hall pricing is found or applicable */}
+                        {!(event.event_type === "match" && hallType === "vip" && (event.pricing.vipSofaSeats?.price || event.pricing.vipRegularSeats?.price)) &&
+                         !(event.event_type === "match" && hallType === "standard" && event.pricing.standardMatchSeats?.price) &&
+                         !(event.event_type === "movie" && hallType === "vip" && (event.pricing.vipSingle?.price || event.pricing.vipCouple?.price || event.pricing.vipFamily?.price)) &&
+                         !(event.event_type === "movie" && hallType === "standard" && event.pricing.standardSingle?.price) &&
+                         event.pricing.ticket_price !== undefined && (
+                          <div className="flex items-center gap-1 text-lg font-semibold text-white">
+                            <span className="text-brand-red-300 capitalize">Ticket Price:</span>
+                            <span className="bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
+                              ₦{event.pricing.ticket_price.toLocaleString()}
+                            </span>
+                          </div>
+                        )}
                       </div>
                       <Link href={`/book/${event._id}`}>
                         <Button
@@ -267,10 +331,10 @@ export default async function Home() {
                         </Button>
                       </Link>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </section>
