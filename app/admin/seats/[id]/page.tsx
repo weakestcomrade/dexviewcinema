@@ -4,8 +4,9 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { ArrowLeft, XCircle, Info, Loader2, Sparkles, Trophy, Star } from "lucide-react"
+import { ArrowLeft, XCircle, Info, Loader2, Sparkles, Trophy, Star } from 'lucide-react'
 import Link from "next/link"
+import type { Hall } from "@/types/hall" // Import the Hall type
 
 // Define types for event fetched from the database
 interface Event {
@@ -44,16 +45,14 @@ interface Seat {
   price: number
 }
 
-// Helper to map hall_id to display name and total seats
-const hallMapping: { [key: string]: { name: string; seats: number; type: "vip" | "standard" } } = {
-  hallA: { name: "Hall A", seats: 48, type: "standard" },
-  hallB: { name: "Hall B", seats: 60, type: "standard" },
-  vip_hall: { name: "VIP Hall", seats: 22, type: "vip" },
+// Helper to get hall details from fetched halls array
+const getHallDetails = (halls: Hall[], hallId: string) => {
+  return halls.find((hall) => hall._id === hallId)
 }
 
-const getHallDisplayName = (hallId: string) => hallMapping[hallId]?.name || hallId
-const getHallType = (hallId: string) => hallMapping[hallId]?.type || "standard"
-const getHallTotalSeats = (hallId: string) => hallMapping[hallId]?.seats || 0
+const getHallDisplayName = (halls: Hall[], hallId: string) => getHallDetails(halls, hallId)?.name || hallId
+const getHallType = (halls: Hall[], hallId: string) => getHallDetails(halls, hallId)?.type || "standard"
+const getHallTotalSeats = (halls: Hall[], hallId: string) => getHallDetails(halls, hallId)?.capacity || 0
 
 // Seat layout for VIP Hall matches (10 sofa, 12 regular)
 const generateVipMatchSeats = (eventPricing: Event["pricing"], bookedSeats: string[] = []) => {
@@ -93,9 +92,9 @@ const generateVipMatchSeats = (eventPricing: Event["pricing"], bookedSeats: stri
 }
 
 // Seat layout for Standard Hall A or Hall B matches (all single seats)
-const generateStandardMatchSeats = (eventPricing: Event["pricing"], hallId: string, bookedSeats: string[] = []) => {
+const generateStandardMatchSeats = (eventPricing: Event["pricing"], hallId: string, halls: Hall[], bookedSeats: string[] = []) => {
   const seats: Seat[] = []
-  const totalSeats = getHallTotalSeats(hallId)
+  const totalSeats = getHallTotalSeats(halls, hallId)
   for (let i = 1; i <= totalSeats; i++) {
     const seatId = `${hallId.toUpperCase()}-${i}`
     seats.push({
@@ -109,10 +108,10 @@ const generateStandardMatchSeats = (eventPricing: Event["pricing"], hallId: stri
 }
 
 // Seat layout for movies based on hall type
-const generateMovieSeats = (eventPricing: Event["pricing"], hallId: string, bookedSeats: string[] = []) => {
+const generateMovieSeats = (eventPricing: Event["pricing"], hallId: string, halls: Hall[], bookedSeats: string[] = []) => {
   const seats: Seat[] = []
-  const hallType = getHallType(hallId)
-  const totalSeats = getHallTotalSeats(hallId)
+  const hallType = getHallType(halls, hallId)
+  const totalSeats = getHallTotalSeats(halls, hallId)
 
   if (hallType === "vip") {
     // VIP Movie Hall (20 single, 14 couple, 14 family)
@@ -165,12 +164,33 @@ const generateMovieSeats = (eventPricing: Event["pricing"], hallId: string, book
 
 export default function AdminSeatsPage({ params }: { params: { id: string } }) {
   const [event, setEvent] = useState<Event | null>(null)
+  const [halls, setHalls] = useState<Hall[]>([]) // New state for halls
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const eventId = params.id // This is now the MongoDB ObjectId string
 
   useEffect(() => {
+    const fetchHalls = async () => {
+      try {
+        const res = await fetch("/api/halls")
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`)
+        }
+        const data: Hall[] = await res.json()
+        setHalls(data)
+      } catch (err) {
+        console.error("Failed to fetch halls:", err)
+        setError((err as Error).message) // Set error if halls fail to load
+      }
+    }
+
+    fetchHalls()
+  }, []) // Fetch halls once on component mount
+
+  useEffect(() => {
+    if (halls.length === 0) return; // Wait for halls to be loaded before fetching event
+
     const fetchEvent = async () => {
       try {
         const res = await fetch(`/api/events/${eventId}`)
@@ -180,24 +200,24 @@ export default function AdminSeatsPage({ params }: { params: { id: string } }) {
         const data: Event = await res.json()
 
         // Ensure pricing object exists and has correct structure based on event type and hall
-        const hallType = getHallType(data.hall_id)
+        const hallType = getHallType(halls, data.hall_id)
         let calculatedPricing = data.pricing || {}
 
         if (data.event_type === "match") {
-          if (data.hall_id === "vip_hall") {
+          if (getHallType(halls, data.hall_id) === "vip") { // Use fetched halls
             calculatedPricing = {
               vipSofaSeats: { price: calculatedPricing.vipSofaSeats?.price || 0, count: 10 },
               vipRegularSeats: { price: calculatedPricing.vipRegularSeats?.price || 0, count: 12 },
             }
-          } else if (data.hall_id === "hallA" || data.hall_id === "hallB") {
+          } else { // Standard halls for matches
             calculatedPricing = {
               standardMatchSeats: {
                 price: calculatedPricing.standardMatchSeats?.price || 0,
-                count: getHallTotalSeats(data.hall_id),
+                count: getHallTotalSeats(halls, data.hall_id), // Use fetched halls
               },
             }
           }
-        } else if (hallType === "vip") {
+        } else if (hallType === "vip") { // Use fetched halls
           calculatedPricing = {
             vipSingle: { price: calculatedPricing.vipSingle?.price || 0, count: 20 },
             vipCouple: { price: calculatedPricing.vipCouple?.price || 0, count: 14 },
@@ -208,7 +228,7 @@ export default function AdminSeatsPage({ params }: { params: { id: string } }) {
           calculatedPricing = {
             standardSingle: {
               price: calculatedPricing.standardSingle?.price || 0,
-              count: getHallTotalSeats(data.hall_id),
+              count: getHallTotalSeats(halls, data.hall_id), // Use fetched halls
             },
           }
         }
@@ -228,7 +248,7 @@ export default function AdminSeatsPage({ params }: { params: { id: string } }) {
     }
 
     fetchEvent()
-  }, [eventId])
+  }, [eventId, halls]) // Re-run when eventId or halls change
 
   if (loading) {
     return (
@@ -259,10 +279,10 @@ export default function AdminSeatsPage({ params }: { params: { id: string } }) {
 
   const seats =
     event.event_type === "match"
-      ? event.hall_id === "vip_hall"
+      ? getHallType(halls, event.hall_id) === "vip" // Use fetched halls
         ? generateVipMatchSeats(event.pricing, event.bookedSeats)
-        : generateStandardMatchSeats(event.pricing, event.hall_id, event.bookedSeats)
-      : generateMovieSeats(event.pricing, event.hall_id, event.bookedSeats)
+        : generateStandardMatchSeats(event.pricing, event.hall_id, halls, event.bookedSeats) // Pass halls
+      : generateMovieSeats(event.pricing, event.hall_id, halls, event.bookedSeats) // Pass halls
 
   const bookedSeatsCount = seats.filter((seat) => seat.isBooked).length
   const availableSeatsCount = seats.length - bookedSeatsCount
@@ -295,7 +315,7 @@ export default function AdminSeatsPage({ params }: { params: { id: string } }) {
                 Seat Management
               </h1>
               <p className="text-sm text-brand-red-400 font-medium">
-                Manage seats for: {event.title} ({getHallDisplayName(event.hall_id)})
+                Manage seats for: {event.title} ({getHallDisplayName(halls, event.hall_id)})
               </p>
             </div>
           </div>
@@ -309,7 +329,7 @@ export default function AdminSeatsPage({ params }: { params: { id: string } }) {
             <Card className="bg-glass-white-strong backdrop-blur-xl shadow-cyber-card border border-white/20">
               <CardHeader>
                 <CardTitle className="text-white flex items-center gap-3 text-2xl font-bold">
-                  Seat Map - {getHallDisplayName(event.hall_id)}
+                  Seat Map - {getHallDisplayName(halls, event.hall_id)}
                 </CardTitle>
                 <CardDescription className="text-cyber-slate-300 text-lg">
                   Overview of seat availability and status
@@ -321,7 +341,7 @@ export default function AdminSeatsPage({ params }: { params: { id: string } }) {
                   <div className="bg-gradient-to-r from-brand-red-100/20 via-brand-red-50/20 to-brand-red-100/20 text-white text-center py-6 rounded-5xl mb-8 border-2 border-brand-red-500/30 shadow-cyber-card backdrop-blur-sm">
                     <span className="text-lg font-bold flex items-center justify-center gap-3">
                       <Sparkles className="w-6 h-6 text-brand-red-400 animate-spin-slow" />
-                      {event.event_type === "match" ? "🏟️ FOOTBALL FIELD VIEW 🏟️" : "���� PREMIUM SCREEN VIEW 🎬"}
+                      {event.event_type === "match" ? "🏟️ FOOTBALL FIELD VIEW 🏟️" : "🎬 PREMIUM SCREEN VIEW 🎬"}
                       <Sparkles className="w-6 h-6 text-brand-400 animate-spin-slow" />
                     </span>
                   </div>
@@ -329,7 +349,7 @@ export default function AdminSeatsPage({ params }: { params: { id: string } }) {
 
                 {/* Seat Map */}
                 {event.event_type === "match" ? (
-                  event.hall_id === "vip_hall" ? (
+                  getHallType(halls, event.hall_id) === "vip" ? (
                     <div className="space-y-8">
                       {/* VIP Sofa Seats */}
                       <div>
@@ -434,7 +454,7 @@ export default function AdminSeatsPage({ params }: { params: { id: string } }) {
                       </div>
                     </div>
                   )
-                ) : getHallType(event.hall_id) === "vip" ? (
+                ) : getHallType(halls, event.hall_id) === "vip" ? (
                   <div className="space-y-8">
                     {/* VIP Single Seats */}
                     <div>
@@ -585,7 +605,8 @@ export default function AdminSeatsPage({ params }: { params: { id: string } }) {
                 <div className="space-y-3 sm:space-y-4">
                   <h4 className="font-bold mb-3 sm:mb-4 text-cyber-slate-200 text-base sm:text-lg">Pricing Details</h4>
                   {event.event_type === "match" ? (
-                    event.hall_id === "vip_hall" && event.pricing?.vipSofaSeats && event.pricing?.vipRegularSeats ? (
+                    getHallType(halls, event.hall_id) === "vip" && // Use fetched halls
+                    event.pricing?.vipSofaSeats && event.pricing?.vipRegularSeats ? (
                       <>
                         <div className="flex justify-between text-base sm:text-lg">
                           <span className="text-cyber-slate-300">VIP Sofa:</span>
@@ -611,7 +632,7 @@ export default function AdminSeatsPage({ params }: { params: { id: string } }) {
                         </div>
                       )
                     )
-                  ) : getHallType(event.hall_id) === "vip" ? (
+                  ) : getHallType(halls, event.hall_id) === "vip" ? ( // Use fetched halls
                     <>
                       {event.pricing?.vipSingle && (
                         <div className="flex justify-between text-base sm:text-lg">
