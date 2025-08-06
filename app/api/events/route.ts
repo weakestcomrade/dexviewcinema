@@ -54,10 +54,52 @@ export async function POST(request: Request) {
     if (!hall_id || hall_id.trim() === "") missingFields.push("hall_id")
     if (!description || description.trim() === "") missingFields.push("description")
     if (!duration || duration.trim() === "") missingFields.push("duration")
-    if (!pricing || typeof pricing.ticket_price !== "number" || pricing.ticket_price <= 0)
-      missingFields.push("pricing.ticket_price")
-    if (typeof total_seats !== "number" || total_seats <= 0) missingFields.push("total_seats")
     if (!status || status.trim() === "") missingFields.push("status")
+
+    if (typeof total_seats !== "number" || total_seats <= 0) missingFields.push("total_seats")
+
+    // Validate pricing structure based on expected nested objects
+    let hasValidPricing = false
+    if (pricing && typeof pricing === "object") {
+      // Check for VIP movie pricing
+      if (
+        (pricing.vipSingle && typeof pricing.vipSingle.price === "number" && pricing.vipSingle.price > 0) ||
+        (pricing.vipCouple && typeof pricing.vipCouple.price === "number" && pricing.vipCouple.price > 0) ||
+        (pricing.vipFamily && typeof pricing.vipFamily.price === "number" && pricing.vipFamily.price > 0)
+      ) {
+        hasValidPricing = true
+      }
+      // Check for VIP match pricing
+      if (
+        (pricing.vipSofaSeats && typeof pricing.vipSofaSeats.price === "number" && pricing.vipSofaSeats.price > 0) ||
+        (pricing.vipRegularSeats &&
+          typeof pricing.vipRegularSeats.price === "number" &&
+          pricing.vipRegularSeats.price > 0)
+      ) {
+        hasValidPricing = true
+      }
+      // Check for Standard movie/match pricing
+      if (
+        (pricing.standardSingle &&
+          typeof pricing.standardSingle.price === "number" &&
+          pricing.standardSingle.price > 0) ||
+        (pricing.standardCouple &&
+          typeof pricing.standardCouple.price === "number" &&
+          pricing.standardCouple.price > 0) ||
+        (pricing.standardFamily &&
+          typeof pricing.standardFamily.price === "number" &&
+          pricing.standardFamily.price > 0) ||
+        (pricing.standardMatchSeats &&
+          typeof pricing.standardMatchSeats.price === "number" &&
+          pricing.standardMatchSeats.price > 0)
+      ) {
+        hasValidPricing = true
+      }
+    }
+
+    if (!hasValidPricing) {
+      missingFields.push("pricing (at least one valid price entry required)")
+    }
 
     if (missingFields.length > 0) {
       console.error("Missing required fields in new event data:", missingFields.join(", "), newEventData)
