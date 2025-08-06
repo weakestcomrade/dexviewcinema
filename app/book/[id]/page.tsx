@@ -188,7 +188,6 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     phone: "",
   })
   const [paymentMethod, setPaymentMethod] = useState("card")
-  const [isBookingConfirmed, setIsBookingConfirmed] = useState(false)
   const [bookingDetails, setBookingDetails] = useState<any>(null)
   const { toast } = useToast()
   const router = useRouter()
@@ -427,7 +426,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       }
 
       setBookingDetails(confirmedBooking)
-      setIsBookingConfirmed(true)
+      router.push(`/receipt/${confirmedBooking._id}`)
       setSelectedSeats([]) // Clear selected seats after booking
       setSelectedSeatType("")
       setCustomerInfo({ name: "", email: "", phone: "" })
@@ -1175,112 +1174,6 @@ export default function BookingPage({ params }: { params: { id: string } }) {
           </div>
         </div>
       </footer>
-
-      {/* Booking Confirmation Dialog */}
-      <Dialog open={isBookingConfirmed} onOpenChange={setIsBookingConfirmed}>
-        <DialogContent className="sm:max-w-[425px] bg-glass-dark-strong backdrop-blur-xl border border-white/20 text-white shadow-cyber-hover rounded-4xl">
-          <DialogHeader>
-            <DialogTitle className="text-white text-xl font-bold bg-gradient-to-r from-white to-cyber-green-200 bg-clip-text text-transparent flex items-center">
-              <CheckCircle className="w-6 h-6 mr-2 text-cyber-green-400" />
-              Booking Confirmed!
-            </DialogTitle>
-            <DialogDescription className="text-cyber-slate-300">
-              Your seats have been successfully booked.
-            </DialogDescription>
-          </DialogHeader>
-          {bookingDetails && (
-            <div className="receipt-content bg-white text-black p-8 rounded-lg mx-4" id="receipt">
-              <div className="text-center mb-6">
-                <h1 className="text-3xl font-bold text-brand-red-600 mb-2">Dex View Cinema</h1>
-                <p className="text-gray-600">Premium Entertainment Experience</p>
-                <div className="border-b-2 border-brand-red-600 mt-4"></div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-6">
-                <div>
-                  <h3 className="font-bold text-lg mb-3 text-brand-red-600">Customer Information</h3>
-                  <p>
-                    <strong>Name:</strong> {bookingDetails.customerName}
-                  </p>
-                  <p>
-                    <strong>Email:</strong> {bookingDetails.customerEmail}
-                  </p>
-                  <p>
-                    <strong>Phone:</strong> {bookingDetails.customerPhone}
-                  </p>
-                </div>
-                <div>
-                  <h3 className="font-bold text-lg mb-3 text-brand-red-600">Booking Details</h3>
-                  <p>
-                    <strong>Booking ID:</strong> {bookingDetails._id}
-                  </p>
-                  <p>
-                    <strong>Date:</strong> {bookingDetails.bookingDate}
-                  </p>
-                  <p>
-                    <strong>Time:</strong> {bookingDetails.bookingTime}
-                  </p>
-                  <p>
-                    <strong>Payment:</strong> {bookingDetails.paymentMethod}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mb-6">
-                <h3 className="font-bold text-lg mb-3 text-brand-red-600">Event Information</h3>
-                <p>
-                  <strong>Event:</strong> {bookingDetails.eventTitle}
-                  </p>
-                <p>
-                  <strong>Type:</strong> {bookingDetails.eventType === "match" ? "Sports Match" : "Movie"}
-                </p>
-                <p>
-                  <strong>Venue:</strong> {getHallDisplayName(event.hall_id, halls)}
-                </p>
-                <p>
-                  <strong>Seats:</strong>{" "}
-                  {bookingDetails.seats
-                    .map((seatId: string) => (seatId.includes('-') ? seatId.split('-').pop() : seatId))
-                    .join(", ")}
-                </p>
-                <p>
-                  <strong>Seat Type:</strong> {bookingDetails.seatType}
-                </p>
-              </div>
-
-              <div className="border-t-2 border-gray-300 pt-4 mb-6">
-                <h3 className="font-bold text-lg mb-3 text-brand-red-600">Payment Summary</h3>
-                <div className="flex justify-between mb-2">
-                  <span>Base Amount:</span>
-                  <span>₦{bookingDetails.amount.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between mb-2">
-                  <span>Processing Fee:</span>
-                  <span>₦{bookingDetails.processingFee}</span>
-                </div>
-                <div className="flex justify-between font-bold text-lg border-t border-gray-300 pt-2">
-                  <span>Total Amount:</span>
-                  <span>₦{bookingDetails.totalAmount.toLocaleString()}</span>
-                </div>
-              </div>
-
-              <div className="text-center text-sm text-gray-500 border-t border-gray-300 pt-4">
-                <p>Thank you for choosing Dex View Cinema!</p>
-                <p>For support, visit us at www.dexviewcinema.com or call +234-XXX-XXX-XXXX</p>
-                <p className="mt-2">Developed by SydaTech - www.sydatech.com.ng</p>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button
-              onClick={() => setIsBookingConfirmed(false)}
-              className="bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 text-white rounded-2xl"
-            >
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
