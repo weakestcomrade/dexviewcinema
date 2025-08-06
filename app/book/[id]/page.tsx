@@ -1196,7 +1196,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 <div className="border-b-2 border-brand-red-600 mt-4"></div>
               </div>
 
-              <div className="grid grid-cols-2 gap-8 mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-6">
                 <div>
                   <h3 className="font-bold text-lg mb-3 text-brand-red-600">Customer Information</h3>
                   <p>
@@ -1238,7 +1238,10 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                   <strong>Venue:</strong> {getHallDisplayName(event.hall_id, halls)}
                 </p>
                 <p>
-                  <strong>Seats:</strong> {bookingDetails.seats.join(", ")}
+                  <strong>Seats:</strong>{" "}
+                  {bookingDetails.seats
+                    .map((seatId: string) => (seatId.includes('-') ? seatId.split('-').pop() : seatId))
+                    .join(", ")}
                 </p>
                 <p>
                   <strong>Seat Type:</strong> {bookingDetails.seatType}
