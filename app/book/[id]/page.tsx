@@ -8,18 +8,10 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { Calendar, Clock, MapPin, Users, ArrowLeft, CreditCard, Shield, Sparkles, Star, Trophy, CheckCircle } from 'lucide-react'
+import { Calendar, Clock, MapPin, Users, ArrowLeft, CreditCard, Shield, Sparkles, Star, Trophy } from 'lucide-react'
 import Link from "next/link"
 import { useToast } from "@/components/ui/use-toast"
 import { format } from "date-fns"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { type Hall } from "@/types/hall" // Import the Hall type
 
 // Define types for event fetched from the database
@@ -188,7 +180,6 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     phone: "",
   })
   const [paymentMethod, setPaymentMethod] = useState("card")
-  const [bookingDetails, setBookingDetails] = useState<any>(null)
   const { toast } = useToast()
   const router = useRouter()
 
@@ -425,8 +416,9 @@ export default function BookingPage({ params }: { params: { id: string } }) {
         throw new Error(errorData.message || `Failed to update event seats: ${updateEventRes.statusText}`)
       }
 
-      setBookingDetails(confirmedBooking)
+      // Redirect to the new receipt page
       router.push(`/receipt/${confirmedBooking._id}`)
+
       setSelectedSeats([]) // Clear selected seats after booking
       setSelectedSeatType("")
       setCustomerInfo({ name: "", email: "", phone: "" })
@@ -836,10 +828,9 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                               {seat.id.split("-")[1]}
                             </button>
                           ))}
-                        </div>
                       </div>
                     </div>
-                  )
+                  </div>
                 ) : getHallType(event.hall_id, halls) === "vip" ? (
                   <div className="space-y-8">
                     {/* VIP Single Seats */}

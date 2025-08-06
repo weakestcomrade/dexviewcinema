@@ -30,13 +30,27 @@ export async function GET(request: Request) {
     const { db } = await connectToDatabase()
     const { searchParams } = new URL(request.url)
 
+    const id = searchParams.get("id") // New: Check for ID
     const email = searchParams.get("email")
     const name = searchParams.get("name")
     const phone = searchParams.get("phone")
 
     let query: any = {}
-    const orConditions = []
 
+    if (id) {
+      // If an ID is provided, fetch a single booking by ID
+      if (!ObjectId.isValid(id)) {
+        return NextResponse.json({ message: "Invalid booking ID format" }, { status: 400 })
+      }
+      const booking = await db.collection("bookings").findOne({ _id: new ObjectId(id) })
+      if (!booking) {
+        return NextResponse.json({ message: "Booking not found" }, { status: 404 })
+      }
+      return NextResponse.json({ ...booking, _id: booking._id.toString() })
+    }
+
+    // Existing logic for searching by email, name, phone
+    const orConditions = []
     if (email) {
       orConditions.push({ customerEmail: email })
     }
@@ -56,8 +70,6 @@ export async function GET(request: Request) {
     const serializableBookings = bookings.map((booking) => ({
       ...booking,
       _id: booking._id.toString(),
-      // Ensure eventId is string if it's ObjectId in DB, assuming it's stored as string for simplicity here
-      // If eventId is stored as ObjectId, you'd need: eventId: booking.eventId.toString(),
     }))
 
     return NextResponse.json(serializableBookings)
