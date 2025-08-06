@@ -21,7 +21,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { type Hall } from "@/types/hall" // Import the Hall type
-import { usePaystackPayment } from "@/hooks/usePaystackPayment" // Import the new hook
+import dynamic from 'next/dynamic'
+
+const usePaystackPayment = dynamic(() => import('@/hooks/usePaystackPayment').then((mod) => mod.usePaystackPayment), {
+  ssr: false,
+});
 
 // Define types for event fetched from the database
 interface Event {
@@ -721,7 +725,8 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                     </div>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 gap-6">
+                  // Standard Movie pricing (for hallA, hallB)
+                  <>
                     <div className="bg-glass-white p-4 rounded-3xl border border-cyber-green-500/30">
                       <div className="flex items-center gap-3 mb-3">
                         <Users className="w-6 h-6 text-cyber-green-400" />
@@ -738,7 +743,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                         /{event.pricing?.standardSingle?.count}
                       </p>
                     </div>
-                  </div>
+                  </>
                 )}
               </CardContent>
             </Card>
