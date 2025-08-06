@@ -187,9 +187,9 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     email: "",
     phone: "",
   })
-  const [paymentMethod, setPaymentMethod] = useState("card")
+  const [paymentMethod, setPaymentMethod] = useState("card") // Default to card, but Monnify handles this
   const [isBookingConfirmed, setIsBookingConfirmed] = useState(false)
-  const [bookingDetails, setBookingDetails] = useState<any>(null)
+  const [bookingDetails, setBookingDetails] = useState<any>(null) // This will be set by the webhook callback
   const { toast } = useToast()
   const router = useRouter()
 
@@ -274,7 +274,54 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     fetchAllData()
-  }, [fetchAllData])
+
+    // Check for Monnify callback parameters on page load
+    const urlParams = new URLSearchParams(window.location.search)
+    const status = urlParams.get("status")
+    const transactionReference = urlParams.get("transactionReference")
+
+    if (status === "monnify_callback" && transactionReference) {
+      // This means Monnify redirected back. The webhook should have handled the booking.
+      // We can now fetch the booking details to display the receipt.
+      const fetchBookingStatus = async () => {
+        try {
+          const res = await fetch(`/api/bookings?transactionReference=${transactionReference}`)
+          if (!res.ok) {
+            throw new Error("Failed to fetch booking details after payment.")
+          }
+          const bookings = await res.json()
+          const confirmedBooking = bookings.find((b: any) => b.transactionReference === transactionReference && b.status === "confirmed")
+
+          if (confirmedBooking) {
+            setBookingDetails(confirmedBooking)
+            setIsBookingConfirmed(true)
+            toast({
+              title: "Payment Successful!",
+              description: "Your booking has been confirmed.",
+            })
+            // Clear URL parameters to prevent re-triggering on refresh
+            router.replace(window.location.pathname, undefined)
+          } else {
+            toast({
+              title: "Payment Status Unknown",
+              description: "We are verifying your payment. Please check your bookings page later.",
+              variant: "destructive",
+            })
+            router.replace(window.location.pathname, undefined)
+          }
+        } catch (err) {
+          console.error("Error fetching booking after Monnify callback:", err)
+          toast({
+            title: "Error",
+            description: "Could not retrieve booking details. Please check your bookings page.",
+            variant: "destructive",
+          })
+          router.replace(window.location.pathname, undefined)
+        }
+      }
+      fetchBookingStatus()
+    }
+  }, [fetchAllData, router, toast])
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center text-white">Loading event details...</div>
@@ -378,70 +425,40 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     }
 
     try {
-      // 1. Create the booking record
-      const bookingData = {
-        customerName: customerInfo.name,
-        customerEmail: customerInfo.email,
-        customerPhone: customerInfo.phone,
-        eventId: event._id,
-        eventTitle: event.title,
-        eventType: event.event_type,
-        seats: selectedSeats,
-        seatType: selectedSeatType,
-        amount: totalAmount,
-        processingFee: processingFee,
-        totalAmount: finalAmount,
-        status: "confirmed",
-        bookingDate: format(new Date(), "yyyy-MM-dd"),
-        bookingTime: format(new Date(), "HH:mm"),
-        paymentMethod: paymentMethod,
-      }
-
-      const bookingRes = await fetch("/api/bookings", {
+      // Initiate Monnify payment
+      const initiatePaymentRes = await fetch("/api/monnify/initiate-payment", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(bookingData),
+        body: JSON.stringify({
+          customerName: customerInfo.name,
+          customerEmail: customerInfo.email,
+          customerPhone: customerInfo.phone,
+          eventId: event._id,
+          eventTitle: event.title,
+          eventType: event.event_type,
+          seats: selectedSeats,
+          seatType: selectedSeatType,
+          amount: totalAmount,
+          processingFee: processingFee,
+          totalAmount: finalAmount,
+        }),
       })
 
-      if (!bookingRes.ok) {
-        const errorData = await bookingRes.json()
-        throw new Error(errorData.message || `HTTP error! status: ${bookingRes.status}`)
+      if (!initiatePaymentRes.ok) {
+        const errorData = await initiatePaymentRes.json()
+        throw new Error(errorData.message || `Failed to initiate payment: ${initiatePaymentRes.statusText}`)
       }
 
-      const confirmedBooking = await bookingRes.json()
+      const { checkoutUrl } = await initiatePaymentRes.json()
 
-      // 2. Update the event's booked seats
-      const updateEventRes = await fetch(`/api/events/${event._id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ newBookedSeats: selectedSeats }),
-      })
-
-      if (!updateEventRes.ok) {
-        const errorData = await updateEventRes.json()
-        throw new Error(errorData.message || `Failed to update event seats: ${updateEventRes.statusText}`)
-      }
-
-      setBookingDetails(confirmedBooking)
-      setIsBookingConfirmed(true)
-      setSelectedSeats([]) // Clear selected seats after booking
-      setSelectedSeatType("")
-      setCustomerInfo({ name: "", email: "", phone: "" })
-      setPaymentMethod("card")
-      toast({
-        title: "Booking Confirmed!",
-        description: `Your booking for ${event.title} is successful.`,
-      })
-      // Re-fetch event data to update the UI with newly booked seats
-      await fetchAllData() // Call fetchAllData to re-fetch both event and halls
+      // Redirect user to Monnify checkout page
+      window.location.href = checkoutUrl
     } catch (error) {
-      console.error("Failed to book seats:", error)
+      console.error("Failed to initiate Monnify payment:", error)
       toast({
-        title: "Booking Failed",
+        title: "Payment Initiation Failed",
         description: (error as Error).message,
         variant: "destructive",
       })
