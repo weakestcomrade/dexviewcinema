@@ -282,9 +282,9 @@ const generateVipMatchSeats = (eventPricing: Event["pricing"], bookedSeats: stri
 }
 
 // Seat layout for Standard Hall A or Hall B matches (all single seats)
-const generateStandardMatchSeats = (eventPricing: Event["pricing"], hallId: string, bookedSeats: string[] = []) => {
+const generateStandardMatchSeats = (eventPricing: Event["pricing"], hallId: string, halls: Hall[], bookedSeats: string[] = []) => {
   const seats: Seat[] = []
-  const totalSeats = getHallTotalSeats(hallMappingArray, hallId) // Use hallMappingArray
+  const totalSeats = getHallTotalSeats(halls, hallId) // Use passed halls
   for (let i = 1; i <= totalSeats; i++) {
     const seatId = `${hallId.toUpperCase()}-${i}`
     seats.push({
@@ -298,10 +298,10 @@ const generateStandardMatchSeats = (eventPricing: Event["pricing"], hallId: stri
 }
 
 // Seat layout for movies based on hall type
-const generateMovieSeats = (eventPricing: Event["pricing"], hallId: string, bookedSeats: string[] = []) => {
+const generateMovieSeats = (eventPricing: Event["pricing"], hallId: string, halls: Hall[], bookedSeats: string[] = []) => {
   const seats: Seat[] = []
-  const hallType = getHallType(hallMappingArray, hallId) // Use hallMappingArray
-  const totalSeats = getHallTotalSeats(hallMappingArray, hallId) // Use hallMappingArray
+  const hallType = getHallType(halls, hallId) // Use passed halls
+  const totalSeats = getHallTotalSeats(halls, hallId) // Use passed halls
 
   if (hallType === "vip") {
     // VIP Movie Hall (20 single, 14 couple, 14 family)
@@ -711,15 +711,16 @@ export default function AdminDashboard() {
             generatedSeats = generateStandardMatchSeats(
               fullEventData.pricing,
               fullEventData.hall_id,
+              halls, // Pass halls here
               fullEventData.bookedSeats,
             )
           }
         } else {
           // Movie event
           if (getHallType(halls, fullEventData.hall_id) === "vip") {
-            generatedSeats = generateMovieSeats(fullEventData.pricing, fullEventData.hall_id, fullEventData.bookedSeats)
+            generatedSeats = generateMovieSeats(fullEventData.pricing, fullEventData.hall_id, halls, fullEventData.bookedSeats) // Pass halls here
           } else {
-            generatedSeats = generateMovieSeats(fullEventData.pricing, fullEventData.hall_id, fullEventData.bookedSeats)
+            generatedSeats = generateMovieSeats(fullEventData.pricing, fullEventData.hall_id, halls, fullEventData.bookedSeats) // Pass halls here
           }
         }
         setCurrentEventSeats(generatedSeats)
