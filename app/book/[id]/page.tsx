@@ -21,11 +21,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { type Hall } from "@/types/hall" // Import the Hall type
-import dynamic from 'next/dynamic'
-
-const usePaystackPayment = dynamic(() => import('@/hooks/usePaystackPayment').then((mod) => mod.usePaystackPayment), {
-  ssr: false,
-});
 
 // Define types for event fetched from the database
 interface Event {
@@ -192,7 +187,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     email: "",
     phone: "",
   })
-  const [paymentMethod, setPaymentMethod] = useState("card") // Default to card, but Paystack handles it
+  const [paymentMethod, setPaymentMethod] = useState("card")
   const [isBookingConfirmed, setIsBookingConfirmed] = useState(false)
   const [bookingDetails, setBookingDetails] = useState<any>(null)
   const { toast } = useToast()
@@ -363,107 +358,6 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   const processingFee = Math.round(totalAmount * 0.02) // 2% processing fee
   const finalAmount = totalAmount + processingFee
 
-  // Paystack configuration
-  const paystackConfig = {
-    key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || "", // Replace with your actual public key
-    email: customerInfo.email,
-    amount: finalAmount * 100, // Amount in kobo
-    ref: new Date().getTime().toString(), // Unique reference for the transaction
-    metadata: {
-      customerName: customerInfo.name,
-      customerPhone: customerInfo.phone,
-      eventId: event._id,
-      eventTitle: event.title,
-      seats: selectedSeats,
-    },
-    currency: "NGN", // Nigerian Naira
-    channels: ['card', 'bank_transfer', 'ussd', 'qr', 'mobile_money'], // Payment channels
-    onSuccess: async (response: any) => {
-      // Payment successful, now proceed with booking creation
-      console.log("Paystack Success Response:", response);
-      try {
-        const bookingData = {
-          customerName: customerInfo.name,
-          customerEmail: customerInfo.email,
-          customerPhone: customerInfo.phone,
-          eventId: event._id,
-          eventTitle: event.title,
-          eventType: event.event_type,
-          seats: selectedSeats,
-          seatType: selectedSeatType,
-          amount: totalAmount,
-          processingFee: processingFee,
-          totalAmount: finalAmount,
-          status: "confirmed",
-          bookingDate: format(new Date(), "yyyy-MM-dd"),
-          bookingTime: format(new Date(), "HH:mm"),
-          paymentMethod: "Paystack - " + response.channel, // Indicate payment method and channel
-          paystackReference: response.reference, // Store Paystack reference
-        }
-
-        const bookingRes = await fetch("/api/bookings", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(bookingData),
-        })
-
-        if (!bookingRes.ok) {
-          const errorData = await bookingRes.json()
-          throw new Error(errorData.message || `HTTP error! status: ${bookingRes.status}`)
-        }
-
-        const confirmedBooking = await bookingRes.json()
-
-        // 2. Update the event's booked seats
-        const updateEventRes = await fetch(`/api/events/${event._id}`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ newBookedSeats: selectedSeats }),
-        })
-
-        if (!updateEventRes.ok) {
-          const errorData = await updateEventRes.json()
-          throw new Error(errorData.message || `Failed to update event seats: ${updateEventRes.statusText}`)
-        }
-
-        setBookingDetails(confirmedBooking)
-        setIsBookingConfirmed(true)
-        setSelectedSeats([]) // Clear selected seats after booking
-        setSelectedSeatType("")
-        setCustomerInfo({ name: "", email: "", phone: "" })
-        setPaymentMethod("card")
-        toast({
-          title: "Booking Confirmed!",
-          description: `Your booking for ${event.title} is successful.`,
-        })
-        // Re-fetch event data to update the UI with newly booked seats
-        await fetchAllData() // Call fetchAllData to re-fetch both event and halls
-      } catch (error) {
-        console.error("Failed to book seats after Paystack success:", error)
-        toast({
-          title: "Booking Failed",
-          description: (error as Error).message,
-          variant: "destructive",
-        })
-      }
-    },
-    onClose: () => {
-      // User closed the payment modal
-      console.log("Paystack modal closed.");
-      toast({
-        title: "Payment Cancelled",
-        description: "You closed the payment window. Please try again.",
-        variant: "destructive",
-      });
-    },
-  };
-
-  const initializePayment = usePaystackPayment(paystackConfig);
-
   const handleBooking = async () => {
     if (selectedSeats.length === 0) {
       toast({
@@ -483,17 +377,75 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       return
     }
 
-    if (!process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY) {
-      toast({
-        title: "Payment Gateway Error",
-        description: "Paystack public key is not configured. Please contact support.",
-        variant: "destructive",
-      });
-      return;
-    }
+    try {
+      // 1. Create the booking record
+      const bookingData = {
+        customerName: customerInfo.name,
+        customerEmail: customerInfo.email,
+        customerPhone: customerInfo.phone,
+        eventId: event._id,
+        eventTitle: event.title,
+        eventType: event.event_type,
+        seats: selectedSeats,
+        seatType: selectedSeatType,
+        amount: totalAmount,
+        processingFee: processingFee,
+        totalAmount: finalAmount,
+        status: "confirmed",
+        bookingDate: format(new Date(), "yyyy-MM-dd"),
+        bookingTime: format(new Date(), "HH:mm"),
+        paymentMethod: paymentMethod,
+      }
 
-    // Initiate Paystack payment
-    initializePayment();
+      const bookingRes = await fetch("/api/bookings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(bookingData),
+      })
+
+      if (!bookingRes.ok) {
+        const errorData = await bookingRes.json()
+        throw new Error(errorData.message || `HTTP error! status: ${bookingRes.status}`)
+      }
+
+      const confirmedBooking = await bookingRes.json()
+
+      // 2. Update the event's booked seats
+      const updateEventRes = await fetch(`/api/events/${event._id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ newBookedSeats: selectedSeats }),
+      })
+
+      if (!updateEventRes.ok) {
+        const errorData = await updateEventRes.json()
+        throw new Error(errorData.message || `Failed to update event seats: ${updateEventRes.statusText}`)
+      }
+
+      setBookingDetails(confirmedBooking)
+      setIsBookingConfirmed(true)
+      setSelectedSeats([]) // Clear selected seats after booking
+      setSelectedSeatType("")
+      setCustomerInfo({ name: "", email: "", phone: "" })
+      setPaymentMethod("card")
+      toast({
+        title: "Booking Confirmed!",
+        description: `Your booking for ${event.title} is successful.`,
+      })
+      // Re-fetch event data to update the UI with newly booked seats
+      await fetchAllData() // Call fetchAllData to re-fetch both event and halls
+    } catch (error) {
+      console.error("Failed to book seats:", error)
+      toast({
+        title: "Booking Failed",
+        description: (error as Error).message,
+        variant: "destructive",
+      })
+    }
   }
 
   const getSeatTypeName = (type: string) => {
@@ -725,8 +677,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                     </div>
                   </div>
                 ) : (
-                  // Standard Movie pricing (for hallA, hallB)
-                  <>
+                  <div className="grid grid-cols-1 gap-6">
                     <div className="bg-glass-white p-4 rounded-3xl border border-cyber-green-500/30">
                       <div className="flex items-center gap-3 mb-3">
                         <Users className="w-6 h-6 text-cyber-green-400" />
@@ -743,7 +694,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                         /{event.pricing?.standardSingle?.count}
                       </p>
                     </div>
-                  </>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -1153,7 +1104,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 <Button
                   className="w-full bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 text-white shadow-glow-red rounded-3xl transform hover:scale-105 transition-all duration-300 group font-bold text-base sm:text-lg py-4 sm:py-6 h-auto"
                   onClick={handleBooking}
-                  disabled={selectedSeats.length === 0 || !customerInfo.name || !customerInfo.email || !customerInfo.phone}
+                  disabled={selectedSeats.length === 0}
                 >
                   <CreditCard className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3 group-hover:rotate-12 transition-transform" />
                   Proceed to Payment
@@ -1161,7 +1112,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 </Button>
 
                 <p className="text-xs text-cyber-slate-400 text-center leading-relaxed">
-                  Secure payment processing via Paystack • Receipt will be generated upon successful booking
+                  Secure payment processing • Receipt will be generated upon successful booking
                 </p>
               </CardContent>
             </Card>
