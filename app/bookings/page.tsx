@@ -1,13 +1,26 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useCallback } from "react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Input } from "@/components/ui/input"
+import { Separator } from "@/components/ui/separator"
+import {
+  Calendar,
+  Clock,
+  MapPin,
+  Film,
+  Trophy,
+  ArrowLeft,
+  Search,
+  Ticket,
+  Printer,
+  Eye,
+  Loader2,
+  XCircle,
+} from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -16,346 +29,352 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Search, Printer, CalendarIcon, Clock, MapPin } from "lucide-react"
-import Image from "next/image"
-import { useToast } from "@/components/ui/use-toast"
+import Image from "next/image" // Import Image component
 
+// Define a type for booking data as returned by /api/bookings
 interface Booking {
-  _id: string
+  _id: string // Changed from 'id' to '_id' to match MongoDB
   customerName: string
   customerEmail: string
   customerPhone: string
-  eventId: string
+  eventId: string // Added eventId
   eventTitle: string
-  eventType: "movie" | "match"
+  eventType: "match" | "movie"
   seats: string[]
   seatType: string
   amount: number
   processingFee: number
   totalAmount: number
   status: "confirmed" | "pending" | "cancelled"
-  bookingDate: string
-  bookingTime: string
+  bookingDate: string // This is the booking creation date
+  bookingTime: string // This is the booking creation time
   paymentMethod: string
   createdAt: string
   updatedAt: string
 }
 
-interface Event {
+// Define types for event and hall details
+interface EventDetails {
   _id: string
   title: string
-  event_type: "movie" | "match"
-  event_date: string
-  event_time: string
+  type: "movie" | "match"
+  date: string // Event date
+  time: string // Event time
   hall_id: string
+  // Add other event properties if needed for display
 }
 
-interface Hall {
+interface HallDetails {
   _id: string
   name: string
   capacity: number
   type: "vip" | "standard"
+  // Add other hall properties if needed for display
 }
 
-// Helper to get hall details from fetched halls array, with fallback to local mapping
-const hallMappingArray: Hall[] = [
-  { _id: "hallA", name: "Hall A", capacity: 48, type: "standard" },
-  { _id: "hallB", name: "Hall B", capacity: 60, type: "standard" },
-  { _id: "vip_hall", name: "VIP Hall", capacity: 22, type: "vip" },
-]
-
-const getHallDisplayName = (halls: Hall[], hallId: string) => {
-  const foundInFetched = halls.find((hall) => hall._id === hallId)
-  if (foundInFetched) return foundInFetched.name
-  return hallMappingArray.find((hall) => hall._id === hallId)?.name || hallId
+// Define a type for the full booking details including event and hall
+interface FullBookingDetails extends Booking {
+  eventDetails?: EventDetails
+  hallDetails?: HallDetails
 }
 
-export default function MyBookingsPage() {
-  const { toast } = useToast()
-  const [bookings, setBookings] = useState<Booking[]>([])
-  const [events, setEvents] = useState<Event[]>([]) // To get event details for filtering
-  const [halls, setHalls] = useState<Hall[]>([]) // To get hall names
-  const [searchEmail, setSearchEmail] = useState<string>("")
-  const [filterEventId, setFilterEventId] = useState<string>("all")
-  const [filteredBookings, setFilteredBookings] = useState<Booking[]>([])
-  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
+export default function BookingsPage() {
+  const [searchQuery, setSearchQuery] = useState("")
+  const [customerEmail, setCustomerEmail] = useState("")
+  const [fetchedBookings, setFetchedBookings] = useState<Booking[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [hasSearched, setHasSearched] = useState(false) // To show "No bookings found" only after a search
+  const [selectedBooking, setSelectedBooking] = useState<FullBookingDetails | null>(null)
   const [isReceiptOpen, setIsReceiptOpen] = useState(false)
+  const [isReceiptLoading, setIsReceiptLoading] = useState(false) // New state for receipt loading
+  const [receiptError, setReceiptError] = useState<string | null>(null) // New state for receipt error
 
-  const fetchEvents = useCallback(async () => {
-    try {
-      const res = await fetch("/api/events")
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`)
-      }
-      const data: Event[] = await res.json()
-      setEvents(data)
-    } catch (error) {
-      console.error("Failed to fetch events:", error)
-      toast({
-        title: "Error fetching events",
-        description: "Could not load event information.",
-        variant: "destructive",
-      })
-    }
-  }, [toast])
+  const fetchBookings = useCallback(async () => {
+    setIsLoading(true)
+    setHasSearched(true) // Mark that a search has been initiated
+    setFetchedBookings([]) // Clear previous results
 
-  const fetchHalls = useCallback(async () => {
-    try {
-      const res = await fetch("/api/halls")
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`)
-      }
-      const data: Hall[] = await res.json()
-      setHalls(data)
-    } catch (error) {
-      console.error("Failed to fetch halls:", error)
-      toast({
-        title: "Error fetching halls",
-        description: "Could not load hall information.",
-        variant: "destructive",
-      })
-    }
-  }, [toast])
-
-  useEffect(() => {
-    fetchEvents()
-    fetchHalls()
-  }, [fetchEvents, fetchHalls])
-
-  const handleSearchBookings = useCallback(async () => {
-    if (!searchEmail) {
-      setBookings([])
-      setFilteredBookings([])
-      toast({
-        title: "Email Required",
-        description: "Please enter your email address to find bookings.",
-        variant: "destructive",
-      })
-      return
-    }
+    const params = new URLSearchParams()
+    if (customerEmail) params.append("email", customerEmail)
 
     try {
-      const res = await fetch(`/api/bookings?customerEmail=${encodeURIComponent(searchEmail)}`)
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`)
+      const response = await fetch(`/api/bookings?${params.toString()}`)
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
       }
-      const data: Booking[] = await res.json()
-      setBookings(data)
-      setFilteredBookings(data) // Initialize filtered bookings with all fetched bookings
-      if (data.length === 0) {
-        toast({
-          title: "No Bookings Found",
-          description: "No bookings found for this email address.",
-          variant: "default",
-        })
-      } else {
-        toast({
-          title: "Bookings Found",
-          description: `${data.length} booking(s) found for ${searchEmail}.`,
-        })
-      }
+      const data: Booking[] = await response.json()
+      setFetchedBookings(data)
     } catch (error) {
       console.error("Failed to fetch bookings:", error)
-      toast({
-        title: "Error fetching bookings",
-        description: "Could not load your bookings. Please try again.",
-        variant: "destructive",
+      // Optionally, display an error message to the user
+    } finally {
+      setIsLoading(false)
+    }
+  }, [customerEmail])
+
+  // Filter fetched bookings based on the client-side search query
+  const displayedBookings = fetchedBookings.filter(
+    (booking) =>
+      (booking._id?.toLowerCase() || "").includes(searchQuery.toLowerCase()) || // Use _id
+      (booking.customerName?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
+      (booking.eventTitle?.toLowerCase() || "").includes(searchQuery.toLowerCase()),
+  )
+
+  const handleViewReceipt = useCallback(async (booking: Booking) => {
+    setSelectedBooking(null) // Clear previous selection
+    setIsReceiptLoading(true)
+    setReceiptError(null)
+    setIsReceiptOpen(true) // Open dialog immediately with loading state
+
+    try {
+      // Fetch event details
+      const eventRes = await fetch(`/api/events/${booking.eventId}`)
+      if (!eventRes.ok) {
+        throw new Error(`Failed to fetch event: ${eventRes.statusText}`)
+      }
+      const eventData: EventDetails = await eventRes.json()
+
+      // Fetch hall details
+      const hallRes = await fetch(`/api/halls/${eventData.hall_id}`)
+      if (!hallRes.ok) {
+        throw new Error(`Failed to fetch hall: ${hallRes.statusText}`)
+      }
+      const hallData: HallDetails = await hallRes.json()
+
+      setSelectedBooking({
+        ...booking,
+        eventDetails: eventData,
+        hallDetails: hallData,
       })
+    } catch (err) {
+      console.error("Error fetching full booking details:", err)
+      setReceiptError((err as Error).message)
+    } finally {
+      setIsReceiptLoading(false)
     }
-  }, [searchEmail, toast])
-
-  useEffect(() => {
-    // Apply filters whenever bookings, searchEmail, or filterEventId changes
-    let currentFiltered = bookings
-
-    if (searchEmail) {
-      currentFiltered = currentFiltered.filter((booking) =>
-        booking.customerEmail.toLowerCase().includes(searchEmail.toLowerCase()),
-      )
-    }
-
-    if (filterEventId !== "all") {
-      currentFiltered = currentFiltered.filter((booking) => booking.eventId === filterEventId)
-    }
-
-    setFilteredBookings(currentFiltered)
-  }, [bookings, searchEmail, filterEventId])
-
-  const handleViewReceipt = (booking: Booking) => {
-    setSelectedBooking(booking)
-    setIsReceiptOpen(true)
-  }
+  }, [])
 
   const printReceipt = () => {
-    window.print()
+    const printContent = document.getElementById("receipt-print-area")
+    if (printContent) {
+      const originalContents = document.body.innerHTML
+      const printArea = printContent.innerHTML
+
+      document.body.innerHTML = printArea
+      window.print()
+      document.body.innerHTML = originalContents
+      window.location.reload() // Reload to restore original page state
+    }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 text-white p-4 sm:p-8">
-      <div className="max-w-6xl mx-auto">
-        <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card rounded-4xl">
-          <CardHeader className="text-center pb-6">
-            <CardTitle className="text-white text-3xl font-bold bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
-              My Bookings
-            </CardTitle>
-            <CardDescription className="text-cyber-slate-300 text-lg">
-              Find and manage your cinema and sports event bookings.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-6 sm:p-8">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <div className="md:col-span-2 grid gap-2">
-                <Label htmlFor="email-search" className="text-cyber-slate-200">
-                  Your Email Address
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="email-search"
-                    type="email"
-                    value={searchEmail}
-                    onChange={(e) => setSearchEmail(e.target.value)}
-                    placeholder="Enter your email to find bookings..."
-                    className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl pl-9"
-                  />
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cyber-slate-400" />
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="event-filter" className="text-cyber-slate-200">
-                  Filter by Event
-                </Label>
-                <Select value={filterEventId} onValueChange={setFilterEventId}>
-                  <SelectTrigger className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl">
-                    <SelectValue placeholder="All Events" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-glass-dark-strong border-white/20 backdrop-blur-xl rounded-2xl">
-                    <SelectItem value="all">All Events</SelectItem>
-                    {events.map((event) => (
-                      <SelectItem key={event._id} value={event._id}>
-                        {event.title} ({getHallDisplayName(halls, event.hall_id)})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex justify-end mb-6">
-              <Button
-                onClick={handleSearchBookings}
-                className="bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 text-white rounded-2xl shadow-glow-red"
-              >
-                Find My Bookings
-              </Button>
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 relative overflow-hidden">
+      {/* Cyber-Glassmorphism background elements */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-brand-red-500/20 to-cyber-purple-500/20 rounded-full blur-3xl animate-float"></div>
+        <div className="absolute top-1/2 -left-40 w-80 h-80 bg-gradient-to-br from-cyber-blue-500/15 to-brand-red-500/15 rounded-full blur-3xl animate-float delay-1000"></div>
+        <div className="absolute -bottom-40 right-1/3 w-72 h-72 bg-gradient-to-br from-cyber-green-500/15 to-cyber-purple-500/15 rounded-full blur-3xl animate-float delay-2000"></div>
 
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-white/20">
-                    <TableHead className="text-cyber-slate-200 font-semibold">Booking ID</TableHead>
-                    <TableHead className="text-cyber-slate-200 font-semibold">Event</TableHead>
-                    <TableHead className="text-cyber-slate-200 font-semibold">Date & Time</TableHead>
-                    <TableHead className="text-cyber-slate-200 font-semibold">Seats</TableHead>
-                    <TableHead className="text-cyber-slate-200 font-semibold">Total Amount</TableHead>
-                    <TableHead className="text-cyber-slate-200 font-semibold">Status</TableHead>
-                    <TableHead className="text-cyber-slate-200 font-semibold">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredBookings.length > 0 ? (
-                    filteredBookings.map((booking) => (
-                      <TableRow key={booking._id} className="border-white/20 hover:bg-glass-white transition-colors">
-                        <TableCell className="font-medium text-white font-mono">{booking._id}</TableCell>
-                        <TableCell>
-                          <div className="text-cyber-slate-200">
-                            <div className="font-semibold">{booking.eventTitle}</div>
-                            <Badge
-                              variant="outline"
-                              className="text-xs bg-cyber-slate-500/20 text-cyber-slate-300 border-cyber-slate-500/30 rounded-xl mt-1"
-                            >
-                              {booking.eventType === "movie" ? "Movie" : "Sports Match"}
-                            </Badge>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2 text-sm text-cyber-slate-300">
-                            <CalendarIcon className="w-4 h-4 text-brand-red-400" />
-                            {new Date(booking.bookingDate).toLocaleDateString()}
-                            <Clock className="w-4 h-4 ml-2 text-brand-red-400" />
-                            {booking.bookingTime}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="space-y-1">
-                            <div className="flex gap-1 flex-wrap">
-                              {booking.seats.map((seat) => (
-                                <Badge
-                                  key={seat}
-                                  variant="outline"
-                                  className="text-xs bg-brand-red-500/20 text-brand-red-300 border-brand-red-500/30 rounded-2xl"
-                                >
-                                  {seat}
-                                </Badge>
-                              ))}
-                            </div>
-                            <div className="text-xs text-cyber-slate-400">{booking.seatType}</div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-semibold text-white">
-                          ₦{booking.totalAmount.toLocaleString()}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={booking.status === "confirmed" ? "default" : "secondary"}
-                            className={
-                              booking.status === "confirmed"
-                                ? "bg-cyber-green-500/30 text-cyber-green-300 border-cyber-green-500/50 rounded-2xl"
-                                : "bg-cyber-yellow-500/30 text-cyber-yellow-300 border-cyber-yellow-500/50 rounded-2xl"
-                            }
-                          >
-                            {booking.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleViewReceipt(booking)}
-                            className="border-cyber-green-500/50 text-cyber-green-400 hover:bg-cyber-green-500/20 bg-transparent backdrop-blur-sm rounded-2xl"
-                          >
-                            <Printer className="w-4 h-4 mr-2" />
-                            View/Print Receipt
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center text-cyber-slate-400 py-8">
-                        Enter your email and click "Find My Bookings" to see your reservations.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+        <div className="absolute top-20 right-20 w-32 h-32 border border-brand-red-500/20 rotate-45 animate-spin-slow"></div>
+        <div className="absolute bottom-40 left-20 w-24 h-24 border border-cyber-blue-500/30 rotate-12 animate-bounce-slow"></div>
+        <div className="absolute top-1/3 left-1/3 w-16 h-16 border border-cyber-purple-500/20 rounded-full animate-pulse-slow"></div>
+      </div>
+
+      {/* Header with glassmorphism */}
+      <header className="relative backdrop-blur-xl bg-glass-white border-b border-white/10 shadow-cyber-card z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center h-20">
+            <Link href="/">
+              <Button variant="ghost" size="sm" className="mr-4 text-cyber-slate-300 hover:bg-glass-white group">
+                <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
+                Back to Home
+              </Button>
+            </Link>
+            <div>
+              <h1 className="text-xl font-bold bg-gradient-to-r from-white via-brand-red-300 to-white bg-clip-text text-transparent">
+                My Bookings
+              </h1>
+              <p className="text-sm text-brand-red-400 font-medium">View and manage your event tickets</p>
             </div>
-          </CardContent>
+          </div>
+        </div>
+      </header>
+
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Section to find bookings by customer details */}
+        <Card className="mb-8 bg-glass-white-strong backdrop-blur-xl shadow-cyber-card border border-white/20 rounded-3xl p-6">
+          <CardTitle className="text-white text-xl font-bold mb-4">Find My Bookings</CardTitle>
+          <CardDescription className="text-cyber-slate-300 mb-4">
+            Enter your email to retrieve your bookings.
+          </CardDescription>
+          <div className="grid grid-cols-1 gap-4 mb-4">
+            <Input
+              type="email"
+              placeholder="Your Email"
+              value={customerEmail}
+              onChange={(e) => setCustomerEmail(e.target.value)}
+              className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-400 focus:ring-brand-red-400 shadow-cyber-card"
+            />
+          </div>
+          <Button
+            onClick={fetchBookings}
+            disabled={isLoading || !customerEmail}
+            className="w-full bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 text-white rounded-2xl shadow-cyber-card"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Searching...
+              </>
+            ) : (
+              "Search My Bookings"
+            )}
+          </Button>
+          {/* Security Note: In a real application, fetching bookings by email/name/phone without authentication
+              is a security risk. This implementation assumes a future authentication system where the user
+              is verified before accessing their bookings. */}
         </Card>
+
+        {/* Existing search bar for client-side filtering of fetched results */}
+        <div className="mb-8">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-cyber-slate-400" />
+            <Input
+              type="text"
+              placeholder="Filter results by booking ID, customer name, or event title..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 rounded-2xl bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-400 focus:ring-brand-red-400 shadow-cyber-card"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {isLoading && (
+            <div className="col-span-full text-center text-cyber-slate-400 text-lg py-10 flex items-center justify-center">
+              <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+              Loading bookings...
+            </div>
+          )}
+          {!isLoading && hasSearched && displayedBookings.length === 0 ? (
+            <div className="col-span-full text-center text-cyber-slate-400 text-lg py-10">
+              No bookings found matching your search criteria.
+            </div>
+          ) : (
+            displayedBookings.map((booking) => (
+              <Card
+                key={booking._id} // Use _id
+                className="bg-glass-white-strong backdrop-blur-xl shadow-cyber-card hover:shadow-cyber-hover transition-all duration-300 border border-white/20 group relative overflow-hidden rounded-3xl"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-brand-red-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl"></div>
+                <CardContent className="p-6 relative z-10">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <CardTitle className="text-xl font-bold text-white leading-tight mb-1">
+                        {booking.eventTitle}
+                      </CardTitle>
+                      <CardDescription className="text-cyber-slate-300 text-sm">
+                        Booking ID: <span className="font-mono text-brand-red-300">{booking._id}</span> {/* Use _id */}
+                      </CardDescription>
+                    </div>
+                    <Badge
+                      className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                        booking.eventType === "match"
+                          ? "bg-brand-red-500/30 text-brand-red-300 border-brand-red-500/50"
+                          : "bg-cyber-blue-500/30 text-cyber-blue-300 border-cyber-blue-500/50"
+                      }`}
+                    >
+                      {booking.eventType === "match" ? (
+                        <Trophy className="w-3 h-3 mr-1" />
+                      ) : (
+                        <Film className="w-3 h-3 mr-1" />
+                      )}
+                      {booking.eventType}
+                    </Badge>
+                  </div>
+
+                  <Separator className="my-4 bg-white/20" />
+
+                  <div className="grid grid-cols-2 gap-3 text-sm text-cyber-slate-400 mb-4">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-brand-red-400" />
+                      {/* Display booking date, not event date here */}
+                      {new Date(booking.bookingDate).toLocaleDateString()}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-brand-red-400" />
+                      {/* Display booking time, not event time here */}
+                      {booking.bookingTime}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-brand-red-400" />
+                      {/* Hall name is not available in initial fetch, will be "N/A" */}
+                      N/A
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Ticket className="w-4 h-4 text-brand-red-400" />
+                      {booking.seats.join(", ")} ({booking.seatType})
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center mt-6">
+                    <span className="text-2xl font-bold bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
+                      ₦{booking.totalAmount.toLocaleString()}
+                    </span>
+                    <div className="flex gap-2">
+                      <Badge
+                        className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                          booking.status === "confirmed"
+                            ? "bg-cyber-green-500/30 text-cyber-green-300 border-cyber-green-500/50"
+                            : "bg-cyber-yellow-500/30 text-cyber-yellow-300 border-cyber-yellow-500/50"
+                        }`}
+                      >
+                        {booking.status}
+                      </Badge>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleViewReceipt(booking)}
+                        className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
       </div>
 
       {/* Receipt Dialog */}
       <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
-        <DialogContent className="sm:max-w-[600px] bg-glass-dark-strong backdrop-blur-xl border border-white/20 text-white shadow-cyber-hover rounded-4xl print:shadow-none print:border-none print:bg-transparent print:text-inherit">
-          <DialogHeader>
-            <DialogTitle className="text-white text-xl font-bold bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent print:text-black print:bg-none print:text-inherit">
+        <DialogContent className="sm:max-w-[600px] bg-glass-dark-strong backdrop-blur-xl border border-white/20 text-white shadow-cyber-hover rounded-4xl print:shadow-none print:border-none print:bg-white print:text-black">
+          <DialogHeader className="print:hidden">
+            <DialogTitle className="text-white text-xl font-bold bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
               Booking Receipt
             </DialogTitle>
-            <DialogDescription className="text-cyber-slate-300 print:text-gray-600">
-              Your booking details for printing.
+            <DialogDescription className="text-cyber-slate-300">
+              Customer booking receipt ready for printing
             </DialogDescription>
           </DialogHeader>
-          {selectedBooking && (
-            <div className="receipt-content bg-white text-black p-8 rounded-lg mx-4" id="receipt">
+          {isReceiptLoading ? (
+            <div className="flex flex-col items-center justify-center py-10 text-cyber-slate-300">
+              <Loader2 className="mr-2 h-8 w-8 animate-spin mb-4" />
+              <p>Loading receipt details...</p>
+            </div>
+          ) : receiptError ? (
+            <div className="flex flex-col items-center justify-center py-10 text-brand-red-500">
+              <XCircle className="w-16 h-16 mb-4" />
+              <h1 className="text-2xl font-bold mb-2">Error Loading Receipt</h1>
+              <p className="text-lg text-center">{receiptError}</p>
+            </div>
+          ) : selectedBooking ? (
+            <div
+              className="receipt-content bg-white text-black p-8 rounded-lg shadow-md print:shadow-none print:p-0 print:rounded-none"
+              id="receipt-print-area"
+            >
               <div className="text-center mb-6">
                 <Image
                   src="/dexcinema-logo.jpeg"
@@ -369,7 +388,7 @@ export default function MyBookingsPage() {
                 <div className="border-b-2 border-brand-red-600 mt-4"></div>
               </div>
 
-              <div className="grid grid-cols-2 gap-8 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
                 <div>
                   <h3 className="font-bold text-lg mb-3 text-brand-red-600">Customer Information</h3>
                   <p>
@@ -396,35 +415,53 @@ export default function MyBookingsPage() {
                   <p>
                     <strong>Payment:</strong> {selectedBooking.paymentMethod}
                   </p>
+                  <p>
+                    <strong>Status:</strong>{" "}
+                    <span
+                      className={`font-semibold ${selectedBooking.status === "confirmed" ? "text-green-600" : "text-yellow-600"}`}
+                    >
+                      {selectedBooking.status.toUpperCase()}
+                    </span>
+                  </p>
                 </div>
               </div>
 
               <div className="mb-6">
                 <h3 className="font-bold text-lg mb-3 text-brand-red-600">Event Information</h3>
-                <p>
-                  <strong>Event:</strong> {selectedBooking.eventTitle}
-                </p>
-                <p>
-                  <strong>Type:</strong> {selectedBooking.eventType === "match" ? "Sports Match" : "Movie"}
-                </p>
-                <p>
-                  <strong>Seats:</strong>{" "}
-                  {selectedBooking.seats.map((seat, index) => (
-                    <Badge
-                      key={seat}
-                      variant="outline"
-                      className="text-xs bg-brand-red-500/20 text-brand-red-300 border-brand-red-500/30 rounded-2xl mr-1 print:bg-gray-100 print:text-gray-800 print:border-gray-300"
-                    >
-                      {seat}
-                    </Badge>
-                  ))}
-                </p>
-                <p>
-                  <strong>Seat Type:</strong> {selectedBooking.seatType}
-                </p>
                 <p className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-brand-red-500" />
-                  <strong>Venue:</strong> {getHallDisplayName(halls, selectedBooking.eventId)}
+                  <Ticket className="w-5 h-5 text-brand-red-500" />
+                  <strong>Event:</strong> {selectedBooking.eventTitle} (
+                  {selectedBooking.eventType === "match" ? "Sports Match" : "Movie"})
+                </p>
+                <p className="flex items-center gap-2 mt-2">
+                  <MapPin className="w-5 h-5 text-brand-red-500" />
+                  <strong>Venue:</strong> {selectedBooking.hallDetails?.name || "N/A"}
+                </p>
+                <p className="flex items-center gap-2 mt-2">
+                  <Ticket className="w-5 h-5 text-brand-red-500" />
+                  <strong>Seats:</strong>{" "}
+                  {selectedBooking.seats
+                    .map((seatId) => {
+                      // For standard seats (e.g., "HALLA-1", "HALLB-1"), extract just the number
+                      if (seatId.includes("-")) {
+                        return seatId.split("-")[1]
+                      }
+                      // For VIP movie seats (S1, C1, F1) or VIP match seats (S1, A1, B1), keep as is
+                      return seatId
+                    })
+                    .join(", ")}{" "}
+                  ({selectedBooking.seatType})
+                </p>
+                <p className="flex items-center gap-2 mt-2">
+                  <Calendar className="w-5 h-5 text-brand-red-500" />
+                  <strong>Event Date:</strong>{" "}
+                  {selectedBooking.eventDetails?.date
+                    ? new Date(selectedBooking.eventDetails.date).toLocaleDateString()
+                    : "N/A"}
+                </p>
+                <p className="flex items-center gap-2 mt-2">
+                  <Clock className="w-5 h-5 text-brand-red-500" />
+                  <strong>Event Time:</strong> {selectedBooking.eventDetails?.time || "N/A"}
                 </p>
               </div>
 
@@ -436,7 +473,7 @@ export default function MyBookingsPage() {
                 </div>
                 <div className="flex justify-between mb-2">
                   <span>Processing Fee:</span>
-                  <span>₦{selectedBooking.processingFee}</span>
+                  <span>₦{selectedBooking.processingFee.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between font-bold text-lg border-t border-gray-300 pt-2">
                   <span>Total Amount:</span>
@@ -446,22 +483,23 @@ export default function MyBookingsPage() {
 
               <div className="text-center text-sm text-gray-500 border-t border-gray-300 pt-4">
                 <p>Thank you for choosing Dex View Cinema!</p>
-                <p>For support, visit us at support@dexviewcinema.com or call 08139614950</p>
+                <p>For support, email us at support@dexviewcinema.com or call 08139614950</p>
                 <p className="mt-2">Developed by SydaTech - www.sydatech.com.ng</p>
               </div>
             </div>
-          )}
-          <DialogFooter>
+          ) : null}
+          <DialogFooter className="print:hidden">
             <Button
               variant="outline"
               onClick={() => setIsReceiptOpen(false)}
-              className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl print:hidden"
+              className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl"
             >
               Close
             </Button>
             <Button
               onClick={printReceipt}
-              className="bg-gradient-to-r from-cyber-green-500 via-cyber-green-600 to-cyber-green-700 hover:from-cyber-green-600 hover:via-cyber-green-700 hover:to-cyber-green-800 text-white rounded-2xl shadow-glow-green"
+              disabled={isReceiptLoading || !selectedBooking}
+              className="bg-gradient-to-r from-cyber-green-500 via-cyber-green-600 to-cyber-green-700 hover:from-cyber-green-600 hover:via-cyber-green-700 hover:to-cyber-green-800 text-white rounded-2xl"
             >
               <Printer className="w-4 h-4 mr-2" />
               Print Receipt
@@ -471,7 +509,7 @@ export default function MyBookingsPage() {
       </Dialog>
 
       {/* Footer */}
-      <footer className="bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 text-white py-12 relative overflow-hidden border-t border-white/10 mt-8 print:hidden">
+      <footer className="bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 text-white py-12 relative overflow-hidden border-t border-white/10 mt-20">
         <div className="absolute inset-0 bg-gradient-to-r from-brand-red-900/10 via-transparent to-brand-red-900/10"></div>
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-500"></div>
 
@@ -501,38 +539,27 @@ export default function MyBookingsPage() {
           body * {
             visibility: hidden;
           }
-          #receipt, #receipt * {
+          #receipt-print-area, #receipt-print-area * {
             visibility: visible;
-            color: inherit;
-            background-color: inherit;
-            background-image: none;
-            box-shadow: none;
-            border-color: #ccc;
+            color: #000 !important;
+            background-color: #fff !important;
+            box-shadow: none !important;
+            border-color: #ccc !important;
+            background-image: none !important;
           }
-          #receipt {
+          #receipt-print-area {
             position: absolute;
             left: 0;
             top: 0;
             width: 100%;
-            padding: 20px;
-            box-sizing: border-box;
+            padding: 20px; /* Add padding for print layout */
           }
-          /* Ensure text colors are readable on print */
-          #receipt .text-black,
-          #receipt .text-gray-600,
-          #receipt .text-gray-500,
-          #receipt .text-brand-red-600 {
-            color: #000 !important;
+          /* Ensure images are visible */
+          #receipt-print-area img {
+            display: block !important;
+            visibility: visible !important;
           }
-          /* Specific overrides for elements within the receipt content */
-          #receipt .bg-brand-red-500\/20,
-          #receipt .text-brand-red-300,
-          #receipt .border-brand-red-500\/30 {
-            background-color: #f0f0f0 !important;
-            color: #333333 !important;
-            border-color: #cccccc !important;
-          }
-          /* Hide buttons and interactive elements in print */
+          /* Hide buttons and non-receipt elements */
           .print\\:hidden {
             display: none !important;
           }
