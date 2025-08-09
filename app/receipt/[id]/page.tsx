@@ -31,16 +31,6 @@ interface Booking {
   updatedAt: string
 }
 
-interface EventDetails {
-  // Added for clarity, though not directly used in this file's fetch
-  _id: string
-  title: string
-  event_type: "movie" | "match"
-  event_date: string // Corrected field name
-  event_time: string // Corrected field name
-  hall_id: string
-}
-
 interface Hall {
   _id: string
   name: string
@@ -52,7 +42,6 @@ export default function ReceiptPage() {
   const { id } = useParams()
   const [booking, setBooking] = useState<Booking | null>(null)
   const [hall, setHall] = useState<Hall | null>(null)
-  const [eventDetails, setEventDetails] = useState<EventDetails | null>(null) // State for event details
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
@@ -73,24 +62,20 @@ export default function ReceiptPage() {
         const bookingData: Booking = await bookingRes.json()
         setBooking(bookingData)
 
-        // Fetch event details using eventId from booking
+        // Fetch hall details using eventId from booking
         if (bookingData.eventId) {
           const eventRes = await fetch(`/api/events/${bookingData.eventId}`)
           if (!eventRes.ok) {
             throw new Error(`Failed to fetch event for hall: ${eventRes.statusText}`)
           }
-          const eventData: EventDetails = await eventRes.json() // Cast to EventDetails
-          setEventDetails(eventData) // Set event details
+          const eventData = await eventRes.json()
 
-          // Fetch hall details using hall_id from eventData
-          if (eventData.hall_id) {
-            const hallRes = await fetch(`/api/halls/${eventData.hall_id}`)
-            if (!hallRes.ok) {
-              throw new Error(`Failed to fetch hall: ${hallRes.statusText}`)
-            }
-            const hallData: Hall = await hallRes.json()
-            setHall(hallData)
+          const hallRes = await fetch(`/api/halls/${eventData.hall_id}`)
+          if (!hallRes.ok) {
+            throw new Error(`Failed to fetch hall: ${hallRes.statusText}`)
           }
+          const hallData: Hall = await hallRes.json()
+          setHall(hallData)
         }
       } catch (err) {
         console.error("Error fetching data:", err)
@@ -248,12 +233,11 @@ export default function ReceiptPage() {
               </p>
               <p className="flex items-center gap-2 mt-2">
                 <CalendarIcon className="w-5 h-5 text-brand-red-500" />
-                <strong>Event Date:</strong>{" "}
-                {eventDetails?.event_date ? new Date(eventDetails.event_date).toLocaleDateString() : "N/A"}
+                <strong>Event Date:</strong> {new Date(booking.bookingDate).toLocaleDateString()}
               </p>
               <p className="flex items-center gap-2 mt-2">
                 <Clock className="w-5 h-5 text-brand-red-500" />
-                <strong>Event Time:</strong> {eventDetails?.event_time || "N/A"}
+                <strong>Event Time:</strong> {booking.bookingTime}
               </p>
             </div>
 

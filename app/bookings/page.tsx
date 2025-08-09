@@ -57,9 +57,9 @@ interface Booking {
 interface EventDetails {
   _id: string
   title: string
-  event_type: "movie" | "match" // Corrected field name
-  event_date: string // Corrected field name
-  event_time: string // Corrected field name
+  type: "movie" | "match"
+  date: string // Event date
+  time: string // Event time
   hall_id: string
   // Add other event properties if needed for display
 }
@@ -455,14 +455,13 @@ export default function BookingsPage() {
                 <p className="flex items-center gap-2 mt-2">
                   <Calendar className="w-5 h-5 text-brand-red-500" />
                   <strong>Event Date:</strong>{" "}
-                  {selectedBooking.eventDetails?.event_date // Corrected field name
-                    ? new Date(selectedBooking.eventDetails.event_date).toLocaleDateString()
+                  {selectedBooking.eventDetails?.date
+                    ? new Date(selectedBooking.eventDetails.date).toLocaleDateString()
                     : "N/A"}
                 </p>
                 <p className="flex items-center gap-2 mt-2">
                   <Clock className="w-5 h-5 text-brand-red-500" />
-                  <strong>Event Time:</strong> {selectedBooking.eventDetails?.event_time || "N/A"}{" "}
-                  {/* Corrected field name */}
+                  <strong>Event Time:</strong> {selectedBooking.eventDetails?.time || "N/A"}
                 </p>
               </div>
 
