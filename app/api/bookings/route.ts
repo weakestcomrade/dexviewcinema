@@ -33,7 +33,7 @@ export async function GET(request: Request) {
     const email = searchParams.get("email")
     const name = searchParams.get("name")
     const phone = searchParams.get("phone")
-    const id = searchParams.get("id") // New: Get ID for specific booking lookup
+    // Removed: const id = searchParams.get("id") as this is now handled by [id]/route.ts
 
     let query: any = {}
     const orConditions = []
@@ -47,9 +47,9 @@ export async function GET(request: Request) {
     if (phone) {
       orConditions.push({ customerPhone: phone })
     }
-    if (id) { // If ID is provided, prioritize fetching by ID
-      query = { _id: new ObjectId(id) }
-    } else if (orConditions.length > 0) {
+    // Removed: if (id) { ... } else if (orConditions.length > 0) { ... }
+    // Now, if any search params are present, use them for filtering
+    if (orConditions.length > 0) {
       query = { $or: orConditions }
     }
 
