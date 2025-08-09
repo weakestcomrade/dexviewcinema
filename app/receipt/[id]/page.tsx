@@ -1,21 +1,23 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import { notFound } from "next/navigation"
-import Link from "next/link"
+import { useEffect, useState } from "react"
+import { useParams } from "next/navigation"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Printer, ArrowLeft, Loader2 } from 'lucide-react'
-import { format } from "date-fns"
+import { Printer, XCircle, CalendarIcon, Clock, MapPin, Ticket } from "lucide-react"
+import Image from "next/image"
+import { useToast } from "@/components/ui/use-toast"
+import Link from "next/link"
+import { Loader2 } from "lucide-react"
 
-// Define a type for booking data
 interface Booking {
   _id: string
   customerName: string
   customerEmail: string
   customerPhone: string
-  eventId: string // This is the event's _id
+  eventId: string
   eventTitle: string
-  eventType: "match" | "movie"
+  eventType: "movie" | "match"
   seats: string[]
   seatType: string
   amount: number
@@ -29,86 +31,71 @@ interface Booking {
   updatedAt: string
 }
 
-// Define a type for hall data (needed for getHallDisplayName)
 interface Hall {
   _id: string
   name: string
-  type: "vip" | "standard"
   capacity: number
-  // Add other hall properties if necessary
+  type: "vip" | "standard"
 }
 
-// Define types for event fetched from the database (minimal for receipt)
-interface Event {
-  _id: string
-  hall_id: string // The ID of the hall where the event is held
-  // Add other event properties if necessary for display, e.g., title, date, time
-}
-
-export default function ReceiptPage({ params }: { params: { id: string } }) {
+export default function ReceiptPage() {
+  const { id } = useParams()
   const [booking, setBooking] = useState<Booking | null>(null)
-  const [event, setEvent] = useState<Event | null>(null) // State to store event details
-  const [halls, setHalls] = useState<Hall[]>([])
+  const [hall, setHall] = useState<Hall | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
-  const bookingId = params.id
-
-  const fetchBookingEventAndHalls = useCallback(async () => {
-    try {
-      setLoading(true)
-      setError(null)
-
-      // 1. Fetch halls first
-      const hallsRes = await fetch("/api/halls")
-      if (!hallsRes.ok) {
-        throw new Error(`Failed to fetch halls: ${hallsRes.statusText}`)
-      }
-      const allHalls: Hall[] = await hallsRes.json()
-      setHalls(allHalls)
-
-      // 2. Fetch booking details
-      const bookingRes = await fetch(`/api/bookings?id=${bookingId}`)
-      if (!bookingRes.ok) {
-        if (bookingRes.status === 404) {
-          notFound()
-        }
-        throw new Error(`HTTP error! status: ${bookingRes.status}`)
-      }
-      const bookingData: Booking[] = await bookingRes.json()
-      if (bookingData.length === 0) {
-        notFound() // If no booking found for the ID
-      }
-      const fetchedBooking = bookingData[0]
-      setBooking(fetchedBooking)
-
-      // 3. Fetch event details using eventId from the fetched booking
-      const eventRes = await fetch(`/api/events/${fetchedBooking.eventId}`)
-      if (!eventRes.ok) {
-        throw new Error(`Failed to fetch event details: ${eventRes.statusText}`)
-      }
-      const eventData: Event = await eventRes.json()
-      setEvent(eventData)
-
-    } catch (err) {
-      setError((err as Error).message)
-    } finally {
-      setLoading(false)
-    }
-  }, [bookingId])
+  const { toast } = useToast()
 
   useEffect(() => {
-    fetchBookingEventAndHalls()
-  }, [fetchBookingEventAndHalls])
+    const fetchBookingAndHall = async () => {
+      if (!id) return
 
-  const printReceipt = () => {
+      try {
+        setLoading(true)
+        setError(null)
+
+        // Fetch booking details
+        const bookingRes = await fetch(`/api/bookings/${id}`)
+        if (!bookingRes.ok) {
+          throw new Error(`Failed to fetch booking: ${bookingRes.statusText}`)
+        }
+        const bookingData: Booking = await bookingRes.json()
+        setBooking(bookingData)
+
+        // Fetch hall details using eventId from booking
+        if (bookingData.eventId) {
+          const eventRes = await fetch(`/api/events/${bookingData.eventId}`)
+          if (!eventRes.ok) {
+            throw new Error(`Failed to fetch event for hall: ${eventRes.statusText}`)
+          }
+          const eventData = await eventRes.json()
+
+          const hallRes = await fetch(`/api/halls/${eventData.hall_id}`)
+          if (!hallRes.ok) {
+            throw new Error(`Failed to fetch hall: ${hallRes.statusText}`)
+          }
+          const hallData: Hall = await hallRes.json()
+          setHall(hallData)
+        }
+      } catch (err) {
+        console.error("Error fetching data:", err)
+        setError((err as Error).message)
+        toast({
+          title: "Error loading receipt",
+          description: (err as Error).message,
+          variant: "destructive",
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchBookingAndHall()
+  }, [id, toast])
+
+  const handlePrint = () => {
     window.print()
   }
-
-  const getHallDisplayName = (hallId: string, allHalls: Hall[]) => {
-    const hall = allHalls.find(h => h._id === hallId);
-    return hall ? hall.name : hallId;
-  };
 
   if (loading) {
     return (
@@ -121,197 +108,198 @@ export default function ReceiptPage({ params }: { params: { id: string } }) {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 text-red-500">
-        Error: {error}
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 text-white p-4">
+        <XCircle className="w-16 h-16 text-brand-red-500 mb-4" />
+        <h1 className="text-2xl font-bold mb-2">Error Loading Receipt</h1>
+        <p className="text-lg text-cyber-slate-300 text-center">{error}</p>
+        <Button
+          onClick={() => window.history.back()}
+          className="mt-6 bg-brand-red-500 hover:bg-brand-red-600 text-white rounded-2xl"
+        >
+          Go Back
+        </Button>
       </div>
     )
   }
 
-  if (!booking || !event || halls.length === 0) {
+  if (!booking) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 text-white">
-        Booking, Event, or Hall data not found.
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 text-white p-4">
+        <XCircle className="w-16 h-16 text-brand-red-500 mb-4" />
+        <h1 className="text-2xl font-bold mb-2">Booking Not Found</h1>
+        <p className="text-lg text-cyber-slate-300 text-center">The requested booking could not be found.</p>
+        <Button
+          onClick={() => window.history.back()}
+          className="mt-6 bg-brand-red-500 hover:bg-brand-red-600 text-white rounded-2xl"
+        >
+          Go Back
+        </Button>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 relative overflow-hidden flex flex-col items-center py-8">
-      {/* Cyber-Glassmorphism background elements */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-brand-red-500/20 to-cyber-purple-500/20 rounded-full blur-3xl animate-float"></div>
-        <div className="absolute top-1/2 -left-40 w-80 h-80 bg-gradient-to-br from-cyber-blue-500/15 to-brand-red-500/15 rounded-full blur-3xl animate-float delay-1000"></div>
-        <div className="absolute -bottom-40 right-1/3 w-72 h-72 bg-gradient-to-br from-cyber-green-500/15 to-cyber-purple-500/15 rounded-full blur-3xl animate-float delay-2000"></div>
+    <div className="min-h-screen bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 flex items-center justify-center p-4 sm:p-6 lg:p-8">
+      <Card className="w-full max-w-3xl bg-glass-dark-strong backdrop-blur-xl border border-white/20 text-white shadow-cyber-hover rounded-4xl print:shadow-none print:border-none print:bg-white print:text-black">
+        <CardHeader className="text-center pb-6 print:hidden">
+          <CardTitle className="text-white text-3xl font-bold bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent mb-2">
+            Booking Receipt
+          </CardTitle>
+          <CardDescription className="text-cyber-slate-300 text-lg">
+            Your booking details are confirmed!
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-6 sm:p-8">
+          <div
+            className="receipt-content bg-white text-black p-8 rounded-lg shadow-md print:shadow-none print:p-0 print:rounded-none"
+            id="receipt-print-area"
+          >
+            <div className="text-center mb-6">
+              <Image
+                src="/dexcinema-logo.jpeg"
+                alt="Dex View Cinema Logo"
+                width={150}
+                height={150}
+                className="mx-auto mb-4"
+              />
+              <h1 className="text-3xl font-bold text-brand-red-600 mb-2">Dex View Cinema</h1>
+              <p className="text-gray-600">Premium Entertainment Experience</p>
+              <div className="border-b-2 border-brand-red-600 mt-4"></div>
+            </div>
 
-        <div className="absolute top-20 right-20 w-32 h-32 border border-brand-red-500/20 rotate-45 animate-spin-slow"></div>
-        <div className="absolute bottom-40 left-20 w-24 h-24 border border-cyber-blue-500/30 rotate-12 animate-bounce-slow"></div>
-        <div className="absolute top-1/3 left-1/3 w-16 h-16 border border-cyber-purple-500/20 rounded-full animate-pulse-slow"></div>
-      </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
+              <div>
+                <h3 className="font-bold text-lg mb-3 text-brand-red-600">Customer Information</h3>
+                <p>
+                  <strong>Name:</strong> {booking.customerName}
+                </p>
+                <p>
+                  <strong>Email:</strong> {booking.customerEmail}
+                </p>
+                <p>
+                  <strong>Phone:</strong> {booking.customerPhone}
+                </p>
+              </div>
+              <div>
+                <h3 className="font-bold text-lg mb-3 text-brand-red-600">Booking Details</h3>
+                <p>
+                  <strong>Booking ID:</strong> {booking._id}
+                </p>
+                <p>
+                  <strong>Date:</strong> {booking.bookingDate}
+                </p>
+                <p>
+                  <strong>Time:</strong> {booking.bookingTime}
+                </p>
+                <p>
+                  <strong>Payment:</strong> {booking.paymentMethod}
+                </p>
+                <p>
+                  <strong>Status:</strong>{" "}
+                  <span
+                    className={`font-semibold ${booking.status === "confirmed" ? "text-green-600" : "text-yellow-600"}`}
+                  >
+                    {booking.status.toUpperCase()}
+                  </span>
+                </p>
+              </div>
+            </div>
 
-      <header className="relative backdrop-blur-xl bg-glass-white border-b border-white/10 shadow-cyber-card z-50 w-full">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center h-20">
-            <Link href="/">
-              <Button variant="ghost" size="sm" className="mr-4 text-cyber-slate-300 hover:bg-glass-white group">
-                <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
-                Back to Home
+            <div className="mb-6">
+              <h3 className="font-bold text-lg mb-3 text-brand-red-600">Event Information</h3>
+              <p className="flex items-center gap-2">
+                <Ticket className="w-5 h-5 text-brand-red-500" />
+                <strong>Event:</strong> {booking.eventTitle} ({booking.eventType === "match" ? "Sports Match" : "Movie"}
+                )
+              </p>
+              <p className="flex items-center gap-2 mt-2">
+                <MapPin className="w-5 h-5 text-brand-red-500" />
+                <strong>Venue:</strong> {hall?.name || "N/A"}
+              </p>
+              <p className="flex items-center gap-2 mt-2">
+                <Ticket className="w-5 h-5 text-brand-red-500" />
+                <strong>Seats:</strong> {booking.seats.join(", ")} ({booking.seatType})
+              </p>
+              <p className="flex items-center gap-2 mt-2">
+                <CalendarIcon className="w-5 h-5 text-brand-red-500" />
+                <strong>Event Date:</strong> {new Date(booking.bookingDate).toLocaleDateString()}
+              </p>
+              <p className="flex items-center gap-2 mt-2">
+                <Clock className="w-5 h-5 text-brand-red-500" />
+                <strong>Event Time:</strong> {booking.bookingTime}
+              </p>
+            </div>
+
+            <div className="border-t-2 border-gray-300 pt-4 mb-6">
+              <h3 className="font-bold text-lg mb-3 text-brand-red-600">Payment Summary</h3>
+              <div className="flex justify-between mb-2">
+                <span>Base Amount:</span>
+                <span>₦{booking.amount.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between mb-2">
+                <span>Processing Fee:</span>
+                <span>₦{booking.processingFee.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between font-bold text-lg border-t border-gray-300 pt-2">
+                <span>Total Amount:</span>
+                <span>₦{booking.totalAmount.toLocaleString()}</span>
+              </div>
+            </div>
+
+            <div className="text-center text-sm text-gray-500 border-t border-gray-300 pt-4">
+              <p>Thank you for choosing Dex View Cinema!</p>
+              <p>For support, email us at support@dexviewcinema.com or call 08139614950</p>
+              <p className="mt-2">Developed by SydaTech - www.sydatech.com.ng</p>
+            </div>
+          </div>
+
+          <div className="flex justify-center mt-8 gap-4 print:hidden">
+            <Button
+              onClick={handlePrint}
+              className="bg-gradient-to-r from-cyber-green-500 via-cyber-green-600 to-cyber-green-700 hover:from-cyber-green-600 hover:via-cyber-green-700 hover:to-cyber-green-800 text-white rounded-2xl shadow-glow-green"
+            >
+              <Printer className="w-4 h-4 mr-2" />
+              Print Receipt
+            </Button>
+            <Link href="/bookings">
+              <Button
+                variant="outline"
+                className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl shadow-cyber-card"
+              >
+                Back to Bookings
               </Button>
             </Link>
-            <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-white via-brand-red-300 to-white bg-clip-text text-transparent">
-                Booking Receipt
-              </h1>
-              <p className="text-sm text-brand-red-400 font-medium">Your confirmed booking details</p>
-            </div>
           </div>
-        </div>
-      </header>
-
-      <div className="relative max-w-3xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white text-black p-8 rounded-lg shadow-lg" id="receipt">
-          <div className="text-center mb-6">
-            <h1 className="text-3xl font-bold text-brand-red-600 mb-2">Dex View Cinema</h1>
-            <p className="text-gray-600">Premium Entertainment Experience</p>
-            <div className="border-b-2 border-brand-red-600 mt-4"></div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-6">
-            <div>
-              <h3 className="font-bold text-lg mb-3 text-brand-red-600">Customer Information</h3>
-              <p>
-                <strong>Name:</strong> {booking.customerName}
-              </p>
-              <p>
-                <strong>Email:</strong> {booking.customerEmail}
-              </p>
-              <p>
-                <strong>Phone:</strong> {booking.customerPhone}
-              </p>
-            </div>
-            <div>
-              <h3 className="font-bold text-lg mb-3 text-brand-red-600">Booking Details</h3>
-              <p>
-                <strong>Booking ID:</strong> {booking._id}
-              </p>
-              <p>
-                <strong>Date:</strong> {booking.bookingDate}
-              </p>
-              <p>
-                <strong>Time:</strong> {booking.bookingTime}
-              </p>
-              <p>
-                <strong>Payment:</strong> {booking.paymentMethod}
-              </p>
-            </div>
-          </div>
-
-          <div className="mb-6">
-            <h3 className="font-bold text-lg mb-3 text-brand-red-600">Event Information</h3>
-            <p>
-              <strong>Event:</strong> {booking.eventTitle}
-            </p>
-            <p>
-              <strong>Type:</strong> {booking.eventType === "match" ? "Sports Match" : "Movie"}
-            </p>
-            <p>
-              <strong>Venue:</strong> {getHallDisplayName(event.hall_id, halls)}
-            </p>
-            <p>
-              <strong>Seats:</strong>{" "}
-              {booking.seats
-                .map((seatId: string) => (seatId.includes('-') ? seatId.split('-').pop() : seatId))
-                .join(", ")}
-            </p>
-            <p>
-              <strong>Seat Type:</strong> {booking.seatType}
-            </p>
-          </div>
-
-          <div className="border-t-2 border-gray-300 pt-4 mb-6">
-            <h3 className="font-bold text-lg mb-3 text-brand-red-600">Payment Summary</h3>
-            <div className="flex justify-between mb-2">
-              <span>Base Amount:</span>
-              <span>₦{booking.amount.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between mb-2">
-              <span>Processing Fee:</span>
-              <span>₦{booking.processingFee}</span>
-            </div>
-            <div className="flex justify-between font-bold text-lg border-t border-gray-300 pt-2">
-              <span>Total Amount:</span>
-              <span>₦{booking.totalAmount.toLocaleString()}</span>
-            </div>
-          </div>
-
-          <div className="text-center text-sm text-gray-500 border-t border-gray-300 pt-4">
-            <p>Thank you for choosing Dex View Cinema!</p>
-            <p>For support, visit us at www.dexviewcinema.com or call +234-XXX-XXX-XXXX</p>
-            <p className="mt-2">Developed by SydaTech - www.sydatech.com.ng</p>
-          </div>
-        </div>
-
-        <div className="flex justify-center gap-4 mt-8 no-print">
-          <Button
-            onClick={printReceipt}
-            className="bg-gradient-to-r from-cyber-green-500 via-cyber-green-600 to-cyber-green-700 hover:from-cyber-green-600 hover:via-cyber-green-700 hover:to-cyber-green-800 text-white rounded-2xl shadow-cyber-card"
-          >
-            <Printer className="w-4 h-4 mr-2" />
-            Print Receipt
-          </Button>
-          <Link href="/bookings">
-            <Button
-              variant="outline"
-              className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl shadow-cyber-card"
-            >
-              View All My Bookings
-            </Button>
-          </Link>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <footer className="bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 text-white py-12 relative overflow-hidden border-t border-white/10 mt-20 w-full">
-        <div className="absolute inset-0 bg-gradient-to-r from-brand-red-900/10 via-transparent to-brand-red-900/10"></div>
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-500"></div>
-
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row justify-between items-center">
-            <p className="text-cyber-slate-300 text-lg mb-4 sm:mb-0">
-              &copy; 2025 Dex View Cinema. All rights reserved.
-            </p>
-            <p className="text-cyber-slate-300 text-lg">
-              Developed by{" "}
-              <a
-                href="https://www.sydatech.com.ng"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-brand-red-400 hover:text-brand-red-300 transition-colors font-bold hover:underline"
-              >
-                SydaTech
-              </a>
-            </p>
-          </div>
-        </div>
-      </footer>
-
-      {/* Print Styles */}
+        </CardContent>
+      </Card>
       <style jsx global>{`
         @media print {
           body * {
             visibility: hidden;
           }
-          #receipt, #receipt * {
+          #receipt-print-area, #receipt-print-area * {
             visibility: visible;
+            color: #000 !important;
+            background-color: #fff !important;
+            box-shadow: none !important;
+            border-color: #ccc !important;
+            background-image: none !important;
           }
-          #receipt {
+          #receipt-print-area {
             position: absolute;
             left: 0;
             top: 0;
             width: 100%;
-            box-shadow: none; /* Remove shadow for print */
+            padding: 20px; /* Add padding for print layout */
           }
-          .no-print {
-            display: none;
+          /* Ensure images are visible */
+          #receipt-print-area img {
+            display: block !important;
+            visibility: visible !important;
+          }
+          /* Hide buttons and non-receipt elements */
+          .print\\:hidden {
+            display: none !important;
           }
         }
       `}</style>
