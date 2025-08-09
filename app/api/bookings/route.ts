@@ -39,7 +39,6 @@ function generateReceiptHtml(booking: any, event: any, hall: any) {
   return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 20px auto; border: 1px solid #eee; border-radius: 8px; overflow: hidden; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
       <div style="background-color: #e53e3e; color: white; padding: 20px; text-align: center;">
-        <img src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/dexcinema-dR8urLe5QU81mcNPofCpzVS9hmluq8.jpeg" alt="Dex View Cinema Logo" style="max-width: 150px; height: auto; margin-bottom: 15px; border-radius: 8px;" />
         <h1 style="margin: 0; font-size: 28px;">Dex View Cinema</h1>
         <p style="margin: 5px 0 0; font-size: 16px;">Booking Receipt</p>
       </div>
