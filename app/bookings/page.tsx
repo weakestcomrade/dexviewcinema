@@ -1,324 +1,420 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
-import {
-  Printer,
-  FileText,
-  Search,
-  CalendarDays,
-  Ticket,
-  DollarSign,
-  Users,
-  Film,
-  Loader2,
-  XCircle,
-} from "lucide-react"
+import { useState, useCallback } from "react"
 import Link from "next/link"
-import { useToast } from "@/components/ui/use-toast"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Separator } from "@/components/ui/separator"
+import { Calendar, Clock, MapPin, Film, Trophy, ArrowLeft, Search, Ticket, Printer, Eye, Loader2 } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
+// Define a type for booking data
 interface Booking {
-  _id: string
+  id: string
   customerName: string
   customerEmail: string
-  eventId: string
+  customerPhone: string
   eventTitle: string
-  eventType: "movie" | "match"
+  eventType: "match" | "movie"
+  eventDate: string
+  eventTime: string
+  eventHall: string
   seats: string[]
   seatType: string
+  amount: number
+  processingFee: number
   totalAmount: number
   status: "confirmed" | "pending" | "cancelled"
   bookingDate: string
   bookingTime: string
-  createdAt: string
-}
-
-interface Event {
-  _id: string
-  title: string
-  type: "movie" | "match"
-  date: string
-  time: string
-  hall_id: string
-  price: number
-  vip_price?: number
-  image: string
-  description: string
+  paymentMethod: string
 }
 
 export default function BookingsPage() {
-  const [bookings, setBookings] = useState<Booking[]>([])
-  const [events, setEvents] = useState<Event[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [filterStatus, setFilterStatus] = useState("all")
-  const [filterEventType, setFilterEventType] = useState("all")
-  const [filterDate, setFilterDate] = useState("")
-  const { toast } = useToast()
+  const [searchQuery, setSearchQuery] = useState("")
+  const [customerEmail, setCustomerEmail] = useState("")
+  const [fetchedBookings, setFetchedBookings] = useState<Booking[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [hasSearched, setHasSearched] = useState(false) // To show "No bookings found" only after a search
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
+  const [isReceiptOpen, setIsReceiptOpen] = useState(false)
 
-  useEffect(() => {
-    const fetchBookingsAndEvents = async () => {
-      try {
-        setLoading(true)
-        setError(null)
+  const fetchBookings = useCallback(async () => {
+    setIsLoading(true)
+    setHasSearched(true) // Mark that a search has been initiated
+    setFetchedBookings([]) // Clear previous results
 
-        const [bookingsRes, eventsRes] = await Promise.all([fetch("/api/bookings"), fetch("/api/events")])
+    const params = new URLSearchParams()
+    if (customerEmail) params.append("email", customerEmail)
 
-        if (!bookingsRes.ok) {
-          throw new Error(`Failed to fetch bookings: ${bookingsRes.statusText}`)
-        }
-        const bookingsData: Booking[] = await bookingsRes.json()
-        setBookings(bookingsData)
-
-        if (!eventsRes.ok) {
-          throw new Error(`Failed to fetch events: ${eventsRes.statusText}`)
-        }
-        const eventsData: Event[] = await eventsRes.json()
-        setEvents(eventsData)
-      } catch (err) {
-        console.error("Error fetching data:", err)
-        setError((err as Error).message)
-        toast({
-          title: "Error loading bookings",
-          description: (err as Error).message,
-          variant: "destructive",
-        })
-      } finally {
-        setLoading(false)
+    try {
+      const response = await fetch(`/api/bookings?${params.toString()}`)
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
       }
+      const data: Booking[] = await response.json()
+      setFetchedBookings(data)
+    } catch (error) {
+      console.error("Failed to fetch bookings:", error)
+      // Optionally, display an error message to the user
+    } finally {
+      setIsLoading(false)
     }
+  }, [customerEmail])
 
-    fetchBookingsAndEvents()
-  }, [toast])
+  // Filter fetched bookings based on the client-side search query
+  const displayedBookings = fetchedBookings.filter(
+    (booking) =>
+      (booking.id?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
+      (booking.customerName?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
+      (booking.eventTitle?.toLowerCase() || "").includes(searchQuery.toLowerCase()),
+  )
 
-  const getEventTitle = (eventId: string) => {
-    const event = events.find((e) => e._id === eventId)
-    return event ? event.title : "N/A"
+  const handleViewReceipt = (booking: Booking) => {
+    setSelectedBooking(booking)
+    setIsReceiptOpen(true)
   }
 
-  const getEventType = (eventId: string) => {
-    const event = events.find((e) => e._id === eventId)
-    return event ? event.type : "N/A"
-  }
-
-  const filteredBookings = bookings.filter((booking) => {
-    const matchesSearch =
-      booking.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.customerEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking._id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      getEventTitle(booking.eventId).toLowerCase().includes(searchTerm.toLowerCase())
-
-    const matchesStatus = filterStatus === "all" || booking.status === filterStatus
-    const matchesEventType = filterEventType === "all" || getEventType(booking.eventId) === filterEventType
-    const matchesDate = filterDate === "" || booking.bookingDate === filterDate
-
-    return matchesSearch && matchesStatus && matchesEventType && matchesDate
-  })
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 text-white">
-        <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-        Loading bookings...
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 text-white p-4">
-        <XCircle className="w-16 h-16 text-brand-red-500 mb-4" />
-        <h1 className="text-2xl font-bold mb-2">Error Loading Bookings</h1>
-        <p className="text-lg text-cyber-slate-300 text-center">{error}</p>
-        <Button
-          onClick={() => window.location.reload()}
-          className="mt-6 bg-brand-red-500 hover:bg-brand-red-600 text-white rounded-2xl"
-        >
-          Retry
-        </Button>
-      </div>
-    )
+  const printReceipt = () => {
+    window.print()
   }
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 p-4 text-white sm:p-6 lg:p-8">
-      <header className="mb-6 flex items-center justify-between">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
-          Bookings Management
-        </h1>
-        <Button className="bg-gradient-to-r from-cyber-green-500 via-cyber-green-600 to-cyber-green-700 hover:from-cyber-green-600 hover:via-cyber-green-700 hover:to-cyber-green-800 text-white rounded-2xl shadow-glow-green">
-          <FileText className="mr-2 h-4 w-4" />
-          Generate Report
-        </Button>
-      </header>
+    <div className="min-h-screen bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 relative overflow-hidden">
+      {/* Cyber-Glassmorphism background elements */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-brand-red-500/20 to-cyber-purple-500/20 rounded-full blur-3xl animate-float"></div>
+        <div className="absolute top-1/2 -left-40 w-80 h-80 bg-gradient-to-br from-cyber-blue-500/15 to-brand-red-500/15 rounded-full blur-3xl animate-float delay-1000"></div>
+        <div className="absolute -bottom-40 right-1/3 w-72 h-72 bg-gradient-to-br from-cyber-green-500/15 to-cyber-purple-500/15 rounded-full blur-3xl animate-float delay-2000"></div>
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-glass-dark-strong backdrop-blur-xl border border-white/20 text-white shadow-cyber-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-cyber-green-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              ₦{bookings.reduce((sum, b) => sum + b.totalAmount, 0).toLocaleString()}
-            </div>
-            <p className="text-xs text-cyber-slate-300">+20.1% from last month</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-glass-dark-strong backdrop-blur-xl border border-white/20 text-white shadow-cyber-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>
-            <Ticket className="h-4 w-4 text-brand-red-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{bookings.length}</div>
-            <p className="text-xs text-cyber-slate-300">+180 since last hour</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-glass-dark-strong backdrop-blur-xl border border-white/20 text-white shadow-cyber-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Events</CardTitle>
-            <Film className="h-4 w-4 text-cyber-blue-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{events.length}</div>
-            <p className="text-xs text-cyber-slate-300">Currently running</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-glass-dark-strong backdrop-blur-xl border border-white/20 text-white shadow-cyber-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Occupancy Rate</CardTitle>
-            <Users className="h-4 w-4 text-cyber-purple-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">75%</div>
-            <p className="text-xs text-cyber-slate-300">+5% from last week</p>
-          </CardContent>
-        </Card>
+        <div className="absolute top-20 right-20 w-32 h-32 border border-brand-red-500/20 rotate-45 animate-spin-slow"></div>
+        <div className="absolute bottom-40 left-20 w-24 h-24 border border-cyber-blue-500/30 rotate-12 animate-bounce-slow"></div>
+        <div className="absolute top-1/3 left-1/3 w-16 h-16 border border-cyber-purple-500/20 rounded-full animate-pulse-slow"></div>
       </div>
 
-      <Card className="flex-1 bg-glass-dark-strong backdrop-blur-xl border border-white/20 text-white shadow-cyber-card">
-        <CardContent className="p-6">
-          <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-center">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-cyber-slate-400" />
-              <Input
-                placeholder="Search bookings..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full rounded-xl border border-white/20 bg-cyber-slate-800 pl-9 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-500 focus:ring-brand-red-500"
-              />
+      {/* Header with glassmorphism */}
+      <header className="relative backdrop-blur-xl bg-glass-white border-b border-white/10 shadow-cyber-card z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center h-20">
+            <Link href="/">
+              <Button variant="ghost" size="sm" className="mr-4 text-cyber-slate-300 hover:bg-glass-white group">
+                <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
+                Back to Home
+              </Button>
+            </Link>
+            <div>
+              <h1 className="text-xl font-bold bg-gradient-to-r from-white via-brand-red-300 to-white bg-clip-text text-transparent">
+                My Bookings
+              </h1>
+              <p className="text-sm text-brand-red-400 font-medium">View and manage your event tickets</p>
             </div>
-            <div className="flex flex-col gap-4 sm:flex-row">
-              <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-full rounded-xl border border-white/20 bg-cyber-slate-800 text-white focus:border-brand-red-500 focus:ring-brand-red-500 md:w-[180px]">
-                  <SelectValue placeholder="Filter by Status" />
-                </SelectTrigger>
-                <SelectContent className="bg-cyber-slate-800 text-white">
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="confirmed">Confirmed</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={filterEventType} onValueChange={setFilterEventType}>
-                <SelectTrigger className="w-full rounded-xl border border-white/20 bg-cyber-slate-800 text-white focus:border-brand-red-500 focus:ring-brand-red-500 md:w-[180px]">
-                  <SelectValue placeholder="Filter by Event Type" />
-                </SelectTrigger>
-                <SelectContent className="bg-cyber-slate-800 text-white">
-                  <SelectItem value="all">All Event Types</SelectItem>
-                  <SelectItem value="movie">Movie</SelectItem>
-                  <SelectItem value="match">Sports Match</SelectItem>
-                </SelectContent>
-              </Select>
-              <div className="relative w-full md:w-[180px]">
-                <CalendarDays className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-cyber-slate-400" />
-                <Input
-                  type="date"
-                  value={filterDate}
-                  onChange={(e) => setFilterDate(e.target.value)}
-                  className="w-full rounded-xl border border-white/20 bg-cyber-slate-800 pl-9 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-500 focus:ring-brand-red-500"
-                />
+          </div>
+        </div>
+      </header>
+
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Section to find bookings by customer details */}
+        <Card className="mb-8 bg-glass-white-strong backdrop-blur-xl shadow-cyber-card border border-white/20 rounded-3xl p-6">
+          <CardTitle className="text-white text-xl font-bold mb-4">Find My Bookings</CardTitle>
+          <CardDescription className="text-cyber-slate-300 mb-4">
+            Enter your email to retrieve your bookings.
+          </CardDescription>
+          <div className="grid grid-cols-1 gap-4 mb-4">
+            <Input
+              type="email"
+              placeholder="Your Email"
+              value={customerEmail}
+              onChange={(e) => setCustomerEmail(e.target.value)}
+              className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-400 focus:ring-brand-red-400 shadow-cyber-card"
+            />
+          </div>
+          <Button
+            onClick={fetchBookings}
+            disabled={isLoading || !customerEmail}
+            className="w-full bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 text-white rounded-2xl shadow-cyber-card"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Searching...
+              </>
+            ) : (
+              "Search My Bookings"
+            )}
+          </Button>
+          {/* Security Note: In a real application, fetching bookings by email/name/phone without authentication
+              is a security risk. This implementation assumes a future authentication system where the user
+              is verified before accessing their bookings. */}
+        </Card>
+
+        {/* Existing search bar for client-side filtering of fetched results */}
+        <div className="mb-8">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-cyber-slate-400" />
+            <Input
+              type="text"
+              placeholder="Filter results by booking ID, customer name, or event title..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 rounded-2xl bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-400 focus:ring-brand-red-400 shadow-cyber-card"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {isLoading && (
+            <div className="col-span-full text-center text-cyber-slate-400 text-lg py-10 flex items-center justify-center">
+              <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+              Loading bookings...
+            </div>
+          )}
+          {!isLoading && hasSearched && displayedBookings.length === 0 ? (
+            <div className="col-span-full text-center text-cyber-slate-400 text-lg py-10">
+              No bookings found matching your search criteria.
+            </div>
+          ) : (
+            displayedBookings.map((booking) => (
+              <Card
+                key={booking.id}
+                className="bg-glass-white-strong backdrop-blur-xl shadow-cyber-card hover:shadow-cyber-hover transition-all duration-300 border border-white/20 group relative overflow-hidden rounded-3xl"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-brand-red-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl"></div>
+                <CardContent className="p-6 relative z-10">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <CardTitle className="text-xl font-bold text-white leading-tight mb-1">
+                        {booking.eventTitle}
+                      </CardTitle>
+                      <CardDescription className="text-cyber-slate-300 text-sm">
+                        Booking ID: <span className="font-mono text-brand-red-300">{booking.id}</span>
+                      </CardDescription>
+                    </div>
+                    <Badge
+                      className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                        booking.eventType === "match"
+                          ? "bg-brand-red-500/30 text-brand-red-300 border-brand-red-500/50"
+                          : "bg-cyber-blue-500/30 text-cyber-blue-300 border-cyber-blue-500/50"
+                      }`}
+                    >
+                      {booking.eventType === "match" ? (
+                        <Trophy className="w-3 h-3 mr-1" />
+                      ) : (
+                        <Film className="w-3 h-3 mr-1" />
+                      )}
+                      {booking.eventType}
+                    </Badge>
+                  </div>
+
+                  <Separator className="my-4 bg-white/20" />
+
+                  <div className="grid grid-cols-2 gap-3 text-sm text-cyber-slate-400 mb-4">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-brand-red-400" />
+                      {booking.eventDate}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-brand-red-400" />
+                      {booking.eventTime}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-brand-red-400" />
+                      {booking.eventHall}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Ticket className="w-4 h-4 text-brand-red-400" />
+                      {booking.seats.join(", ")} ({booking.seatType})
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center mt-6">
+                    <span className="text-2xl font-bold bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
+                      ₦{booking.totalAmount.toLocaleString()}
+                    </span>
+                    <div className="flex gap-2">
+                      <Badge
+                        className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                          booking.status === "confirmed"
+                            ? "bg-cyber-green-500/30 text-cyber-green-300 border-cyber-green-500/50"
+                            : "bg-cyber-yellow-500/30 text-cyber-yellow-300 border-cyber-yellow-500/50"
+                        }`}
+                      >
+                        {booking.status}
+                      </Badge>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleViewReceipt(booking)}
+                        className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Receipt Dialog */}
+      <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
+        <DialogContent className="sm:max-w-[600px] bg-glass-dark-strong backdrop-blur-xl border border-white/20 text-white shadow-cyber-hover rounded-4xl">
+          <DialogHeader>
+            <DialogTitle className="text-white text-xl font-bold bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
+              Booking Receipt
+            </DialogTitle>
+            <DialogDescription className="text-cyber-slate-300">
+              Customer booking receipt ready for printing
+            </DialogDescription>
+          </DialogHeader>
+          {selectedBooking && (
+            <div className="receipt-content bg-white text-black p-8 rounded-lg mx-4" id="receipt">
+              <div className="text-center mb-6">
+                <h1 className="text-3xl font-bold text-brand-red-600 mb-2">Dex View Cinema</h1>
+                <p className="text-gray-600">Premium Entertainment Experience</p>
+                <div className="border-b-2 border-brand-red-600 mt-4"></div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-8 mb-6">
+                <div>
+                  <h3 className="font-bold text-lg mb-3 text-brand-red-600">Customer Information</h3>
+                  <p>
+                    <strong>Name:</strong> {selectedBooking.customerName}
+                  </p>
+                  <p>
+                    <strong>Email:</strong> {selectedBooking.customerEmail}
+                  </p>
+                  <p>
+                    <strong>Phone:</strong> {selectedBooking.customerPhone}
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg mb-3 text-brand-red-600">Booking Details</h3>
+                  <p>
+                    <strong>Booking ID:</strong> {selectedBooking.id}
+                  </p>
+                  <p>
+                    <strong>Date:</strong> {selectedBooking.bookingDate}
+                  </p>
+                  <p>
+                    <strong>Time:</strong> {selectedBooking.bookingTime}
+                  </p>
+                  <p>
+                    <strong>Payment:</strong> {selectedBooking.paymentMethod}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <h3 className="font-bold text-lg mb-3 text-brand-red-600">Event Information</h3>
+                <p>
+                  <strong>Event:</strong> {selectedBooking.eventTitle}
+                </p>
+                <p>
+                  <strong>Type:</strong> {selectedBooking.eventType === "match" ? "Sports Match" : "Movie"}
+                </p>
+                <p>
+                  <strong>Seats:</strong> {selectedBooking.seats.join(", ")}
+                </p>
+                <p>
+                  <strong>Seat Type:</strong> {selectedBooking.seatType}
+                </p>
+              </div>
+
+              <div className="border-t-2 border-gray-300 pt-4 mb-6">
+                <h3 className="font-bold text-lg mb-3 text-brand-red-600">Payment Summary</h3>
+                <div className="flex justify-between mb-2">
+                  <span>Base Amount:</span>
+                  <span>₦{selectedBooking.amount.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between mb-2">
+                  <span>Processing Fee:</span>
+                  <span>₦{selectedBooking.processingFee}</span>
+                </div>
+                <div className="flex justify-between font-bold text-lg border-t border-gray-300 pt-2">
+                  <span>Total Amount:</span>
+                  <span>₦{selectedBooking.totalAmount.toLocaleString()}</span>
+                </div>
+              </div>
+
+              <div className="text-center text-sm text-gray-500 border-t border-gray-300 pt-4">
+                <p>Thank you for choosing Dex View Cinema!</p>
+                <p>For support, visit us at www.dexviewcinema.com or call +234-XXX-XXX-XXXX</p>
+                <p className="mt-2">Developed by SydaTech - www.sydatech.com.ng</p>
               </div>
             </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsReceiptOpen(false)}
+              className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl"
+            >
+              Close
+            </Button>
+            <Button
+              onClick={printReceipt}
+              className="bg-gradient-to-r from-cyber-green-500 via-cyber-green-600 to-cyber-green-700 hover:from-cyber-green-600 hover:via-cyber-green-700 hover:to-cyber-green-800 text-white rounded-2xl"
+            >
+              <Printer className="w-4 h-4 mr-2" />
+              Print Receipt
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Footer */}
+      <footer className="bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 text-white py-12 relative overflow-hidden border-t border-white/10 mt-20">
+        <div className="absolute inset-0 bg-gradient-to-r from-brand-red-900/10 via-transparent to-brand-red-900/10"></div>
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-500"></div>
+
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col sm:flex-row justify-between items-center">
+            <p className="text-cyber-slate-300 text-lg mb-4 sm:mb-0">
+              &copy; 2025 Dex View Cinema. All rights reserved.
+            </p>
+            <p className="text-cyber-slate-300 text-lg">
+              Developed by{" "}
+              <a
+                href="https://www.sydatech.com.ng"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-brand-red-400 hover:text-brand-red-300 transition-colors font-bold hover:underline"
+              >
+                SydaTech
+              </a>
+            </p>
           </div>
-          <div className="overflow-x-auto rounded-lg border border-white/20">
-            <Table className="w-full">
-              <TableHeader className="bg-cyber-slate-700">
-                <TableRow className="border-white/20">
-                  <TableHead className="text-cyber-slate-200">Booking ID</TableHead>
-                  <TableHead className="text-cyber-slate-200">Customer Name</TableHead>
-                  <TableHead className="text-cyber-slate-200">Event</TableHead>
-                  <TableHead className="text-cyber-slate-200">Seats</TableHead>
-                  <TableHead className="text-cyber-slate-200">Amount</TableHead>
-                  <TableHead className="text-cyber-slate-200">Status</TableHead>
-                  <TableHead className="text-cyber-slate-200">Date</TableHead>
-                  <TableHead className="text-cyber-slate-200">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredBookings.length > 0 ? (
-                  filteredBookings.map((booking) => (
-                    <TableRow key={booking._id} className="border-white/10 hover:bg-cyber-slate-800/50">
-                      <TableCell className="font-medium">{booking._id.substring(0, 8)}...</TableCell>
-                      <TableCell>{booking.customerName}</TableCell>
-                      <TableCell>{getEventTitle(booking.eventId)}</TableCell>
-                      <TableCell>
-                        {booking.seats
-                          .map((seatId) => {
-                            if (seatId.includes("-")) {
-                              return seatId.split("-")[1]
-                            }
-                            return seatId
-                          })
-                          .join(", ")}
-                      </TableCell>
-                      <TableCell>₦{booking.totalAmount.toLocaleString()}</TableCell>
-                      <TableCell>
-                        <Badge
-                          className={`${
-                            booking.status === "confirmed"
-                              ? "bg-cyber-green-600 hover:bg-cyber-green-700"
-                              : booking.status === "pending"
-                                ? "bg-yellow-600 hover:bg-yellow-700"
-                                : "bg-brand-red-600 hover:bg-brand-red-700"
-                          } text-white`}
-                        >
-                          {booking.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{new Date(booking.bookingDate).toLocaleDateString()}</TableCell>
-                      <TableCell>
-                        <Link href={`/receipt/${booking._id}`}>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-xl shadow-cyber-card"
-                          >
-                            <Printer className="h-4 w-4" />
-                          </Button>
-                        </Link>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={8} className="h-24 text-center text-cyber-slate-400">
-                      No bookings found.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </footer>
+
+      {/* Print Styles */}
+      <style jsx global>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          #receipt, #receipt * {
+            visibility: visible;
+          }
+          #receipt {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+          }
+        }
+      `}</style>
     </div>
   )
 }
