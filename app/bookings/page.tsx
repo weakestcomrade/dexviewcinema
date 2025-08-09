@@ -99,7 +99,17 @@ export default function BookingsPage() {
   }
 
   const printReceipt = () => {
-    window.print()
+    // Target the specific receipt content for printing
+    const printContent = document.getElementById("receipt")
+    if (printContent) {
+      const originalContents = document.body.innerHTML
+      const printContents = printContent.innerHTML
+
+      document.body.innerHTML = printContents
+      window.print()
+      document.body.innerHTML = originalContents
+      window.location.reload() // Reload to restore original page state
+    }
   }
 
   return (
