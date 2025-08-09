@@ -25,7 +25,7 @@ interface BookingDocument {
   updatedAt: Date
 }
 
-// Helper function to generate HTML content for the email, mimicking the receipt UI
+// Helper function to generate HTML content for the email
 function generateReceiptHtml(booking: any, event: any, hall: any) {
   const seatsFormatted = booking.seats
     .map((seatId: string) => {
@@ -37,96 +37,51 @@ function generateReceiptHtml(booking: any, event: any, hall: any) {
     .join(", ")
 
   return `
-    <div style="min-height: 100vh; background: linear-gradient(to bottom right, #1a202c, #2d3748, #1a202c); display: flex; align-items: center; justify-content: center; padding: 16px;">
-      <div style="width: 100%; max-width: 768px; background-color: rgba(255, 255, 255, 0.05); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.2); color: white; box-shadow: 0 0 20px rgba(0, 0, 0, 0.5); border-radius: 24px; overflow: hidden;">
-        <div style="text-align: center; padding-bottom: 24px; display: none;">
-          <h1 style="color: white; font-size: 30px; font-weight: bold; background: linear-gradient(to right, white, #ef4444); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px;">
-            Booking Receipt
-          </h1>
-          <p style="color: #a0aec0; font-size: 18px;">
-            Your booking details are confirmed!
-          </p>
-        </div>
-        <div style="padding: 24px 32px;">
-          <div style="background-color: #ffffff; color: #000000; padding: 32px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);">
-            <div style="text-align: center; margin-bottom: 24px;">
-              <img src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/dexcinema-dR8urLe5QU81mcNPofCpzVS9hmluq8.jpeg" alt="Dex View Cinema Logo" width="150" height="150" style="margin: 0 auto 16px; display: block;">
-              <h1 style="font-size: 30px; font-weight: bold; color: #dc2626; margin-bottom: 8px;">Dex View Cinema</h1>
-              <p style="color: #4a5568;">Premium Entertainment Experience</p>
-              <div style="border-bottom: 2px solid #dc2626; margin-top: 16px;"></div>
-            </div>
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 20px auto; border: 1px solid #eee; border-radius: 8px; overflow: hidden; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
+      <div style="background-color: #e53e3e; color: white; padding: 20px; text-align: center;">
+        <img src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/dexcinema-dR8urLe5QU81mcNPofCpzVS9hmluq8.jpeg" alt="Dex View Cinema Logo" style="max-width: 150px; height: auto; margin-bottom: 15px; border-radius: 8px;" />
+        <h1 style="margin: 0; font-size: 28px;">Dex View Cinema</h1>
+        <p style="margin: 5px 0 0; font-size: 16px;">Booking Receipt</p>
+      </div>
+      <div style="padding: 20px;">
+        <h2 style="color: #e53e3e; font-size: 22px; margin-top: 0;">Booking Confirmed!</h2>
+        <p style="font-size: 14px; color: #555;">Dear ${booking.customerName},</p>
+        <p style="font-size: 14px; color: #555;">Your booking for <strong>${booking.eventTitle}</strong> has been successfully confirmed. Here are your details:</p>
 
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
-              <tr>
-                <td style="vertical-align: top; padding-right: 32px;">
-                  <h3 style="font-weight: bold; font-size: 18px; margin-bottom: 12px; color: #dc2626;">Customer Information</h3>
-                  <p style="margin-bottom: 4px;"><strong>Name:</strong> ${booking.customerName}</p>
-                  <p style="margin-bottom: 4px;"><strong>Email:</strong> ${booking.customerEmail}</p>
-                  <p style="margin-bottom: 4px;"><strong>Phone:</strong> ${booking.customerPhone}</p>
-                </td>
-                <td style="vertical-align: top;">
-                  <h3 style="font-weight: bold; font-size: 18px; margin-bottom: 12px; color: #dc2626;">Booking Details</h3>
-                  <p style="margin-bottom: 4px;"><strong>Booking ID:</strong> ${booking._id}</p>
-                  <p style="margin-bottom: 4px;"><strong>Date:</strong> ${booking.bookingDate}</p>
-                  <p style="margin-bottom: 4px;"><strong>Time:</strong> ${booking.bookingTime}</p>
-                  <p style="margin-bottom: 4px;"><strong>Payment:</strong> ${booking.paymentMethod}</p>
-                  <p style="margin-bottom: 4px;">
-                    <strong>Status:</strong>
-                    <span style="font-weight: 600; color: ${booking.status === "confirmed" ? "#22c55e" : "#eab308"};">
-                      ${booking.status.toUpperCase()}
-                    </span>
-                  </p>
-                </td>
-              </tr>
-            </table>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+          <tr>
+            <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold; color: #e53e3e;">Booking ID:</td>
+            <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${booking._id}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold; color: #e53e3e;">Event:</td>
+            <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${booking.eventTitle} (${booking.eventType === "match" ? "Sports Match" : "Movie"})</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold; color: #e53e3e;">Date & Time:</td>
+            <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${booking.bookingDate} at ${booking.bookingTime}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold; color: #e53e3e;">Venue:</td>
+            <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${hall?.name || "N/A"}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold; color: #e53e3e;">Seats:</td>
+            <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${seatsFormatted} (${booking.seatType})</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold; color: #e53e3e;">Total Amount:</td>
+            <td style="padding: 8px 0; border-bottom: 1px solid #eee;">₦${booking.totalAmount.toLocaleString()}</td>
+          </tr>
+        </table>
 
-            <div style="margin-bottom: 24px;">
-              <h3 style="font-weight: bold; font-size: 18px; margin-bottom: 12px; color: #dc2626;">Event Information</h3>
-              <p style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                <span style="width: 20px; height: 20px; color: #ef4444;">🎫</span>
-                <strong>Event:</strong> ${booking.eventTitle} (${booking.eventType === "match" ? "Sports Match" : "Movie"})
-              </p>
-              <p style="display: flex; align-items: center; gap: 8px; margin-top: 8px; margin-bottom: 8px;">
-                <span style="width: 20px; height: 20px; color: #ef4444;">📍</span>
-                <strong>Venue:</strong> ${hall?.name || "N/A"}
-              </p>
-              <p style="display: flex; align-items: center; gap: 8px; margin-top: 8px; margin-bottom: 8px;">
-                <span style="width: 20px; height: 20px; color: #ef4444;">🪑</span>
-                <strong>Seats:</strong> ${seatsFormatted} (${booking.seatType})
-              </p>
-              <p style="display: flex; align-items: center; gap: 8px; margin-top: 8px; margin-bottom: 8px;">
-                <span style="width: 20px; height: 20px; color: #ef4444;">📅</span>
-                <strong>Event Date:</strong> ${new Date(booking.bookingDate).toLocaleDateString()}
-              </p>
-              <p style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
-                <span style="width: 20px; height: 20px; color: #ef4444;">⏰</span>
-                <strong>Event Time:</strong> ${booking.bookingTime}
-              </p>
-            </div>
-
-            <div style="border-top: 2px solid #d1d5db; padding-top: 16px; margin-bottom: 24px;">
-              <h3 style="font-weight: bold; font-size: 18px; margin-bottom: 12px; color: #dc2626;">Payment Summary</h3>
-              <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                <span>Base Amount:</span>
-                <span>₦${booking.amount.toLocaleString()}</span>
-              </div>
-              <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                <span>Processing Fee:</span>
-                <span>₦${booking.processingFee.toLocaleString()}</span>
-              </div>
-              <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 18px; border-top: 1px solid #d1d5db; padding-top: 8px;">
-                <span>Total Amount:</span>
-                <span>₦${booking.totalAmount.toLocaleString()}</span>
-              </div>
-            </div>
-
-            <div style="text-align: center; font-size: 14px; color: #6b7280; border-top: 1px solid #d1d5db; padding-top: 16px;">
-              <p>Thank you for choosing Dex View Cinema!</p>
-              <p>For support, email us at support@dexviewcinema.com or call 08139614950</p>
-              <p style="margin-top: 8px;">Developed by SydaTech - www.sydatech.com.ng</p>
-            </div>
-          </div>
-        </div>
+        <p style="font-size: 14px; color: #555; margin-top: 20px;">
+          Thank you for choosing Dex View Cinema! We look forward to seeing you.
+        </p>
+      </div>
+      <div style="background-color: #f8f8f8; padding: 15px; text-align: center; font-size: 12px; color: #888; border-top: 1px solid #eee;">
+        <p style="margin: 0;">For support, email us at support@dexviewcinema.com or call 08139614950</p>
+        <p style="margin: 5px 0 0;">Developed by SydaTech - www.sydatech.com.ng</p>
       </div>
     </div>
   `
