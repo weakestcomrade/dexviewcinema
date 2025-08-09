@@ -2,6 +2,28 @@ import { NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 
+export async function GET(req: Request, { params }: { params: { id: string } }) {
+  try {
+    const { db } = await connectToDatabase()
+    const { id } = params
+
+    if (!id) {
+      return NextResponse.json({ message: "Hall ID is required" }, { status: 400 })
+    }
+
+    const hall = await db.collection("halls").findOne({ _id: new ObjectId(id) })
+
+    if (!hall) {
+      return NextResponse.json({ message: "Hall not found" }, { status: 404 })
+    }
+
+    return NextResponse.json(hall)
+  } catch (error) {
+    console.error("Failed to fetch hall:", error)
+    return NextResponse.json({ message: "Failed to fetch hall", error: (error as Error).message }, { status: 500 })
+  }
+}
+
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
   try {
     const { db } = await connectToDatabase()
@@ -15,10 +37,9 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       return NextResponse.json({ message: "Missing required fields: name, capacity, type" }, { status: 400 })
     }
 
-    const result = await db.collection("halls").updateOne(
-      { _id: new ObjectId(id) },
-      { $set: { name, capacity, type, updatedAt: new Date() } }
-    )
+    const result = await db
+      .collection("halls")
+      .updateOne({ _id: new ObjectId(id) }, { $set: { name, capacity, type, updatedAt: new Date() } })
 
     if (result.matchedCount === 0) {
       return NextResponse.json({ message: "Hall not found" }, { status: 404 })
