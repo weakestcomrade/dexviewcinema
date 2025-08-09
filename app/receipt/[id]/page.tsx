@@ -218,7 +218,18 @@ export default function ReceiptPage() {
               </p>
               <p className="flex items-center gap-2 mt-2">
                 <Ticket className="w-5 h-5 text-brand-red-500" />
-                <strong>Seats:</strong> {booking.seats.join(", ")} ({booking.seatType})
+                <strong>Seats:</strong>{" "}
+                {booking.seats
+                  .map((seatId) => {
+                    // For standard seats (e.g., "HALLA-1", "HALLB-1"), extract just the number
+                    if (seatId.includes("-")) {
+                      return seatId.split("-")[1]
+                    }
+                    // For VIP movie seats (S1, C1, F1) or VIP match seats (S1, A1, B1), keep as is
+                    return seatId
+                  })
+                  .join(", ")}{" "}
+                ({booking.seatType})
               </p>
               <p className="flex items-center gap-2 mt-2">
                 <CalendarIcon className="w-5 h-5 text-brand-red-500" />
