@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -152,8 +153,8 @@ export default function BookingsPage() {
             )}
           </Button>
           {/* Security Note: In a real application, fetching bookings by email/name/phone without authentication
-              is a security risk. This implementation assumes a future authentication system where the user
-              is verified before accessing their bookings. */}
+            is a security risk. This implementation assumes a future authentication system where the user
+            is verified before accessing their bookings. */}
         </Card>
 
         {/* Existing search bar for client-side filtering of fetched results */}
@@ -280,12 +281,19 @@ export default function BookingsPage() {
           {selectedBooking && (
             <div className="receipt-content bg-white text-black p-8 rounded-lg mx-4" id="receipt">
               <div className="text-center mb-6">
+                <Image
+                  src="/dexcinema-logo.jpeg"
+                  alt="Dex View Cinema Logo"
+                  width={150}
+                  height={150}
+                  className="mx-auto mb-4"
+                />
                 <h1 className="text-3xl font-bold text-brand-red-600 mb-2">Dex View Cinema</h1>
                 <p className="text-gray-600">Premium Entertainment Experience</p>
                 <div className="border-b-2 border-brand-red-600 mt-4"></div>
               </div>
 
-              <div className="grid grid-cols-2 gap-8 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
                 <div>
                   <h3 className="font-bold text-lg mb-3 text-brand-red-600">Customer Information</h3>
                   <p>
@@ -312,22 +320,50 @@ export default function BookingsPage() {
                   <p>
                     <strong>Payment:</strong> {selectedBooking.paymentMethod}
                   </p>
+                  <p>
+                    <strong>Status:</strong>{" "}
+                    <span
+                      className={`font-semibold ${selectedBooking.status === "confirmed" ? "text-green-600" : "text-yellow-600"}`}
+                    >
+                      {selectedBooking.status.toUpperCase()}
+                    </span>
+                  </p>
                 </div>
               </div>
 
               <div className="mb-6">
                 <h3 className="font-bold text-lg mb-3 text-brand-red-600">Event Information</h3>
-                <p>
-                  <strong>Event:</strong> {selectedBooking.eventTitle}
+                <p className="flex items-center gap-2">
+                  <Ticket className="w-5 h-5 text-brand-red-500" />
+                  <strong>Event:</strong> {selectedBooking.eventTitle} (
+                  {selectedBooking.eventType === "match" ? "Sports Match" : "Movie"})
                 </p>
-                <p>
-                  <strong>Type:</strong> {selectedBooking.eventType === "match" ? "Sports Match" : "Movie"}
+                <p className="flex items-center gap-2 mt-2">
+                  <MapPin className="w-5 h-5 text-brand-red-500" />
+                  <strong>Venue:</strong> {selectedBooking.eventHall}
                 </p>
-                <p>
-                  <strong>Seats:</strong> {selectedBooking.seats.join(", ")}
+                <p className="flex items-center gap-2 mt-2">
+                  <Ticket className="w-5 h-5 text-brand-red-500" />
+                  <strong>Seats:</strong>{" "}
+                  {selectedBooking.seats
+                    .map((seatId) => {
+                      // For standard seats (e.g., "HALLA-1", "HALLB-1"), extract just the number
+                      if (seatId.includes("-")) {
+                        return seatId.split("-")[1]
+                      }
+                      // For VIP movie seats (S1, C1, F1) or VIP match seats (S1, A1, B1), keep as is
+                      return seatId
+                    })
+                    .join(", ")}{" "}
+                  ({selectedBooking.seatType})
                 </p>
-                <p>
-                  <strong>Seat Type:</strong> {selectedBooking.seatType}
+                <p className="flex items-center gap-2 mt-2">
+                  <Calendar className="w-5 h-5 text-brand-red-500" />
+                  <strong>Event Date:</strong> {new Date(selectedBooking.eventDate).toLocaleDateString()}
+                </p>
+                <p className="flex items-center gap-2 mt-2">
+                  <Clock className="w-5 h-5 text-brand-red-500" />
+                  <strong>Event Time:</strong> {selectedBooking.eventTime}
                 </p>
               </div>
 
@@ -339,7 +375,7 @@ export default function BookingsPage() {
                 </div>
                 <div className="flex justify-between mb-2">
                   <span>Processing Fee:</span>
-                  <span>₦{selectedBooking.processingFee}</span>
+                  <span>₦{selectedBooking.processingFee.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between font-bold text-lg border-t border-gray-300 pt-2">
                   <span>Total Amount:</span>
@@ -349,7 +385,7 @@ export default function BookingsPage() {
 
               <div className="text-center text-sm text-gray-500 border-t border-gray-300 pt-4">
                 <p>Thank you for choosing Dex View Cinema!</p>
-                <p>For support, visit us at www.dexviewcinema.com or call +234-XXX-XXX-XXXX</p>
+                <p>For support, email us at support@dexviewcinema.com or call 08139614950</p>
                 <p className="mt-2">Developed by SydaTech - www.sydatech.com.ng</p>
               </div>
             </div>
@@ -400,21 +436,21 @@ export default function BookingsPage() {
 
       {/* Print Styles */}
       <style jsx global>{`
-        @media print {
-          body * {
-            visibility: hidden;
-          }
-          #receipt, #receipt * {
-            visibility: visible;
-          }
-          #receipt {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-          }
+      @media print {
+        body * {
+          visibility: hidden;
         }
-      `}</style>
+        #receipt, #receipt * {
+          visibility: visible;
+        }
+        #receipt {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 100%;
+        }
+      }
+    `}</style>
     </div>
   )
 }
