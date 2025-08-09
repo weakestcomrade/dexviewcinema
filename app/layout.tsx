@@ -9,7 +9,11 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Dex View Cinema",
   description: "Your ultimate destination for premium movie and sports event experiences.",
-    generator: 'v0.dev'
+  generator: "v0.dev",
+  icons: {
+    icon: "/dexcinema-logo.jpeg", // For favicon
+    apple: "/dexcinema-logo.jpeg", // For Apple touch icon
+  },
 }
 
 export default function RootLayout({
