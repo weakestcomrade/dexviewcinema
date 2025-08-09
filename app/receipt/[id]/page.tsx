@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Printer, XCircle, CalendarIcon, Clock, MapPin, Ticket } from "lucide-react"
+import { Printer, XCircle, CalendarIcon, Clock, MapPin, Ticket, Mail } from "lucide-react"
 import Image from "next/image"
 import { useToast } from "@/components/ui/use-toast"
 import Link from "next/link"
@@ -44,6 +44,7 @@ export default function ReceiptPage() {
   const [hall, setHall] = useState<Hall | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isSendingEmail, setIsSendingEmail] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -95,6 +96,43 @@ export default function ReceiptPage() {
 
   const handlePrint = () => {
     window.print()
+  }
+
+  const handleSendEmail = async () => {
+    if (!booking) return
+
+    setIsSendingEmail(true)
+    try {
+      const response = await fetch("/api/send-receipt-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          bookingId: booking._id,
+          customerEmail: booking.customerEmail,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || "Failed to send email.")
+      }
+
+      toast({
+        title: "Email Sent!",
+        description: "The receipt has been successfully sent to your email.",
+      })
+    } catch (err) {
+      console.error("Error sending email:", err)
+      toast({
+        title: "Failed to Send Email",
+        description: (err as Error).message,
+        variant: "destructive",
+      })
+    } finally {
+      setIsSendingEmail(false)
+    }
   }
 
   if (loading) {
@@ -271,6 +309,23 @@ export default function ReceiptPage() {
             >
               <Printer className="w-4 h-4 mr-2" />
               Print Receipt
+            </Button>
+            <Button
+              onClick={handleSendEmail}
+              disabled={isSendingEmail}
+              className="bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 text-white rounded-2xl shadow-glow-red"
+            >
+              {isSendingEmail ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Mail className="w-4 h-4 mr-2" />
+                  Send Email
+                </>
+              )}
             </Button>
             <Link href="/bookings">
               <Button
