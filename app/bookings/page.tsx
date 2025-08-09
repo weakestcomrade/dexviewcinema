@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react"
 import Link from "next/link"
-import Image from "next/image" // Import Image component
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -28,7 +28,7 @@ interface Booking {
   eventType: "match" | "movie"
   eventDate: string
   eventTime: string
-  eventHall: string // This is the hall name, not ID
+  eventHall: string
   seats: string[]
   seatType: string
   amount: number
@@ -45,14 +45,14 @@ export default function BookingsPage() {
   const [customerEmail, setCustomerEmail] = useState("")
   const [fetchedBookings, setFetchedBookings] = useState<Booking[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  const [hasSearched, setHasSearched] = useState(false) // To show "No bookings found" only after a search
+  const [hasSearched, setHasSearched] = useState(false)
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   const [isReceiptOpen, setIsReceiptOpen] = useState(false)
 
   const fetchBookings = useCallback(async () => {
     setIsLoading(true)
-    setHasSearched(true) // Mark that a search has been initiated
-    setFetchedBookings([]) // Clear previous results
+    setHasSearched(true)
+    setFetchedBookings([])
 
     const params = new URLSearchParams()
     if (customerEmail) params.append("email", customerEmail)
@@ -72,7 +72,6 @@ export default function BookingsPage() {
     }
   }, [customerEmail])
 
-  // Filter fetched bookings based on the client-side search query
   const displayedBookings = fetchedBookings.filter(
     (booking) =>
       (booking.id?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
@@ -340,7 +339,7 @@ export default function BookingsPage() {
                 </p>
                 <p className="flex items-center gap-2 mt-2">
                   <MapPin className="w-5 h-5 text-brand-red-500" />
-                  <strong>Venue:</strong> {selectedBooking.eventHall}
+                  <strong>Venue:</strong> {selectedBooking.eventHall || "N/A"} {/* Added fallback for venue */}
                 </p>
                 <p className="flex items-center gap-2 mt-2">
                   <Ticket className="w-5 h-5 text-brand-red-500" />
@@ -359,7 +358,9 @@ export default function BookingsPage() {
                 </p>
                 <p className="flex items-center gap-2 mt-2">
                   <Calendar className="w-5 h-5 text-brand-red-500" />
-                  <strong>Event Date:</strong> {new Date(selectedBooking.eventDate).toLocaleDateString()}
+                  <strong>Event Date:</strong>{" "}
+                  {selectedBooking.eventDate ? new Date(selectedBooking.eventDate).toLocaleDateString() : "N/A"}{" "}
+                  {/* Added check for eventDate */}
                 </p>
                 <p className="flex items-center gap-2 mt-2">
                   <Clock className="w-5 h-5 text-brand-red-500" />
