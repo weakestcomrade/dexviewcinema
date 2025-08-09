@@ -19,9 +19,8 @@ import {
   Printer,
   Eye,
   Loader2,
-  CalendarIcon,
+  XCircle,
 } from "lucide-react"
-import Image from "next/image"
 import {
   Dialog,
   DialogContent,
@@ -30,27 +29,53 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import Image from "next/image" // Import Image component
 
-// Define a type for booking data
+// Define a type for booking data as returned by /api/bookings
 interface Booking {
-  id: string
+  _id: string // Changed from 'id' to '_id' to match MongoDB
   customerName: string
   customerEmail: string
   customerPhone: string
+  eventId: string // Added eventId
   eventTitle: string
   eventType: "match" | "movie"
-  eventDate: string
-  eventTime: string
-  eventHall: string
   seats: string[]
   seatType: string
   amount: number
   processingFee: number
   totalAmount: number
   status: "confirmed" | "pending" | "cancelled"
-  bookingDate: string
-  bookingTime: string
+  bookingDate: string // This is the booking creation date
+  bookingTime: string // This is the booking creation time
   paymentMethod: string
+  createdAt: string
+  updatedAt: string
+}
+
+// Define types for event and hall details
+interface EventDetails {
+  _id: string
+  title: string
+  type: "movie" | "match"
+  date: string // Event date
+  time: string // Event time
+  hall_id: string
+  // Add other event properties if needed for display
+}
+
+interface HallDetails {
+  _id: string
+  name: string
+  capacity: number
+  type: "vip" | "standard"
+  // Add other hall properties if needed for display
+}
+
+// Define a type for the full booking details including event and hall
+interface FullBookingDetails extends Booking {
+  eventDetails?: EventDetails
+  hallDetails?: HallDetails
 }
 
 export default function BookingsPage() {
@@ -59,8 +84,10 @@ export default function BookingsPage() {
   const [fetchedBookings, setFetchedBookings] = useState<Booking[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [hasSearched, setHasSearched] = useState(false) // To show "No bookings found" only after a search
-  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
+  const [selectedBooking, setSelectedBooking] = useState<FullBookingDetails | null>(null)
   const [isReceiptOpen, setIsReceiptOpen] = useState(false)
+  const [isReceiptLoading, setIsReceiptLoading] = useState(false) // New state for receipt loading
+  const [receiptError, setReceiptError] = useState<string | null>(null) // New state for receipt error
 
   const fetchBookings = useCallback(async () => {
     setIsLoading(true)
@@ -88,24 +115,52 @@ export default function BookingsPage() {
   // Filter fetched bookings based on the client-side search query
   const displayedBookings = fetchedBookings.filter(
     (booking) =>
-      (booking.id?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
+      (booking._id?.toLowerCase() || "").includes(searchQuery.toLowerCase()) || // Use _id
       (booking.customerName?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
       (booking.eventTitle?.toLowerCase() || "").includes(searchQuery.toLowerCase()),
   )
 
-  const handleViewReceipt = (booking: Booking) => {
-    setSelectedBooking(booking)
-    setIsReceiptOpen(true)
-  }
+  const handleViewReceipt = useCallback(async (booking: Booking) => {
+    setSelectedBooking(null) // Clear previous selection
+    setIsReceiptLoading(true)
+    setReceiptError(null)
+    setIsReceiptOpen(true) // Open dialog immediately with loading state
+
+    try {
+      // Fetch event details
+      const eventRes = await fetch(`/api/events/${booking.eventId}`)
+      if (!eventRes.ok) {
+        throw new Error(`Failed to fetch event: ${eventRes.statusText}`)
+      }
+      const eventData: EventDetails = await eventRes.json()
+
+      // Fetch hall details
+      const hallRes = await fetch(`/api/halls/${eventData.hall_id}`)
+      if (!hallRes.ok) {
+        throw new Error(`Failed to fetch hall: ${hallRes.statusText}`)
+      }
+      const hallData: HallDetails = await hallRes.json()
+
+      setSelectedBooking({
+        ...booking,
+        eventDetails: eventData,
+        hallDetails: hallData,
+      })
+    } catch (err) {
+      console.error("Error fetching full booking details:", err)
+      setReceiptError((err as Error).message)
+    } finally {
+      setIsReceiptLoading(false)
+    }
+  }, [])
 
   const printReceipt = () => {
-    // Target the specific receipt content for printing
-    const printContent = document.getElementById("receipt")
+    const printContent = document.getElementById("receipt-print-area")
     if (printContent) {
       const originalContents = document.body.innerHTML
-      const printContents = printContent.innerHTML
+      const printArea = printContent.innerHTML
 
-      document.body.innerHTML = printContents
+      document.body.innerHTML = printArea
       window.print()
       document.body.innerHTML = originalContents
       window.location.reload() // Reload to restore original page state
@@ -208,7 +263,7 @@ export default function BookingsPage() {
           ) : (
             displayedBookings.map((booking) => (
               <Card
-                key={booking.id}
+                key={booking._id} // Use _id
                 className="bg-glass-white-strong backdrop-blur-xl shadow-cyber-card hover:shadow-cyber-hover transition-all duration-300 border border-white/20 group relative overflow-hidden rounded-3xl"
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-brand-red-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl"></div>
@@ -219,7 +274,7 @@ export default function BookingsPage() {
                         {booking.eventTitle}
                       </CardTitle>
                       <CardDescription className="text-cyber-slate-300 text-sm">
-                        Booking ID: <span className="font-mono text-brand-red-300">{booking.id}</span>
+                        Booking ID: <span className="font-mono text-brand-red-300">{booking._id}</span> {/* Use _id */}
                       </CardDescription>
                     </div>
                     <Badge
@@ -243,15 +298,18 @@ export default function BookingsPage() {
                   <div className="grid grid-cols-2 gap-3 text-sm text-cyber-slate-400 mb-4">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4 text-brand-red-400" />
-                      {booking.eventDate}
+                      {/* Display booking date, not event date here */}
+                      {new Date(booking.bookingDate).toLocaleDateString()}
                     </div>
                     <div className="flex items-center gap-2">
                       <Clock className="w-4 h-4 text-brand-red-400" />
-                      {booking.eventTime}
+                      {/* Display booking time, not event time here */}
+                      {booking.bookingTime}
                     </div>
                     <div className="flex items-center gap-2">
                       <MapPin className="w-4 h-4 text-brand-red-400" />
-                      {booking.eventHall}
+                      {/* Hall name is not available in initial fetch, will be "N/A" */}
+                      N/A
                     </div>
                     <div className="flex items-center gap-2">
                       <Ticket className="w-4 h-4 text-brand-red-400" />
@@ -292,8 +350,8 @@ export default function BookingsPage() {
 
       {/* Receipt Dialog */}
       <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
-        <DialogContent className="sm:max-w-[600px] bg-glass-dark-strong backdrop-blur-xl border border-white/20 text-white shadow-cyber-hover rounded-4xl">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[600px] bg-glass-dark-strong backdrop-blur-xl border border-white/20 text-white shadow-cyber-hover rounded-4xl print:shadow-none print:border-none print:bg-white print:text-black">
+          <DialogHeader className="print:hidden">
             <DialogTitle className="text-white text-xl font-bold bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
               Booking Receipt
             </DialogTitle>
@@ -301,10 +359,21 @@ export default function BookingsPage() {
               Customer booking receipt ready for printing
             </DialogDescription>
           </DialogHeader>
-          {selectedBooking && (
+          {isReceiptLoading ? (
+            <div className="flex flex-col items-center justify-center py-10 text-cyber-slate-300">
+              <Loader2 className="mr-2 h-8 w-8 animate-spin mb-4" />
+              <p>Loading receipt details...</p>
+            </div>
+          ) : receiptError ? (
+            <div className="flex flex-col items-center justify-center py-10 text-brand-red-500">
+              <XCircle className="w-16 h-16 mb-4" />
+              <h1 className="text-2xl font-bold mb-2">Error Loading Receipt</h1>
+              <p className="text-lg text-center">{receiptError}</p>
+            </div>
+          ) : selectedBooking ? (
             <div
-              className="receipt-content bg-white text-black p-8 rounded-lg mx-4 print:shadow-none print:p-0 print:rounded-none"
-              id="receipt"
+              className="receipt-content bg-white text-black p-8 rounded-lg shadow-md print:shadow-none print:p-0 print:rounded-none"
+              id="receipt-print-area"
             >
               <div className="text-center mb-6">
                 <Image
@@ -335,7 +404,7 @@ export default function BookingsPage() {
                 <div>
                   <h3 className="font-bold text-lg mb-3 text-brand-red-600">Booking Details</h3>
                   <p>
-                    <strong>Booking ID:</strong> {selectedBooking.id}
+                    <strong>Booking ID:</strong> {selectedBooking._id}
                   </p>
                   <p>
                     <strong>Date:</strong> {selectedBooking.bookingDate}
@@ -366,7 +435,7 @@ export default function BookingsPage() {
                 </p>
                 <p className="flex items-center gap-2 mt-2">
                   <MapPin className="w-5 h-5 text-brand-red-500" />
-                  <strong>Venue:</strong> {selectedBooking.eventHall || "N/A"}
+                  <strong>Venue:</strong> {selectedBooking.hallDetails?.name || "N/A"}
                 </p>
                 <p className="flex items-center gap-2 mt-2">
                   <Ticket className="w-5 h-5 text-brand-red-500" />
@@ -384,12 +453,15 @@ export default function BookingsPage() {
                   ({selectedBooking.seatType})
                 </p>
                 <p className="flex items-center gap-2 mt-2">
-                  <CalendarIcon className="w-5 h-5 text-brand-red-500" />
-                  <strong>Event Date:</strong> {new Date(selectedBooking.eventDate).toLocaleDateString()}
+                  <Calendar className="w-5 h-5 text-brand-red-500" />
+                  <strong>Event Date:</strong>{" "}
+                  {selectedBooking.eventDetails?.date
+                    ? new Date(selectedBooking.eventDetails.date).toLocaleDateString()
+                    : "N/A"}
                 </p>
                 <p className="flex items-center gap-2 mt-2">
                   <Clock className="w-5 h-5 text-brand-red-500" />
-                  <strong>Event Time:</strong> {selectedBooking.eventTime}
+                  <strong>Event Time:</strong> {selectedBooking.eventDetails?.time || "N/A"}
                 </p>
               </div>
 
@@ -415,8 +487,8 @@ export default function BookingsPage() {
                 <p className="mt-2">Developed by SydaTech - www.sydatech.com.ng</p>
               </div>
             </div>
-          )}
-          <DialogFooter>
+          ) : null}
+          <DialogFooter className="print:hidden">
             <Button
               variant="outline"
               onClick={() => setIsReceiptOpen(false)}
@@ -426,6 +498,7 @@ export default function BookingsPage() {
             </Button>
             <Button
               onClick={printReceipt}
+              disabled={isReceiptLoading || !selectedBooking}
               className="bg-gradient-to-r from-cyber-green-500 via-cyber-green-600 to-cyber-green-700 hover:from-cyber-green-600 hover:via-cyber-green-700 hover:to-cyber-green-800 text-white rounded-2xl"
             >
               <Printer className="w-4 h-4 mr-2" />
@@ -466,7 +539,7 @@ export default function BookingsPage() {
           body * {
             visibility: hidden;
           }
-          #receipt, #receipt * {
+          #receipt-print-area, #receipt-print-area * {
             visibility: visible;
             color: #000 !important;
             background-color: #fff !important;
@@ -474,7 +547,7 @@ export default function BookingsPage() {
             border-color: #ccc !important;
             background-image: none !important;
           }
-          #receipt {
+          #receipt-print-area {
             position: absolute;
             left: 0;
             top: 0;
@@ -482,7 +555,7 @@ export default function BookingsPage() {
             padding: 20px; /* Add padding for print layout */
           }
           /* Ensure images are visible */
-          #receipt img {
+          #receipt-print-area img {
             display: block !important;
             visibility: visible !important;
           }

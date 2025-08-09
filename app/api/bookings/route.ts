@@ -1,63 +1,163 @@
 import { NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
+import { revalidatePath } from "next/cache"
+
+// Define the structure for a booking document
+interface BookingDocument {
+  _id?: ObjectId
+  customerName: string
+  customerEmail: string
+  customerPhone: string
+  eventId: string // Reference to the event ID
+  eventTitle: string
+  eventType: "movie" | "match"
+  seats: string[] // Array of seat identifiers (e.g., ["A1", "A2"])
+  seatType: string // e.g., "VIP Sofa", "Standard Single"
+  amount: number // Base amount for seats
+  processingFee: number
+  totalAmount: number
+  status: "confirmed" | "pending" | "cancelled"
+  bookingDate: string // Date of booking
+  bookingTime: string // Time of booking
+  paymentMethod: string
+  createdAt: Date
+  updatedAt: Date
+}
 
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url)
-    const customerEmail = searchParams.get("email")
-
     const { db } = await connectToDatabase()
+    const { searchParams } = new URL(request.url)
 
-    const query: any = {}
-    if (customerEmail) {
-      query.customerEmail = customerEmail
+    const email = searchParams.get("email")
+    const name = searchParams.get("name")
+    const phone = searchParams.get("phone")
+    // Removed: const id = searchParams.get("id") as this is now handled by [id]/route.ts
+
+    let query: any = {}
+    const orConditions = []
+
+    if (email) {
+      orConditions.push({ customerEmail: email })
+    }
+    if (name) {
+      orConditions.push({ customerName: { $regex: name, $options: "i" } }) // Case-insensitive partial match
+    }
+    if (phone) {
+      orConditions.push({ customerPhone: phone })
+    }
+    // Removed: if (id) { ... } else if (orConditions.length > 0) { ... }
+    // Now, if any search params are present, use them for filtering
+    if (orConditions.length > 0) {
+      query = { $or: orConditions }
     }
 
-    const bookingsCollection = db.collection("bookings")
-    const eventsCollection = db.collection("events")
-    const hallsCollection = db.collection("halls")
+    const bookings = await db.collection("bookings").find(query).toArray()
 
-    const bookings = await bookingsCollection.find(query).toArray()
+    const serializableBookings = bookings.map((booking) => ({
+      ...booking,
+      _id: booking._id.toString(),
+      // Ensure eventId is string if it's ObjectId in DB, assuming it's stored as string for simplicity here
+      // If eventId is stored as ObjectId, you'd need: eventId: booking.eventId.toString(),
+    }))
 
-    const enrichedBookings = await Promise.all(
-      bookings.map(async (booking) => {
-        // Fetch event details
-        const event = await eventsCollection.findOne({ _id: new ObjectId(booking.eventId) })
-
-        let eventHallName = "N/A"
-        if (event && event.hallId) {
-          // Fetch hall details if hallId exists
-          const hall = await hallsCollection.findOne({ _id: new ObjectId(event.hallId) })
-          eventHallName = hall ? hall.name : "N/A"
-        }
-
-        return {
-          id: booking._id.toString(),
-          customerName: booking.customerName,
-          customerEmail: booking.customerEmail,
-          customerPhone: booking.customerPhone,
-          eventTitle: event ? event.title : "Unknown Event",
-          eventType: event ? event.type : "movie", // Default to movie if type is missing
-          eventDate: event ? event.date : "Invalid Date",
-          eventTime: event ? event.time : "N/A",
-          eventHall: eventHallName,
-          seats: booking.seats,
-          seatType: booking.seatType,
-          amount: booking.amount,
-          processingFee: booking.processingFee,
-          totalAmount: booking.totalAmount,
-          status: booking.status,
-          bookingDate: booking.bookingDate,
-          bookingTime: booking.bookingTime,
-          paymentMethod: booking.paymentMethod,
-        }
-      }),
-    )
-
-    return NextResponse.json(enrichedBookings)
+    return NextResponse.json(serializableBookings)
   } catch (error) {
     console.error("Failed to fetch bookings:", error)
-    return NextResponse.json({ message: "Failed to fetch bookings", error: error.message }, { status: 500 })
+    return NextResponse.json({ message: "Failed to fetch bookings", error: (error as Error).message }, { status: 500 })
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const { db } = await connectToDatabase()
+    const newBookingData: BookingDocument = await request.json()
+
+    // Basic validation for required fields
+    const {
+      customerName,
+      customerEmail,
+      customerPhone,
+      eventId,
+      eventTitle,
+      eventType,
+      seats,
+      seatType,
+      amount,
+      processingFee,
+      totalAmount,
+      status,
+      bookingDate,
+      bookingTime,
+      paymentMethod,
+    } = newBookingData
+
+    const missingFields = []
+    if (!customerName) missingFields.push("customerName")
+    if (!customerEmail) missingFields.push("customerEmail")
+    if (!customerPhone) missingFields.push("customerPhone")
+    if (!eventId) missingFields.push("eventId")
+    if (!eventTitle) missingFields.push("eventTitle")
+    if (!eventType) missingFields.push("eventType")
+    if (!seats || seats.length === 0) missingFields.push("seats")
+    if (!seatType) missingFields.push("seatType")
+    if (typeof amount !== "number" || amount < 0) missingFields.push("amount")
+    if (typeof processingFee !== "number" || processingFee < 0) missingFields.push("processingFee")
+    if (typeof totalAmount !== "number" || totalAmount < 0) missingFields.push("totalAmount")
+    if (!status) missingFields.push("status")
+    if (!bookingDate) missingFields.push("bookingDate")
+    if (!bookingTime) missingFields.push("bookingTime")
+    if (!paymentMethod) missingFields.push("paymentMethod")
+
+    if (missingFields.length > 0) {
+      console.error("Missing required fields for booking:", missingFields.join(", "), newBookingData)
+      return NextResponse.json({ message: `Missing required fields: ${missingFields.join(", ")}` }, { status: 400 })
+    }
+
+    // Check for duplicate bookings for the same event and seats
+    // Note: For a real application, you might want to check seat availability in the event document itself
+    // and handle transactions to ensure atomicity.
+    const existingBooking = await db.collection("bookings").findOne({
+      eventId: new ObjectId(eventId),
+      seats: { $in: seats }, // Check if any of the selected seats are already booked for this event
+      status: { $ne: "cancelled" }, // Only consider active/pending bookings
+    })
+
+    if (existingBooking) {
+      console.warn("Duplicate booking attempt detected:", newBookingData)
+      return NextResponse.json(
+        { message: "One or more selected seats are already booked for this event." },
+        { status: 409 },
+      )
+    }
+
+    const bookingToInsert = {
+      ...newBookingData,
+      eventId: new ObjectId(eventId), // Convert eventId to ObjectId for storage
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
+
+    const result = await db.collection("bookings").insertOne(bookingToInsert)
+
+    if (!result.acknowledged) {
+      console.error("MongoDB insertOne not acknowledged for booking:", result)
+      throw new Error("Failed to create booking: Acknowledgment failed.")
+    }
+
+    const createdBooking = {
+      ...bookingToInsert,
+      _id: result.insertedId.toString(),
+      eventId: eventId, // Return original eventId as string for client
+    }
+
+    // Revalidate the admin page to show the new booking
+    revalidatePath("/admin")
+
+    return NextResponse.json(createdBooking, { status: 201 })
+  } catch (error) {
+    console.error("Failed to create booking:", error)
+    return NextResponse.json({ message: "Failed to create booking", error: (error as Error).message }, { status: 500 })
   }
 }
