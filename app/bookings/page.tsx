@@ -2,13 +2,26 @@
 
 import { useState, useCallback } from "react"
 import Link from "next/link"
-import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
-import { Calendar, Clock, MapPin, Film, Trophy, ArrowLeft, Search, Ticket, Printer, Eye, Loader2 } from "lucide-react"
+import {
+  Calendar,
+  Clock,
+  MapPin,
+  Film,
+  Trophy,
+  ArrowLeft,
+  Search,
+  Ticket,
+  Printer,
+  Eye,
+  Loader2,
+  CalendarIcon,
+} from "lucide-react"
+import Image from "next/image"
 import {
   Dialog,
   DialogContent,
@@ -45,14 +58,14 @@ export default function BookingsPage() {
   const [customerEmail, setCustomerEmail] = useState("")
   const [fetchedBookings, setFetchedBookings] = useState<Booking[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  const [hasSearched, setHasSearched] = useState(false)
+  const [hasSearched, setHasSearched] = useState(false) // To show "No bookings found" only after a search
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   const [isReceiptOpen, setIsReceiptOpen] = useState(false)
 
   const fetchBookings = useCallback(async () => {
     setIsLoading(true)
-    setHasSearched(true)
-    setFetchedBookings([])
+    setHasSearched(true) // Mark that a search has been initiated
+    setFetchedBookings([]) // Clear previous results
 
     const params = new URLSearchParams()
     if (customerEmail) params.append("email", customerEmail)
@@ -72,6 +85,7 @@ export default function BookingsPage() {
     }
   }, [customerEmail])
 
+  // Filter fetched bookings based on the client-side search query
   const displayedBookings = fetchedBookings.filter(
     (booking) =>
       (booking.id?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
@@ -152,8 +166,8 @@ export default function BookingsPage() {
             )}
           </Button>
           {/* Security Note: In a real application, fetching bookings by email/name/phone without authentication
-            is a security risk. This implementation assumes a future authentication system where the user
-            is verified before accessing their bookings. */}
+              is a security risk. This implementation assumes a future authentication system where the user
+              is verified before accessing their bookings. */}
         </Card>
 
         {/* Existing search bar for client-side filtering of fetched results */}
@@ -278,7 +292,10 @@ export default function BookingsPage() {
             </DialogDescription>
           </DialogHeader>
           {selectedBooking && (
-            <div className="receipt-content bg-white text-black p-8 rounded-lg mx-4" id="receipt">
+            <div
+              className="receipt-content bg-white text-black p-8 rounded-lg mx-4 print:shadow-none print:p-0 print:rounded-none"
+              id="receipt"
+            >
               <div className="text-center mb-6">
                 <Image
                   src="/dexcinema-logo.jpeg"
@@ -339,7 +356,7 @@ export default function BookingsPage() {
                 </p>
                 <p className="flex items-center gap-2 mt-2">
                   <MapPin className="w-5 h-5 text-brand-red-500" />
-                  <strong>Venue:</strong> {selectedBooking.eventHall || "N/A"} {/* Added fallback for venue */}
+                  <strong>Venue:</strong> {selectedBooking.eventHall || "N/A"}
                 </p>
                 <p className="flex items-center gap-2 mt-2">
                   <Ticket className="w-5 h-5 text-brand-red-500" />
@@ -357,10 +374,8 @@ export default function BookingsPage() {
                   ({selectedBooking.seatType})
                 </p>
                 <p className="flex items-center gap-2 mt-2">
-                  <Calendar className="w-5 h-5 text-brand-red-500" />
-                  <strong>Event Date:</strong>{" "}
-                  {selectedBooking.eventDate ? new Date(selectedBooking.eventDate).toLocaleDateString() : "N/A"}{" "}
-                  {/* Added check for eventDate */}
+                  <CalendarIcon className="w-5 h-5 text-brand-red-500" />
+                  <strong>Event Date:</strong> {new Date(selectedBooking.eventDate).toLocaleDateString()}
                 </p>
                 <p className="flex items-center gap-2 mt-2">
                   <Clock className="w-5 h-5 text-brand-red-500" />
@@ -443,12 +458,27 @@ export default function BookingsPage() {
           }
           #receipt, #receipt * {
             visibility: visible;
+            color: #000 !important;
+            background-color: #fff !important;
+            box-shadow: none !important;
+            border-color: #ccc !important;
+            background-image: none !important;
           }
           #receipt {
             position: absolute;
             left: 0;
             top: 0;
             width: 100%;
+            padding: 20px; /* Add padding for print layout */
+          }
+          /* Ensure images are visible */
+          #receipt img {
+            display: block !important;
+            visibility: visible !important;
+          }
+          /* Hide buttons and non-receipt elements */
+          .print\\:hidden {
+            display: none !important;
           }
         }
       `}</style>
