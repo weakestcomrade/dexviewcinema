@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react"
 import Link from "next/link"
-import Image from "next/image"
+import Image from "next/image" // Import Image component
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -28,7 +28,7 @@ interface Booking {
   eventType: "match" | "movie"
   eventDate: string
   eventTime: string
-  eventHall: string
+  eventHall: string // This is the hall name, not ID
   seats: string[]
   seatType: string
   amount: number
@@ -436,21 +436,21 @@ export default function BookingsPage() {
 
       {/* Print Styles */}
       <style jsx global>{`
-      @media print {
-        body * {
-          visibility: hidden;
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          #receipt, #receipt * {
+            visibility: visible;
+          }
+          #receipt {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+          }
         }
-        #receipt, #receipt * {
-          visibility: visible;
-        }
-        #receipt {
-          position: absolute;
-          left: 0;
-          top: 0;
-          width: 100%;
-        }
-      }
-    `}</style>
+      `}</style>
     </div>
   )
 }
