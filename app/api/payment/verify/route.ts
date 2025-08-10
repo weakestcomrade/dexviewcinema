@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { PaystackService } from "@/lib/paystack"
 import { connectToDatabase } from "@/lib/mongodb"
+import { ObjectId } from "mongodb"
 
 export async function POST(request: Request) {
   try {
@@ -11,21 +12,43 @@ export async function POST(request: Request) {
     const { reference } = body
 
     if (!reference) {
-      return NextResponse.json({ message: "Payment reference is required" }, { status: 400 })
+      return NextResponse.json(
+        {
+          status: false,
+          message: "Payment reference is required",
+        },
+        { status: 400 },
+      )
     }
+
+    console.log("Verifying payment with reference:", reference)
 
     // Verify payment with Paystack
     const paystackResponse = await paystack.verifyPayment(reference)
+    console.log("Paystack verification response:", paystackResponse)
 
     if (!paystackResponse.status || paystackResponse.data.status !== "success") {
-      return NextResponse.json({ message: "Payment verification failed" }, { status: 400 })
+      return NextResponse.json(
+        {
+          status: false,
+          message: "Payment verification failed with Paystack",
+        },
+        { status: 400 },
+      )
     }
 
     // Find payment record in database
     const paymentRecord = await db.collection("payments").findOne({ reference })
+    console.log("Payment record from database:", paymentRecord)
 
     if (!paymentRecord) {
-      return NextResponse.json({ message: "Payment record not found" }, { status: 404 })
+      return NextResponse.json(
+        {
+          status: false,
+          message: "Payment record not found in database",
+        },
+        { status: 404 },
+      )
     }
 
     // Check if payment is already processed
@@ -40,25 +63,58 @@ export async function POST(request: Request) {
       }
     }
 
-    // Verify amount matches
-    const paidAmount = paystackResponse.data.amount / 100 // Convert from kobo
-    if (paidAmount !== paymentRecord.totalAmount) {
-      return NextResponse.json({ message: "Payment amount mismatch" }, { status: 400 })
+    // Convert Paystack amount from kobo to naira
+    const paidAmountInNaira = paystackResponse.data.amount / 100
+    console.log("Amount comparison:", {
+      paidAmount: paidAmountInNaira,
+      expectedAmount: paymentRecord.amount,
+      paymentRecordAmount: paymentRecord.amount,
+    })
+
+    // Verify amount matches (use the total amount stored in payment record)
+    if (Math.abs(paidAmountInNaira - paymentRecord.amount) > 0.01) {
+      // Allow for small floating point differences
+      console.error("Amount mismatch:", {
+        paid: paidAmountInNaira,
+        expected: paymentRecord.amount,
+        difference: Math.abs(paidAmountInNaira - paymentRecord.amount),
+      })
+      return NextResponse.json(
+        {
+          status: false,
+          message: `Payment amount mismatch. Paid: ₦${paidAmountInNaira}, Expected: ₦${paymentRecord.amount}`,
+        },
+        { status: 400 },
+      )
+    }
+
+    // Get event details
+    const event = await db.collection("events").findOne({ _id: new ObjectId(paymentRecord.eventId) })
+    if (!event) {
+      return NextResponse.json(
+        {
+          status: false,
+          message: "Event not found",
+        },
+        { status: 404 },
+      )
     }
 
     // Create booking record
     const bookingData = {
       customerName: paymentRecord.customerName,
-      customerEmail: paymentRecord.customerEmail,
-      customerPhone: paymentRecord.customerPhone,
-      eventId: paymentRecord.eventId,
-      eventTitle: "", // Will be populated from event
-      eventType: "", // Will be populated from event
+      customerEmail: paymentRecord.email,
+      customerPhone: paymentRecord.customerPhone || "",
+      eventId: new ObjectId(paymentRecord.eventId),
+      eventTitle: event.title,
+      eventType: event.event_type,
+      eventDate: event.date,
+      eventTime: event.time,
       seats: paymentRecord.seats,
       seatType: paymentRecord.seatType,
-      amount: paymentRecord.amount,
-      processingFee: paymentRecord.processingFee,
-      totalAmount: paymentRecord.totalAmount,
+      amount: paymentRecord.baseAmount || paymentRecord.amount,
+      processingFee: paymentRecord.processingFee || 0,
+      totalAmount: paymentRecord.amount,
       status: "confirmed",
       bookingDate: new Date().toISOString().split("T")[0],
       bookingTime: new Date().toTimeString().split(" ")[0].substring(0, 5),
@@ -69,12 +125,7 @@ export async function POST(request: Request) {
       updatedAt: new Date(),
     }
 
-    // Get event details
-    const event = await db.collection("events").findOne({ _id: paymentRecord.eventId })
-    if (event) {
-      bookingData.eventTitle = event.title
-      bookingData.eventType = event.event_type
-    }
+    console.log("Creating booking with data:", bookingData)
 
     // Insert booking
     const bookingResult = await db.collection("bookings").insertOne(bookingData)
@@ -93,7 +144,7 @@ export async function POST(request: Request) {
 
     // Update event's booked seats
     await db.collection("events").updateOne(
-      { _id: paymentRecord.eventId },
+      { _id: new ObjectId(paymentRecord.eventId) },
       {
         $addToSet: {
           bookedSeats: { $each: paymentRecord.seats },
@@ -101,13 +152,15 @@ export async function POST(request: Request) {
       },
     )
 
+    console.log("Payment verification successful, booking created:", bookingResult.insertedId)
+
     return NextResponse.json({
       status: true,
       message: "Payment verified and booking confirmed",
       data: {
         bookingId: bookingResult.insertedId.toString(),
         reference: reference,
-        amount: paidAmount,
+        amount: paidAmountInNaira,
       },
     })
   } catch (error) {

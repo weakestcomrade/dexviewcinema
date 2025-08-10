@@ -30,18 +30,37 @@ async function setupCollections() {
       }
     }
 
-    // Create indexes
-    await db.collection("events").createIndex({ date: 1 })
-    await db.collection("events").createIndex({ hallId: 1 })
-    await db.collection("bookings").createIndex({ eventId: 1 })
-    await db.collection("bookings").createIndex({ customerEmail: 1 })
-    await db.collection("payments").createIndex({ reference: 1 }, { unique: true })
-    await db.collection("payments").createIndex({ status: 1 })
+    // Create indexes for better performance
 
-    console.log("Indexes created successfully")
-    console.log("MongoDB collections setup completed!")
+    // Events collection indexes
+    await db.collection("events").createIndex({ date: 1, time: 1 })
+    await db.collection("events").createIndex({ event_type: 1 })
+    await db.collection("events").createIndex({ hall_id: 1 })
+    console.log("Created indexes for events collection")
+
+    // Halls collection indexes
+    await db.collection("halls").createIndex({ name: 1 }, { unique: true })
+    console.log("Created indexes for halls collection")
+
+    // Bookings collection indexes
+    await db.collection("bookings").createIndex({ customerEmail: 1 })
+    await db.collection("bookings").createIndex({ eventId: 1 })
+    await db.collection("bookings").createIndex({ paymentReference: 1 }, { unique: true })
+    await db.collection("bookings").createIndex({ createdAt: -1 })
+    console.log("Created indexes for bookings collection")
+
+    // Payments collection indexes
+    await db.collection("payments").createIndex({ reference: 1 }, { unique: true })
+    await db.collection("payments").createIndex({ email: 1 })
+    await db.collection("payments").createIndex({ eventId: 1 })
+    await db.collection("payments").createIndex({ status: 1 })
+    await db.collection("payments").createIndex({ createdAt: -1 })
+    console.log("Created indexes for payments collection")
+
+    console.log("MongoDB collections and indexes setup completed successfully!")
   } catch (error) {
-    console.error("Error setting up collections:", error)
+    console.error("Error setting up MongoDB collections:", error)
+    process.exit(1)
   } finally {
     await client.close()
   }

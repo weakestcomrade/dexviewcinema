@@ -17,45 +17,63 @@ async function setupPaymentsCollection() {
 
     const db = client.db(dbName)
 
-    // Ensure payments collection exists
+    // Create payments collection if it doesn't exist
     const exists = await db.listCollections({ name: "payments" }).hasNext()
     if (!exists) {
       await db.createCollection("payments")
       console.log("Created payments collection")
+    } else {
+      console.log("Payments collection already exists")
     }
 
-    // Create specific indexes for payments
-    await db.collection("payments").createIndex({ reference: 1 }, { unique: true })
-    await db.collection("payments").createIndex({ status: 1 })
-    await db.collection("payments").createIndex({ email: 1 })
-    await db.collection("payments").createIndex({ eventId: 1 })
-    await db.collection("payments").createIndex({ createdAt: 1 })
+    // Create comprehensive indexes for payments collection
+    const indexes = [
+      { key: { reference: 1 }, options: { unique: true, name: "reference_unique" } },
+      { key: { email: 1 }, options: { name: "email_index" } },
+      { key: { eventId: 1 }, options: { name: "eventId_index" } },
+      { key: { status: 1 }, options: { name: "status_index" } },
+      { key: { createdAt: -1 }, options: { name: "createdAt_desc" } },
+      { key: { customerName: 1 }, options: { name: "customerName_index" } },
+      { key: { customerPhone: 1 }, options: { name: "customerPhone_index" } },
+      { key: { bookingId: 1 }, options: { sparse: true, name: "bookingId_sparse" } },
+    ]
 
-    console.log("Payment collection indexes created successfully")
+    for (const index of indexes) {
+      try {
+        await db.collection("payments").createIndex(index.key, index.options)
+        console.log(`Created index: ${index.options.name}`)
+      } catch (error) {
+        if (error.code === 85) {
+          // Index already exists
+          console.log(`Index already exists: ${index.options.name}`)
+        } else {
+          console.error(`Error creating index ${index.options.name}:`, error.message)
+        }
+      }
+    }
 
-    // Create sample payment statuses enum validation
-    await db.runCommand({
-      collMod: "payments",
-      validator: {
-        $jsonSchema: {
-          bsonType: "object",
-          required: ["reference", "email", "amount", "status"],
-          properties: {
-            reference: { bsonType: "string" },
-            email: { bsonType: "string" },
-            amount: { bsonType: "number" },
-            status: {
-              enum: ["pending", "success", "failed", "abandoned"],
-            },
-          },
-        },
-      },
-    })
+    // Create a compound index for efficient queries
+    try {
+      await db.collection("payments").createIndex({ status: 1, createdAt: -1 }, { name: "status_createdAt_compound" })
+      console.log("Created compound index: status_createdAt_compound")
+    } catch (error) {
+      if (error.code === 85) {
+        console.log("Compound index already exists: status_createdAt_compound")
+      } else {
+        console.error("Error creating compound index:", error.message)
+      }
+    }
 
-    console.log("Payment collection validation rules applied")
-    console.log("Payments collection setup completed!")
+    // Verify collection structure
+    const stats = await db.collection("payments").stats()
+    console.log(`Payments collection stats:`)
+    console.log(`- Documents: ${stats.count || 0}`)
+    console.log(`- Indexes: ${stats.nindexes || 0}`)
+
+    console.log("Payments collection setup completed successfully!")
   } catch (error) {
     console.error("Error setting up payments collection:", error)
+    process.exit(1)
   } finally {
     await client.close()
   }
