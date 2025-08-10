@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { PaystackService } from "@/lib/paystack"
 import { connectToDatabase } from "@/lib/mongodb"
+import { ObjectId } from "mongodb" // Import ObjectId
 
 // Helper function to generate HTML content for the email
 function generateReceiptHtml(booking: any, event: any, hall: any) {
@@ -72,6 +73,7 @@ export async function GET(request: Request) {
     const reference = searchParams.get("reference")
 
     if (!reference) {
+      console.error("Payment callback: Missing reference in URL.")
       return NextResponse.redirect(new URL("/payment/failed?error=missing-reference", request.url))
     }
 
@@ -82,6 +84,7 @@ export async function GET(request: Request) {
     const paystackResponse = await paystack.verifyPayment(reference)
 
     if (!paystackResponse.status || paystackResponse.data.status !== "success") {
+      console.error(`Payment callback: Paystack verification failed for reference ${reference}.`)
       return NextResponse.redirect(new URL(`/payment/failed?reference=${reference}`, request.url))
     }
 
@@ -89,6 +92,7 @@ export async function GET(request: Request) {
     const paymentRecord = await db.collection("payments").findOne({ reference })
 
     if (!paymentRecord) {
+      console.error(`Payment callback: Payment record not found for reference ${reference}.`)
       return NextResponse.redirect(
         new URL(`/payment/failed?reference=${reference}&error=record-not-found`, request.url),
       )
@@ -98,6 +102,7 @@ export async function GET(request: Request) {
     if (paymentRecord.status === "confirmed") {
       const booking = await db.collection("bookings").findOne({ paymentReference: reference })
       if (booking) {
+        console.log(`Payment callback: Booking already confirmed for reference ${reference}. Redirecting to receipt.`)
         return NextResponse.redirect(new URL(`/receipt/${booking._id}`, request.url))
       }
     }
@@ -126,10 +131,12 @@ export async function GET(request: Request) {
     }
 
     // Get event details
-    const event = await db.collection("events").findOne({ _id: paymentRecord.eventId })
+    const event = await db.collection("events").findOne({ _id: new ObjectId(paymentRecord.eventId) }) // Ensure eventId is ObjectId
     if (event) {
       bookingData.eventTitle = event.title
       bookingData.eventType = event.event_type
+    } else {
+      console.warn(`Payment callback: Event not found for ID ${paymentRecord.eventId}.`)
     }
 
     // Insert booking
@@ -155,7 +162,7 @@ export async function GET(request: Request) {
 
     // Update event's booked seats
     await db.collection("events").updateOne(
-      { _id: paymentRecord.eventId },
+      { _id: new ObjectId(paymentRecord.eventId) }, // Ensure eventId is ObjectId
       {
         $addToSet: {
           bookedSeats: { $each: paymentRecord.seats },
@@ -164,12 +171,18 @@ export async function GET(request: Request) {
     )
 
     // --- Send email automatically after successful booking ---
+    console.log(
+      `Payment callback: Attempting to send email for booking ${createdBooking._id}. BREVO_API_KEY present: ${!!BREVO_API_KEY}`,
+    )
     if (BREVO_API_KEY) {
       try {
         // Fetch hall details if available
         let hall = null
         if (event && event.hall_id) {
-          hall = await db.collection("halls").findOne({ _id: event.hall_id })
+          hall = await db.collection("halls").findOne({ _id: new ObjectId(event.hall_id) }) // Convert hall_id to ObjectId
+          if (!hall) {
+            console.warn(`Payment callback: Hall not found for ID ${event.hall_id} when sending email.`)
+          }
         }
 
         const htmlContent = generateReceiptHtml(createdBooking, event, hall)
@@ -190,15 +203,15 @@ export async function GET(request: Request) {
 
         if (!brevoResponse.ok) {
           const errorData = await brevoResponse.json()
-          console.error("Brevo API error sending receipt email:", errorData)
+          console.error("Payment callback: Brevo API error sending receipt email:", errorData)
         } else {
-          console.log("Receipt email sent successfully for booking:", createdBooking._id)
+          console.log("Payment callback: Receipt email sent successfully for booking:", createdBooking._id)
         }
       } catch (emailError) {
-        console.error("Error sending receipt email:", emailError)
+        console.error("Payment callback: Error sending receipt email:", emailError)
       }
     } else {
-      console.warn("Brevo API key not configured. Skipping email sending.")
+      console.warn("Payment callback: Brevo API key not configured. Skipping email sending.")
     }
     // --- End email sending logic ---
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
 import crypto from "crypto"
+import { ObjectId } from "mongodb" // Import ObjectId
 
 // Helper function to generate HTML content for the email
 function generateReceiptHtml(booking: any, event: any, hall: any) {
@@ -69,6 +70,7 @@ export async function POST(request: Request) {
     const signature = request.headers.get("x-paystack-signature")
 
     if (!signature) {
+      console.error("Webhook: No signature provided.")
       return NextResponse.json({ message: "No signature provided" }, { status: 400 })
     }
 
@@ -77,6 +79,7 @@ export async function POST(request: Request) {
     const hash = crypto.createHmac("sha512", secretKey).update(body).digest("hex")
 
     if (hash !== signature) {
+      console.error("Webhook: Invalid signature.")
       return NextResponse.json({ message: "Invalid signature" }, { status: 400 })
     }
 
@@ -94,14 +97,16 @@ export async function POST(request: Request) {
 
       case "transfer.success":
         // Handle successful transfers if needed
+        console.log(`Webhook: Unhandled transfer.success event for reference: ${event.data.reference}`)
         break
 
       case "transfer.failed":
         // Handle failed transfers if needed
+        console.log(`Webhook: Unhandled transfer.failed event for reference: ${event.data.reference}`)
         break
 
       default:
-        console.log(`Unhandled webhook event: ${event.event}`)
+        console.log(`Webhook: Unhandled event type: ${event.event}`)
     }
 
     return NextResponse.json({ message: "Webhook processed successfully" })
@@ -116,7 +121,7 @@ async function handleChargeSuccess(data: any) {
   const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || "no-reply@dexviewcinema.com"
 
   try {
-    const { reference, amount, customer, authorization } = data
+    const { reference, amount, customer } = data
     const { db } = await connectToDatabase()
 
     // Find payment record
@@ -147,10 +152,12 @@ async function handleChargeSuccess(data: any) {
       }
 
       // Get event details
-      const eventDoc = await db.collection("events").findOne({ _id: paymentRecord.eventId })
+      const eventDoc = await db.collection("events").findOne({ _id: new ObjectId(paymentRecord.eventId) }) // Ensure eventId is ObjectId
       if (eventDoc) {
         bookingData.eventTitle = eventDoc.title
         bookingData.eventType = eventDoc.event_type
+      } else {
+        console.warn(`Webhook: Event not found for ID ${paymentRecord.eventId}.`)
       }
 
       // Insert booking
@@ -176,7 +183,7 @@ async function handleChargeSuccess(data: any) {
 
       // Update event's booked seats
       await db.collection("events").updateOne(
-        { _id: paymentRecord.eventId },
+        { _id: new ObjectId(paymentRecord.eventId) }, // Ensure eventId is ObjectId
         {
           $addToSet: {
             bookedSeats: { $each: paymentRecord.seats },
@@ -185,12 +192,18 @@ async function handleChargeSuccess(data: any) {
       )
 
       // --- Send email automatically after successful booking ---
+      console.log(
+        `Webhook: Attempting to send email for booking ${createdBooking._id}. BREVO_API_KEY present: ${!!BREVO_API_KEY}`,
+      )
       if (BREVO_API_KEY) {
         try {
           // Fetch hall details if available
           let hall = null
           if (eventDoc && eventDoc.hall_id) {
-            hall = await db.collection("halls").findOne({ _id: eventDoc.hall_id })
+            hall = await db.collection("halls").findOne({ _id: new ObjectId(eventDoc.hall_id) }) // Convert hall_id to ObjectId
+            if (!hall) {
+              console.warn(`Webhook: Hall not found for ID ${eventDoc.hall_id} when sending email.`)
+            }
           }
 
           const htmlContent = generateReceiptHtml(createdBooking, eventDoc, hall)
@@ -211,23 +224,27 @@ async function handleChargeSuccess(data: any) {
 
           if (!brevoResponse.ok) {
             const errorData = await brevoResponse.json()
-            console.error("Brevo API error sending receipt email:", errorData)
+            console.error("Webhook: Brevo API error sending receipt email:", errorData)
           } else {
-            console.log("Receipt email sent successfully for booking:", createdBooking._id)
+            console.log("Webhook: Receipt email sent successfully for booking:", createdBooking._id)
           }
         } catch (emailError) {
-          console.error("Error sending receipt email:", emailError)
+          console.error("Webhook: Error sending receipt email:", emailError)
         }
       } else {
-        console.warn("Brevo API key not configured. Skipping email sending.")
+        console.warn("Webhook: Brevo API key not configured. Skipping email sending.")
       }
       // --- End email sending logic ---
+    } else {
+      console.log(
+        `Webhook: Payment record for reference ${reference} already confirmed or not found. Skipping booking creation/email.`,
+      )
     }
 
     // Log successful payment
-    console.log(`Payment successful: ${reference} - ₦${amount / 100}`)
+    console.log(`Webhook: Payment successful: ${reference} - ₦${amount / 100}`)
   } catch (error) {
-    console.error("Error handling charge success:", error)
+    console.error("Webhook: Error handling charge success:", error)
   }
 }
 
@@ -249,8 +266,8 @@ async function handleChargeFailed(data: any) {
     )
 
     // Log failed payment
-    console.log(`Payment failed: ${reference} - ₦${amount / 100}`)
+    console.log(`Webhook: Payment failed: ${reference} - ₦${amount / 100}`)
   } catch (error) {
-    console.error("Error handling charge failed:", error)
+    console.error("Webhook: Error handling charge failed:", error)
   }
 }
