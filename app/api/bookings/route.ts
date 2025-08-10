@@ -21,6 +21,7 @@ interface BookingDocument {
   bookingDate: string // Date of booking
   bookingTime: string // Time of booking
   paymentMethod: string
+  paymentReference?: string
   createdAt: Date
   updatedAt: Date
 }
@@ -36,54 +37,179 @@ function generateReceiptHtml(booking: any, event: any, hall: any) {
     })
     .join(", ")
 
+  const eventDate = event?.date ? new Date(event.date).toLocaleDateString() : booking.bookingDate
+  const eventTime = event?.time || booking.bookingTime
+
   return `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 20px auto; border: 1px solid #eee; border-radius: 8px; overflow: hidden; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
-      <div style="background-color: #e53e3e; color: white; padding: 20px; text-align: center;">
-        <h1 style="margin: 0; font-size: 28px;">Dex View Cinema</h1>
-        <p style="margin: 5px 0 0; font-size: 16px;">Booking Receipt</p>
-      </div>
-      <div style="padding: 20px;">
-        <h2 style="color: #e53e3e; font-size: 22px; margin-top: 0;">Booking Confirmed!</h2>
-        <p style="font-size: 14px; color: #555;">Dear ${booking.customerName},</p>
-        <p style="font-size: 14px; color: #555;">Your booking for <strong>${booking.eventTitle}</strong> has been successfully confirmed. Here are your details:</p>
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Booking Confirmation - Dex View Cinema</title>
+    </head>
+    <body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: Arial, sans-serif;">
+      <div style="max-width: 600px; margin: 20px auto; background-color: white; border-radius: 8px; overflow: hidden; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
+         Header 
+        <div style="background-color: #e53e3e; color: white; padding: 30px 20px; text-align: center;">
+          <h1 style="margin: 0; font-size: 28px; font-weight: bold;">Dex View Cinema</h1>
+          <p style="margin: 10px 0 0; font-size: 16px; opacity: 0.9;">Booking Confirmation</p>
+        </div>
+        
+         Content 
+        <div style="padding: 30px 20px;">
+          <h2 style="color: #e53e3e; font-size: 24px; margin: 0 0 20px 0; font-weight: bold;">🎉 Booking Confirmed!</h2>
+          
+          <p style="font-size: 16px; color: #333; margin-bottom: 10px;">Dear <strong>${booking.customerName}</strong>,</p>
+          
+          <p style="font-size: 16px; color: #555; line-height: 1.6; margin-bottom: 25px;">
+            Thank you for choosing Dex View Cinema! Your booking for <strong>${booking.eventTitle}</strong> has been successfully confirmed. 
+            Please find your booking details below:
+          </p>
 
-        <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
-          <tr>
-            <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold; color: #e53e3e;">Booking ID:</td>
-            <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${booking._id}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold; color: #e53e3e;">Event:</td>
-            <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${booking.eventTitle} (${booking.eventType === "match" ? "Sports Match" : "Movie"})</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold; color: #e53e3e;">Date & Time:</td>
-            <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${booking.bookingDate} at ${booking.bookingTime}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold; color: #e53e3e;">Venue:</td>
-            <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${hall?.name || "N/A"}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold; color: #e53e3e;">Seats:</td>
-            <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${seatsFormatted} (${booking.seatType})</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold; color: #e53e3e;">Total Amount:</td>
-            <td style="padding: 8px 0; border-bottom: 1px solid #eee;">₦${booking.totalAmount.toLocaleString()}</td>
-          </tr>
-        </table>
+           Booking Details Table 
+          <table style="width: 100%; border-collapse: collapse; margin: 25px 0; background-color: #f9f9f9; border-radius: 8px; overflow: hidden;">
+            <tr>
+              <td style="padding: 15px; border-bottom: 1px solid #eee; font-weight: bold; color: #e53e3e; background-color: #fff;">Booking ID:</td>
+              <td style="padding: 15px; border-bottom: 1px solid #eee; background-color: #fff;">${booking._id}</td>
+            </tr>
+            <tr>
+              <td style="padding: 15px; border-bottom: 1px solid #eee; font-weight: bold; color: #e53e3e;">Event:</td>
+              <td style="padding: 15px; border-bottom: 1px solid #eee;">${booking.eventTitle}</td>
+            </tr>
+            <tr>
+              <td style="padding: 15px; border-bottom: 1px solid #eee; font-weight: bold; color: #e53e3e; background-color: #fff;">Type:</td>
+              <td style="padding: 15px; border-bottom: 1px solid #eee; background-color: #fff;">${booking.eventType === "match" ? "Sports Match" : "Movie"}</td>
+            </tr>
+            <tr>
+              <td style="padding: 15px; border-bottom: 1px solid #eee; font-weight: bold; color: #e53e3e;">Date & Time:</td>
+              <td style="padding: 15px; border-bottom: 1px solid #eee;">${eventDate} at ${eventTime}</td>
+            </tr>
+            <tr>
+              <td style="padding: 15px; border-bottom: 1px solid #eee; font-weight: bold; color: #e53e3e; background-color: #fff;">Venue:</td>
+              <td style="padding: 15px; border-bottom: 1px solid #eee; background-color: #fff;">${hall?.name || "Main Hall"}</td>
+            </tr>
+            <tr>
+              <td style="padding: 15px; border-bottom: 1px solid #eee; font-weight: bold; color: #e53e3e;">Seats:</td>
+              <td style="padding: 15px; border-bottom: 1px solid #eee;">
+                <span style="background-color: #e53e3e; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold;">${seatsFormatted}</span>
+                <br><small style="color: #666; margin-top: 5px; display: inline-block;">${booking.seatType}</small>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 15px; font-weight: bold; color: #e53e3e; background-color: #fff; font-size: 18px;">Total Amount:</td>
+              <td style="padding: 15px; background-color: #fff; font-size: 18px; font-weight: bold; color: #e53e3e;">₦${booking.totalAmount.toLocaleString()}</td>
+            </tr>
+          </table>
 
-        <p style="font-size: 14px; color: #555; margin-top: 20px;">
-          Thank you for choosing Dex View Cinema! We look forward to seeing you.
-        </p>
+           Important Notes 
+          <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 20px; margin: 25px 0;">
+            <h3 style="margin: 0 0 10px 0; color: #856404; font-size: 16px;">📋 Important Notes:</h3>
+            <ul style="margin: 0; padding-left: 20px; color: #856404;">
+              <li style="margin-bottom: 5px;">Please arrive at least 15 minutes before the event starts</li>
+              <li style="margin-bottom: 5px;">Bring a valid ID for verification</li>
+              <li style="margin-bottom: 5px;">Your seats are reserved and guaranteed</li>
+              <li>Keep this email as your booking receipt</li>
+            </ul>
+          </div>
+
+          <p style="font-size: 16px; color: #555; line-height: 1.6; margin-top: 30px;">
+            We're excited to have you join us for this amazing experience! If you have any questions or need assistance, 
+            don't hesitate to contact our support team.
+          </p>
+
+          <p style="font-size: 16px; color: #333; margin-top: 20px;">
+            Thank you for choosing <strong>Dex View Cinema</strong>!
+          </p>
+        </div>
+        
+         Footer 
+        <div style="background-color: #f8f8f8; padding: 20px; text-align: center; border-top: 1px solid #eee;">
+          <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">
+            📧 <strong>Support:</strong> support@dexviewcinema.com | 📞 <strong>Phone:</strong> 08139614950
+          </p>
+          <p style="margin: 0; font-size: 12px; color: #999;">
+            Developed by <strong>SydaTech</strong> - www.sydatech.com.ng
+          </p>
+        </div>
       </div>
-      <div style="background-color: #f8f8f8; padding: 15px; text-align: center; font-size: 12px; color: #888; border-top: 1px solid #eee;">
-        <p style="margin: 0;">For support, email us at support@dexviewcinema.com or call 08139614950</p>
-        <p style="margin: 5px 0 0;">Developed by SydaTech - www.sydatech.com.ng</p>
-      </div>
-    </div>
+    </body>
+    </html>
   `
+}
+
+// Helper function to send email using Brevo
+async function sendBookingConfirmationEmail(booking: any, event: any, hall: any) {
+  const BREVO_API_KEY = process.env.BREVO_API_KEY
+  const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || "no-reply@dexviewcinema.com"
+
+  if (!BREVO_API_KEY) {
+    console.warn("Brevo API key not configured. Skipping email sending.")
+    return { success: false, error: "API key not configured" }
+  }
+
+  if (!booking.customerEmail) {
+    console.error("Customer email not provided for booking:", booking._id)
+    return { success: false, error: "Customer email not provided" }
+  }
+
+  try {
+    console.log(`Attempting to send booking confirmation email to: ${booking.customerEmail}`)
+
+    const htmlContent = generateReceiptHtml(booking, event, hall)
+
+    const emailData = {
+      sender: {
+        email: BREVO_SENDER_EMAIL,
+        name: "Dex View Cinema",
+      },
+      to: [
+        {
+          email: booking.customerEmail,
+          name: booking.customerName,
+        },
+      ],
+      subject: `🎬 Booking Confirmed - ${booking.eventTitle} | Dex View Cinema`,
+      htmlContent: htmlContent,
+    }
+
+    console.log("Sending email with data:", {
+      to: emailData.to,
+      subject: emailData.subject,
+      sender: emailData.sender,
+    })
+
+    const brevoResponse = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "api-key": BREVO_API_KEY,
+      },
+      body: JSON.stringify(emailData),
+    })
+
+    const responseData = await brevoResponse.json()
+
+    if (!brevoResponse.ok) {
+      console.error("Brevo API error:", {
+        status: brevoResponse.status,
+        statusText: brevoResponse.statusText,
+        data: responseData,
+      })
+      return { success: false, error: responseData }
+    }
+
+    console.log("Email sent successfully:", {
+      bookingId: booking._id,
+      messageId: responseData.messageId,
+      to: booking.customerEmail,
+    })
+
+    return { success: true, messageId: responseData.messageId }
+  } catch (emailError) {
+    console.error("Error sending booking confirmation email:", emailError)
+    return { success: false, error: emailError }
+  }
 }
 
 export async function GET(request: Request) {
@@ -126,12 +252,11 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const BREVO_API_KEY = process.env.BREVO_API_KEY
-  const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || "no-reply@dexviewcinema.com" // Default sender email
-
   try {
     const { db } = await connectToDatabase()
     const newBookingData: BookingDocument = await request.json()
+
+    console.log("Creating new booking with data:", newBookingData)
 
     // Basic validation for required fields
     const {
@@ -209,46 +334,42 @@ export async function POST(request: Request) {
       eventId: eventId,
     }
 
+    console.log("Booking created successfully:", createdBooking._id)
+
     // --- Send email automatically after successful booking ---
-    if (BREVO_API_KEY) {
-      try {
-        // Fetch event details to get hall_id
-        const event = await db.collection("events").findOne({ _id: new ObjectId(createdBooking.eventId) })
-        let hall = null
-        if (event && event.hall_id) {
-          // Fetch hall details
-          hall = await db.collection("halls").findOne({ _id: new ObjectId(event.hall_id) })
-        }
-
-        const htmlContent = generateReceiptHtml(createdBooking, event, hall)
-
-        const brevoResponse = await fetch("https://api.brevo.com/v3/smtp/email", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "api-key": BREVO_API_KEY,
-          },
-          body: JSON.stringify({
-            sender: { email: BREVO_SENDER_EMAIL, name: "Dex View Cinema" },
-            to: [{ email: createdBooking.customerEmail, name: createdBooking.customerName }],
-            subject: `Your Dex View Cinema Booking Confirmation - ${createdBooking.eventTitle}`,
-            htmlContent: htmlContent,
-          }),
-        })
-
-        if (!brevoResponse.ok) {
-          const errorData = await brevoResponse.json()
-          console.error("Brevo API error sending receipt email:", errorData)
-          // Log the error but don't prevent the booking from being confirmed
-        } else {
-          console.log("Receipt email sent successfully for booking:", createdBooking._id)
-        }
-      } catch (emailError) {
-        console.error("Error sending receipt email:", emailError)
-        // Log the error but don't prevent the booking from being confirmed
+    try {
+      // Fetch event details to get hall_id
+      const event = await db.collection("events").findOne({ _id: new ObjectId(createdBooking.eventId) })
+      let hall = null
+      if (event && event.hall_id) {
+        // Fetch hall details
+        hall = await db.collection("halls").findOne({ _id: new ObjectId(event.hall_id) })
       }
-    } else {
-      console.warn("Brevo API key not configured. Skipping email sending.")
+
+      console.log("Fetched event and hall data for email:", {
+        eventFound: !!event,
+        hallFound: !!hall,
+        eventTitle: event?.title,
+        hallName: hall?.name,
+      })
+
+      const emailResult = await sendBookingConfirmationEmail(createdBooking, event, hall)
+
+      if (emailResult.success) {
+        console.log("✅ Booking confirmation email sent successfully:", {
+          bookingId: createdBooking._id,
+          email: createdBooking.customerEmail,
+          messageId: emailResult.messageId,
+        })
+      } else {
+        console.error("❌ Failed to send booking confirmation email:", {
+          bookingId: createdBooking._id,
+          email: createdBooking.customerEmail,
+          error: emailResult.error,
+        })
+      }
+    } catch (emailError) {
+      console.error("❌ Exception while sending booking confirmation email:", emailError)
     }
     // --- End email sending logic ---
 

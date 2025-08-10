@@ -1,176 +1,106 @@
 import { NextResponse } from "next/server"
 import { PaystackService } from "@/lib/paystack"
 import { connectToDatabase } from "@/lib/mongodb"
-import { ObjectId } from "mongodb"
 
 export async function POST(request: Request) {
   try {
-    const { db } = await connectToDatabase()
-    const paystack = new PaystackService()
-
-    const body = await request.json()
-    const { reference } = body
+    const { reference } = await request.json()
 
     if (!reference) {
-      return NextResponse.json(
-        {
-          status: false,
-          message: "Payment reference is required",
-        },
-        { status: 400 },
-      )
+      return NextResponse.json({ status: false, message: "Payment reference is required" }, { status: 400 })
     }
 
-    console.log("Verifying payment with reference:", reference)
+    const paystack = new PaystackService()
+    const verification = await paystack.verifyPayment(reference)
 
-    // Verify payment with Paystack
-    const paystackResponse = await paystack.verifyPayment(reference)
-    console.log("Paystack verification response:", paystackResponse)
-
-    if (!paystackResponse.status || paystackResponse.data.status !== "success") {
-      return NextResponse.json(
-        {
-          status: false,
-          message: "Payment verification failed with Paystack",
-        },
-        { status: 400 },
-      )
+    if (!verification.status || verification.data.status !== "success") {
+      return NextResponse.json({ status: false, message: "Payment verification failed" }, { status: 400 })
     }
 
-    // Find payment record in database
-    const paymentRecord = await db.collection("payments").findOne({ reference })
-    console.log("Payment record from database:", paymentRecord)
+    const { db } = await connectToDatabase()
 
-    if (!paymentRecord) {
-      return NextResponse.json(
-        {
-          status: false,
-          message: "Payment record not found in database",
-        },
-        { status: 404 },
-      )
-    }
-
-    // Check if payment is already processed
-    if (paymentRecord.status === "confirmed") {
-      const existingBooking = await db.collection("bookings").findOne({ paymentReference: reference })
-      if (existingBooking) {
-        return NextResponse.json({
-          status: true,
-          message: "Payment already processed",
-          data: { bookingId: existingBooking._id.toString() },
-        })
-      }
-    }
-
-    // Convert Paystack amount from kobo to naira
-    const paidAmountInNaira = paystackResponse.data.amount / 100
-    console.log("Amount comparison:", {
-      paidAmount: paidAmountInNaira,
-      expectedAmount: paymentRecord.amount,
-      paymentRecordAmount: paymentRecord.amount,
-    })
-
-    // Verify amount matches (use the total amount stored in payment record)
-    if (Math.abs(paidAmountInNaira - paymentRecord.amount) > 0.01) {
-      // Allow for small floating point differences
-      console.error("Amount mismatch:", {
-        paid: paidAmountInNaira,
-        expected: paymentRecord.amount,
-        difference: Math.abs(paidAmountInNaira - paymentRecord.amount),
+    // Check if payment has already been processed
+    const existingPayment = await db.collection("payments").findOne({ reference })
+    if (existingPayment && existingPayment.status === "success") {
+      return NextResponse.json({
+        status: true,
+        message: "Payment already processed",
+        data: { bookingId: existingPayment.bookingId },
       })
-      return NextResponse.json(
-        {
-          status: false,
-          message: `Payment amount mismatch. Paid: ₦${paidAmountInNaira}, Expected: ₦${paymentRecord.amount}`,
-        },
-        { status: 400 },
-      )
     }
 
-    // Get event details
-    const event = await db.collection("events").findOne({ _id: new ObjectId(paymentRecord.eventId) })
-    if (!event) {
-      return NextResponse.json(
-        {
-          status: false,
-          message: "Event not found",
-        },
-        { status: 404 },
-      )
+    // Get payment metadata
+    const metadata = verification.data.metadata
+    if (!metadata) {
+      return NextResponse.json({ status: false, message: "Payment metadata not found" }, { status: 400 })
     }
 
-    // Create booking record
+    // Create booking data
     const bookingData = {
-      customerName: paymentRecord.customerName,
-      customerEmail: paymentRecord.email,
-      customerPhone: paymentRecord.customerPhone || "",
-      eventId: new ObjectId(paymentRecord.eventId),
-      eventTitle: event.title,
-      eventType: event.event_type,
-      eventDate: event.date,
-      eventTime: event.time,
-      seats: paymentRecord.seats,
-      seatType: paymentRecord.seatType,
-      amount: paymentRecord.baseAmount || paymentRecord.amount,
-      processingFee: paymentRecord.processingFee || 0,
-      totalAmount: paymentRecord.amount,
+      customerName: metadata.customerName,
+      customerEmail: verification.data.customer.email,
+      customerPhone: metadata.customerPhone,
+      eventId: metadata.eventId,
+      eventTitle: metadata.eventTitle || "Event",
+      eventType: metadata.eventType || "movie",
+      seats: metadata.seats || [],
+      seatType: metadata.seatType || "Standard",
+      amount: metadata.amount || 0,
+      processingFee: metadata.processingFee || 0,
+      totalAmount: verification.data.amount / 100, // Convert from kobo
       status: "confirmed",
-      bookingDate: new Date().toISOString().split("T")[0],
-      bookingTime: new Date().toTimeString().split(" ")[0].substring(0, 5),
+      bookingDate: metadata.bookingDate || new Date().toISOString().split("T")[0],
+      bookingTime: metadata.bookingTime || new Date().toLocaleTimeString(),
       paymentMethod: "paystack",
       paymentReference: reference,
-      paystackData: paystackResponse.data,
-      createdAt: new Date(),
-      updatedAt: new Date(),
     }
 
     console.log("Creating booking with data:", bookingData)
 
-    // Insert booking
-    const bookingResult = await db.collection("bookings").insertOne(bookingData)
+    // Create booking by calling the booking API
+    const bookingResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/bookings`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(bookingData),
+    })
 
-    // Update payment status
+    if (!bookingResponse.ok) {
+      const errorData = await bookingResponse.json()
+      console.error("Failed to create booking:", errorData)
+      return NextResponse.json({ status: false, message: "Failed to create booking after payment" }, { status: 500 })
+    }
+
+    const booking = await bookingResponse.json()
+    console.log("Booking created successfully:", booking._id)
+
+    // Update payment record
     await db.collection("payments").updateOne(
       { reference },
       {
         $set: {
-          status: "confirmed",
-          bookingId: bookingResult.insertedId,
-          updatedAt: new Date(),
+          status: "success",
+          bookingId: booking._id,
+          verifiedAt: new Date(),
+          paystackData: verification.data,
         },
       },
+      { upsert: true },
     )
-
-    // Update event's booked seats
-    await db.collection("events").updateOne(
-      { _id: new ObjectId(paymentRecord.eventId) },
-      {
-        $addToSet: {
-          bookedSeats: { $each: paymentRecord.seats },
-        },
-      },
-    )
-
-    console.log("Payment verification successful, booking created:", bookingResult.insertedId)
 
     return NextResponse.json({
       status: true,
-      message: "Payment verified and booking confirmed",
+      message: "Payment verified and booking created successfully",
       data: {
-        bookingId: bookingResult.insertedId.toString(),
+        bookingId: booking._id,
         reference: reference,
-        amount: paidAmountInNaira,
       },
     })
   } catch (error) {
     console.error("Payment verification error:", error)
     return NextResponse.json(
-      {
-        status: false,
-        message: "Payment verification failed",
-        error: (error as Error).message,
-      },
+      { status: false, message: "Payment verification failed", error: (error as Error).message },
       { status: 500 },
     )
   }
