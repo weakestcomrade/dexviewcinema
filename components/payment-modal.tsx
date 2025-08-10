@@ -37,7 +37,10 @@ export function PaymentModal({ isOpen, onClose, onSuccess, paymentData }: Paymen
   useEffect(() => {
     if (isOpen) {
       loadPaystackScript()
-        .then(() => setPaystackLoaded(true))
+        .then(() => {
+          setPaystackLoaded(true)
+          console.log("Paystack script loaded successfully")
+        })
         .catch((error) => {
           console.error("Failed to load Paystack:", error)
           toast({
@@ -76,6 +79,8 @@ export function PaymentModal({ isOpen, onClose, onSuccess, paymentData }: Paymen
         totalAmount: paymentData.totalAmount, // Total amount including processing fee
       }
 
+      console.log("Initializing payment with data:", paymentRequestData)
+
       // Initialize payment with backend
       const initResponse = await fetch("/api/payment/initialize", {
         method: "POST",
@@ -86,13 +91,14 @@ export function PaymentModal({ isOpen, onClose, onSuccess, paymentData }: Paymen
       })
 
       const initData = await initResponse.json()
+      console.log("Payment initialization response:", initData)
 
       if (!initResponse.ok || !initData.status) {
         throw new Error(initData.message || "Failed to initialize payment")
       }
 
-      // Initialize Paystack popup
-      initializePaystackPopup({
+      // Initialize Paystack popup with proper callback function
+      const paystackConfig = {
         key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY!,
         email: paymentData.customerEmail,
         amount: paymentData.totalAmount, // This will be converted to kobo in the function
@@ -104,11 +110,13 @@ export function PaymentModal({ isOpen, onClose, onSuccess, paymentData }: Paymen
           seats: paymentData.seats.join(", "),
           seat_type: paymentData.seatType,
         },
-        callback: async (response) => {
+        callback: (response: any) => {
+          console.log("Payment callback received:", response)
           setPaymentStep("verifying")
-          await handlePaymentCallback(response)
+          handlePaymentCallback(response)
         },
         onClose: () => {
+          console.log("Payment popup closed")
           if (paymentStep === "processing") {
             setIsProcessing(false)
             setPaymentStep("confirm")
@@ -119,7 +127,10 @@ export function PaymentModal({ isOpen, onClose, onSuccess, paymentData }: Paymen
             })
           }
         },
-      })
+      }
+
+      console.log("Opening Paystack popup with config:", paystackConfig)
+      initializePaystackPopup(paystackConfig)
     } catch (error) {
       console.error("Payment initialization error:", error)
       setIsProcessing(false)
@@ -134,6 +145,8 @@ export function PaymentModal({ isOpen, onClose, onSuccess, paymentData }: Paymen
 
   const handlePaymentCallback = async (response: any) => {
     try {
+      console.log("Verifying payment with reference:", response.reference)
+
       // Verify payment with backend
       const verifyResponse = await fetch("/api/payment/verify", {
         method: "POST",
@@ -144,6 +157,7 @@ export function PaymentModal({ isOpen, onClose, onSuccess, paymentData }: Paymen
       })
 
       const verifyData = await verifyResponse.json()
+      console.log("Payment verification response:", verifyData)
 
       if (!verifyResponse.ok || !verifyData.status) {
         throw new Error(verifyData.message || "Payment verification failed")

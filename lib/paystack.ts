@@ -102,8 +102,12 @@ export const initializePaystackPopup = (config: {
       amount: config.amount * 100, // Convert to kobo
       ref: config.ref,
       metadata: config.metadata,
-      callback: config.callback,
-      onClose: config.onClose,
+      callback: (response: any) => {
+        config.callback(response)
+      },
+      onClose: () => {
+        config.onClose()
+      },
     })
     handler.openIframe()
   } else {
