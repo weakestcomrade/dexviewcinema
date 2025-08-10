@@ -12,30 +12,23 @@ export async function POST(request: Request) {
     }
 
     // Verify webhook signature
-    const secretKey = process.env.PAYSTACK_SECRET_KEY
-    if (!secretKey) {
-      console.error("Paystack secret key not configured")
-      return NextResponse.json({ message: "Server configuration error" }, { status: 500 })
-    }
-
+    const secretKey = process.env.PAYSTACK_SECRET_KEY!
     const hash = crypto.createHmac("sha512", secretKey).update(body).digest("hex")
 
     if (hash !== signature) {
-      console.error("Invalid webhook signature")
       return NextResponse.json({ message: "Invalid signature" }, { status: 400 })
     }
 
     const event = JSON.parse(body)
-    const { db } = await connectToDatabase()
 
     // Handle different webhook events
     switch (event.event) {
       case "charge.success":
-        await handleChargeSuccess(db, event.data)
+        await handleChargeSuccess(event.data)
         break
 
       case "charge.failed":
-        await handleChargeFailed(db, event.data)
+        await handleChargeFailed(event.data)
         break
 
       case "transfer.success":
@@ -53,25 +46,74 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Webhook processed successfully" })
   } catch (error) {
     console.error("Webhook processing error:", error)
-    return NextResponse.json({ message: "Webhook processing failed", error: (error as Error).message }, { status: 500 })
+    return NextResponse.json({ message: "Webhook processing failed" }, { status: 500 })
   }
 }
 
-async function handleChargeSuccess(db: any, data: any) {
+async function handleChargeSuccess(data: any) {
   try {
     const { reference, amount, customer, authorization } = data
+    const { db } = await connectToDatabase()
 
-    // Update payment record
-    await db.collection("payments").updateOne(
-      { reference },
-      {
-        $set: {
-          status: "completed",
-          webhookData: data,
-          updatedAt: new Date(),
+    // Find payment record
+    const paymentRecord = await db.collection("payments").findOne({ reference })
+
+    if (paymentRecord && paymentRecord.status !== "confirmed") {
+      // Process the payment similar to callback/verify
+      const bookingData = {
+        customerName: paymentRecord.customerName,
+        customerEmail: paymentRecord.customerEmail,
+        customerPhone: paymentRecord.customerPhone,
+        eventId: paymentRecord.eventId,
+        eventTitle: "",
+        eventType: "",
+        seats: paymentRecord.seats,
+        seatType: paymentRecord.seatType,
+        amount: paymentRecord.amount,
+        processingFee: paymentRecord.processingFee,
+        totalAmount: paymentRecord.totalAmount,
+        status: "confirmed",
+        bookingDate: new Date().toISOString().split("T")[0],
+        bookingTime: new Date().toTimeString().split(" ")[0].substring(0, 5),
+        paymentMethod: "paystack",
+        paymentReference: reference,
+        paystackData: data,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+
+      // Get event details
+      const eventDoc = await db.collection("events").findOne({ _id: paymentRecord.eventId })
+      if (eventDoc) {
+        bookingData.eventTitle = eventDoc.title
+        bookingData.eventType = eventDoc.event_type
+      }
+
+      // Insert booking
+      const bookingResult = await db.collection("bookings").insertOne(bookingData)
+
+      // Update payment status
+      await db.collection("payments").updateOne(
+        { reference },
+        {
+          $set: {
+            status: "confirmed",
+            bookingId: bookingResult.insertedId,
+            updatedAt: new Date(),
+          },
         },
-      },
-    )
+      )
+
+      // Update event's booked seats
+      await db.collection("events").updateOne(
+        { _id: paymentRecord.eventId },
+        {
+          $addToSet: {
+            bookedSeats: { $each: paymentRecord.seats },
+          },
+        },
+      )
+    }
 
     // Log successful payment
     console.log(`Payment successful: ${reference} - ₦${amount / 100}`)
@@ -80,9 +122,10 @@ async function handleChargeSuccess(db: any, data: any) {
   }
 }
 
-async function handleChargeFailed(db: any, data: any) {
+async function handleChargeFailed(data: any) {
   try {
     const { reference, amount, customer } = data
+    const { db } = await connectToDatabase()
 
     // Update payment record
     await db.collection("payments").updateOne(

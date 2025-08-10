@@ -1,48 +1,42 @@
-// MongoDB script to set up payments collection with proper indexes
-// Run this script using: node scripts/setup-payments-collection.js
-
 const { MongoClient } = require("mongodb")
 
 async function setupPaymentsCollection() {
-  const uri = process.env.MONGODB_URI
-  const dbName = process.env.MONGODB_DB
-
-  if (!uri || !dbName) {
-    console.error("Please set MONGODB_URI and MONGODB_DB environment variables")
-    process.exit(1)
-  }
-
-  const client = new MongoClient(uri)
+  const client = new MongoClient(process.env.MONGODB_URI)
 
   try {
     await client.connect()
     console.log("Connected to MongoDB")
 
-    const db = client.db(dbName)
-    const paymentsCollection = db.collection("payments")
+    const db = client.db(process.env.MONGODB_DB)
+
+    // Create payments collection if it doesn't exist
+    const collections = await db.listCollections({ name: "payments" }).toArray()
+    if (collections.length === 0) {
+      await db.createCollection("payments")
+      console.log("Created payments collection")
+    }
 
     // Create indexes for payments collection
-    await paymentsCollection.createIndex({ reference: 1 }, { unique: true })
-    await paymentsCollection.createIndex({ eventId: 1 })
-    await paymentsCollection.createIndex({ customerEmail: 1 })
-    await paymentsCollection.createIndex({ status: 1 })
-    await paymentsCollection.createIndex({ createdAt: 1 })
-    await paymentsCollection.createIndex({ bookingId: 1 })
+    await db.collection("payments").createIndex({ reference: 1 }, { unique: true })
+    await db.collection("payments").createIndex({ eventId: 1 })
+    await db.collection("payments").createIndex({ customerEmail: 1 })
+    await db.collection("payments").createIndex({ status: 1 })
+    await db.collection("payments").createIndex({ createdAt: 1 })
 
-    console.log("Payments collection indexes created successfully")
+    console.log("Created indexes for payments collection")
 
-    // Update bookings collection to include payment reference
-    const bookingsCollection = db.collection("bookings")
-    await bookingsCollection.createIndex({ paymentReference: 1 })
-    await bookingsCollection.createIndex({ paystackTransactionId: 1 })
+    // Ensure bookings collection has payment reference index
+    await db.collection("bookings").createIndex({ paymentReference: 1 })
+    console.log("Created payment reference index for bookings collection")
 
-    console.log("Bookings collection payment indexes created successfully")
+    console.log("Payments collection setup completed successfully")
   } catch (error) {
     console.error("Error setting up payments collection:", error)
+    throw error
   } finally {
     await client.close()
-    console.log("MongoDB connection closed")
   }
 }
 
-setupPaymentsCollection()
+// Run the setup
+setupPaymentsCollection().catch(console.error)

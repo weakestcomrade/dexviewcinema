@@ -63,13 +63,26 @@ export function PaymentModal({ isOpen, onClose, onSuccess, paymentData }: Paymen
     setPaymentStep("processing")
 
     try {
+      // Prepare complete payment data
+      const paymentRequestData = {
+        email: paymentData.customerEmail,
+        amount: paymentData.amount, // Base amount without processing fee
+        eventId: paymentData.eventId,
+        seats: paymentData.seats,
+        seatType: paymentData.seatType,
+        customerName: paymentData.customerName,
+        customerPhone: paymentData.customerPhone,
+        processingFee: paymentData.processingFee,
+        totalAmount: paymentData.totalAmount, // Total amount including processing fee
+      }
+
       // Initialize payment with backend
       const initResponse = await fetch("/api/payment/initialize", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(paymentData),
+        body: JSON.stringify(paymentRequestData),
       })
 
       const initData = await initResponse.json()
@@ -82,13 +95,14 @@ export function PaymentModal({ isOpen, onClose, onSuccess, paymentData }: Paymen
       initializePaystackPopup({
         key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY!,
         email: paymentData.customerEmail,
-        amount: paymentData.totalAmount,
+        amount: paymentData.totalAmount, // This will be converted to kobo in the function
         ref: initData.data.reference,
         metadata: {
           customer_name: paymentData.customerName,
           customer_phone: paymentData.customerPhone,
           event_title: paymentData.eventTitle,
           seats: paymentData.seats.join(", "),
+          seat_type: paymentData.seatType,
         },
         callback: async (response) => {
           setPaymentStep("verifying")

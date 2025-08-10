@@ -1,134 +1,54 @@
-// Paystack integration utilities
-export interface PaystackResponse {
-  status: boolean
-  message: string
-  data?: any
-}
-
-export interface PaymentData {
-  email: string
-  amount: number // Amount in kobo (multiply by 100)
-  currency?: string
-  reference?: string
-  callback_url?: string
-  metadata?: {
-    custom_fields?: Array<{
-      display_name: string
-      variable_name: string
-      value: string
-    }>
-  }
-}
-
-export interface PaymentVerificationResponse {
-  status: boolean
-  message: string
-  data: {
-    id: number
-    domain: string
-    status: "success" | "failed" | "abandoned"
-    reference: string
-    amount: number
-    message: string | null
-    gateway_response: string
-    paid_at: string
-    created_at: string
-    channel: string
-    currency: string
-    ip_address: string
-    metadata: any
-    log: any
-    fees: number
-    fees_split: any
-    authorization: {
-      authorization_code: string
-      bin: string
-      last4: string
-      exp_month: string
-      exp_year: string
-      channel: string
-      card_type: string
-      bank: string
-      country_code: string
-      brand: string
-      reusable: boolean
-      signature: string
-      account_name: string | null
-    }
-    customer: {
-      id: number
-      first_name: string | null
-      last_name: string | null
-      email: string
-      customer_code: string
-      phone: string | null
-      metadata: any
-      risk_action: string
-      international_format_phone: string | null
-    }
-    plan: any
-    split: any
-    order_id: any
-    paidAt: string
-    createdAt: string
-    requested_amount: number
-    pos_transaction_data: any
-    source: any
-    fees_breakdown: any
-  }
-}
-
 export class PaystackService {
   private secretKey: string
   private publicKey: string
-  private baseUrl = "https://api.paystack.co"
 
   constructor() {
-    this.secretKey = process.env.PAYSTACK_SECRET_KEY || ""
-    this.publicKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || ""
+    this.secretKey = process.env.PAYSTACK_SECRET_KEY!
+    this.publicKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY!
   }
 
-  // Generate a unique payment reference
   generateReference(): string {
     const timestamp = Date.now()
-    const random = Math.floor(Math.random() * 1000000)
+    const random = Math.random().toString(36).substring(2, 15)
     return `dex_${timestamp}_${random}`
   }
 
-  // Initialize payment transaction
-  async initializePayment(paymentData: PaymentData): Promise<PaystackResponse> {
+  async initializePayment(data: {
+    email: string
+    amount: number
+    reference: string
+    callback_url: string
+    metadata?: any
+  }) {
     try {
-      const response = await fetch(`${this.baseUrl}/transaction/initialize`, {
+      const response = await fetch("https://api.paystack.co/transaction/initialize", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${this.secretKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          ...paymentData,
-          amount: paymentData.amount * 100, // Convert to kobo
-          currency: paymentData.currency || "NGN",
-          reference: paymentData.reference || this.generateReference(),
+          ...data,
+          amount: data.amount * 100, // Convert to kobo
         }),
       })
 
-      const data = await response.json()
+      const result = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.message || "Failed to initialize payment")
+        throw new Error(result.message || "Payment initialization failed")
       }
 
-      return data
+      return result
     } catch (error) {
       console.error("Paystack initialization error:", error)
-      throw new Error(`Payment initialization failed: ${(error as Error).message}`)
+      throw error
     }
   }
 
-  // Verify payment transaction
-  async verifyPayment(reference: string): Promise<PaymentVerificationResponse> {
+  async verifyPayment(reference: string) {
     try {
-      const response = await fetch(`${this.baseUrl}/transaction/verify/${reference}`, {
+      const response = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${this.secretKey}`,
@@ -136,87 +56,21 @@ export class PaystackService {
         },
       })
 
-      const data = await response.json()
+      const result = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.message || "Failed to verify payment")
+        throw new Error(result.message || "Payment verification failed")
       }
 
-      return data
+      return result
     } catch (error) {
       console.error("Paystack verification error:", error)
-      throw new Error(`Payment verification failed: ${(error as Error).message}`)
-    }
-  }
-
-  // Get transaction details
-  async getTransaction(transactionId: string): Promise<PaystackResponse> {
-    try {
-      const response = await fetch(`${this.baseUrl}/transaction/${transactionId}`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${this.secretKey}`,
-          "Content-Type": "application/json",
-        },
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to get transaction")
-      }
-
-      return data
-    } catch (error) {
-      console.error("Paystack transaction fetch error:", error)
-      throw new Error(`Failed to fetch transaction: ${(error as Error).message}`)
-    }
-  }
-
-  // List transactions with filters
-  async listTransactions(params?: {
-    perPage?: number
-    page?: number
-    customer?: string
-    status?: "failed" | "success" | "abandoned"
-    from?: string
-    to?: string
-    amount?: number
-  }): Promise<PaystackResponse> {
-    try {
-      const queryParams = new URLSearchParams()
-
-      if (params) {
-        Object.entries(params).forEach(([key, value]) => {
-          if (value !== undefined) {
-            queryParams.append(key, value.toString())
-          }
-        })
-      }
-
-      const response = await fetch(`${this.baseUrl}/transaction?${queryParams.toString()}`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${this.secretKey}`,
-          "Content-Type": "application/json",
-        },
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to list transactions")
-      }
-
-      return data
-    } catch (error) {
-      console.error("Paystack list transactions error:", error)
-      throw new Error(`Failed to list transactions: ${(error as Error).message}`)
+      throw error
     }
   }
 }
 
-// Client-side Paystack utilities
+// Client-side Paystack functions
 export const loadPaystackScript = (): Promise<void> => {
   return new Promise((resolve, reject) => {
     if (typeof window !== "undefined" && (window as any).PaystackPop) {
@@ -226,30 +80,30 @@ export const loadPaystackScript = (): Promise<void> => {
 
     const script = document.createElement("script")
     script.src = "https://js.paystack.co/v1/inline.js"
-    script.async = true
     script.onload = () => resolve()
     script.onerror = () => reject(new Error("Failed to load Paystack script"))
     document.head.appendChild(script)
   })
 }
 
-export interface PaystackPopupConfig {
+export const initializePaystackPopup = (config: {
   key: string
   email: string
   amount: number
-  currency?: string
-  ref?: string
+  ref: string
   metadata?: any
   callback: (response: any) => void
   onClose: () => void
-}
-
-export const initializePaystackPopup = (config: PaystackPopupConfig) => {
+}) => {
   if (typeof window !== "undefined" && (window as any).PaystackPop) {
     const handler = (window as any).PaystackPop.setup({
-      ...config,
+      key: config.key,
+      email: config.email,
       amount: config.amount * 100, // Convert to kobo
-      currency: config.currency || "NGN",
+      ref: config.ref,
+      metadata: config.metadata,
+      callback: config.callback,
+      onClose: config.onClose,
     })
     handler.openIframe()
   } else {

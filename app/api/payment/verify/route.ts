@@ -15,13 +15,11 @@ export async function POST(request: Request) {
     }
 
     // Verify payment with Paystack
-    const verificationResponse = await paystack.verifyPayment(reference)
+    const paystackResponse = await paystack.verifyPayment(reference)
 
-    if (!verificationResponse.status) {
+    if (!paystackResponse.status || paystackResponse.data.status !== "success") {
       return NextResponse.json({ message: "Payment verification failed" }, { status: 400 })
     }
-
-    const paymentData = verificationResponse.data
 
     // Find payment record in database
     const paymentRecord = await db.collection("payments").findOne({ reference })
@@ -30,50 +28,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Payment record not found" }, { status: 404 })
     }
 
-    // Check if payment was successful
-    if (paymentData.status !== "success") {
-      // Update payment record with failed status
-      await db.collection("payments").updateOne(
-        { reference },
-        {
-          $set: {
-            status: paymentData.status,
-            paystackVerificationData: paymentData,
-            updatedAt: new Date(),
-          },
-        },
-      )
-
-      return NextResponse.json(
-        {
-          message: `Payment ${paymentData.status}`,
-          status: paymentData.status,
-          gateway_response: paymentData.gateway_response,
-        },
-        { status: 400 },
-      )
+    // Check if payment is already processed
+    if (paymentRecord.status === "confirmed") {
+      const existingBooking = await db.collection("bookings").findOne({ paymentReference: reference })
+      if (existingBooking) {
+        return NextResponse.json({
+          status: true,
+          message: "Payment already processed",
+          data: { bookingId: existingBooking._id.toString() },
+        })
+      }
     }
 
     // Verify amount matches
-    const expectedAmount = paymentRecord.totalAmount * 100 // Convert to kobo
-    if (paymentData.amount !== expectedAmount) {
+    const paidAmount = paystackResponse.data.amount / 100 // Convert from kobo
+    if (paidAmount !== paymentRecord.totalAmount) {
       return NextResponse.json({ message: "Payment amount mismatch" }, { status: 400 })
-    }
-
-    // Check if booking already exists (prevent double processing)
-    const existingBooking = await db.collection("bookings").findOne({
-      paymentReference: reference,
-    })
-
-    if (existingBooking) {
-      return NextResponse.json({
-        status: true,
-        message: "Payment already processed",
-        data: {
-          bookingId: existingBooking._id.toString(),
-          reference,
-        },
-      })
     }
 
     // Create booking record
@@ -81,7 +51,7 @@ export async function POST(request: Request) {
       customerName: paymentRecord.customerName,
       customerEmail: paymentRecord.customerEmail,
       customerPhone: paymentRecord.customerPhone,
-      eventId: paymentRecord.eventId.toString(),
+      eventId: paymentRecord.eventId,
       eventTitle: "", // Will be populated from event
       eventType: "", // Will be populated from event
       seats: paymentRecord.seats,
@@ -94,12 +64,12 @@ export async function POST(request: Request) {
       bookingTime: new Date().toTimeString().split(" ")[0].substring(0, 5),
       paymentMethod: "paystack",
       paymentReference: reference,
-      paystackTransactionId: paymentData.id.toString(),
+      paystackData: paystackResponse.data,
       createdAt: new Date(),
       updatedAt: new Date(),
     }
 
-    // Get event details to populate booking
+    // Get event details
     const event = await db.collection("events").findOne({ _id: paymentRecord.eventId })
     if (event) {
       bookingData.eventTitle = event.title
@@ -109,7 +79,19 @@ export async function POST(request: Request) {
     // Insert booking
     const bookingResult = await db.collection("bookings").insertOne(bookingData)
 
-    // Update event with booked seats
+    // Update payment status
+    await db.collection("payments").updateOne(
+      { reference },
+      {
+        $set: {
+          status: "confirmed",
+          bookingId: bookingResult.insertedId,
+          updatedAt: new Date(),
+        },
+      },
+    )
+
+    // Update event's booked seats
     await db.collection("events").updateOne(
       { _id: paymentRecord.eventId },
       {
@@ -119,32 +101,20 @@ export async function POST(request: Request) {
       },
     )
 
-    // Update payment record
-    await db.collection("payments").updateOne(
-      { reference },
-      {
-        $set: {
-          status: "completed",
-          bookingId: bookingResult.insertedId,
-          paystackVerificationData: paymentData,
-          updatedAt: new Date(),
-        },
-      },
-    )
-
     return NextResponse.json({
       status: true,
-      message: "Payment verified and booking created successfully",
+      message: "Payment verified and booking confirmed",
       data: {
         bookingId: bookingResult.insertedId.toString(),
-        reference,
-        transactionId: paymentData.id.toString(),
+        reference: reference,
+        amount: paidAmount,
       },
     })
   } catch (error) {
     console.error("Payment verification error:", error)
     return NextResponse.json(
       {
+        status: false,
         message: "Payment verification failed",
         error: (error as Error).message,
       },
