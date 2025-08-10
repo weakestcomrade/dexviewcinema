@@ -1,137 +1,240 @@
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 
-// Helper function to generate HTML content for the email
-function generateReceiptHtml(booking: any, event: any, hall: any) {
-  const seatsFormatted = booking.seats
-    .map((seatId: string) => {
-      if (seatId.includes("-")) {
-        return seatId.split("-")[1]
-      }
-      return seatId
-    })
-    .join(", ")
-
-  return `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 20px auto; border: 1px solid #eee; border-radius: 8px; overflow: hidden; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
-      <div style="background-color: #e53e3e; color: white; padding: 20px; text-align: center;">
-        <h1 style="margin: 0; font-size: 28px;">Dex View Cinema</h1>
-        <p style="margin: 5px 0 0; font-size: 16px;">Booking Receipt</p>
-      </div>
-      <div style="padding: 20px;">
-        <h2 style="color: #e53e3e; font-size: 22px; margin-top: 0;">Booking Confirmed!</h2>
-        <p style="font-size: 14px; color: #555;">Dear ${booking.customerName},</p>
-        <p style="font-size: 14px; color: #555;">Your booking for <strong>${booking.eventTitle}</strong> has been successfully confirmed. Here are your details:</p>
-
-        <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
-          <tr>
-            <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold; color: #e53e3e;">Booking ID:</td>
-            <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${booking._id}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold; color: #e53e3e;">Event:</td>
-            <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${booking.eventTitle} (${booking.eventType === "match" ? "Sports Match" : "Movie"})</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold; color: #e53e3e;">Date & Time:</td>
-            <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${booking.bookingDate} at ${booking.bookingTime}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold; color: #e53e3e;">Venue:</td>
-            <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${hall?.name || "N/A"}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold; color: #e53e3e;">Seats:</td>
-            <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${seatsFormatted} (${booking.seatType})</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold; color: #e53e3e;">Total Amount:</td>
-            <td style="padding: 8px 0; border-bottom: 1px solid #eee;">₦${booking.totalAmount.toLocaleString()}</td>
-          </tr>
-        </table>
-
-        <p style="font-size: 14px; color: #555; margin-top: 20px;">
-          Thank you for choosing Dex View Cinema! We look forward to seeing you.
-        </p>
-      </div>
-      <div style="background-color: #f8f8f8; padding: 15px; text-align: center; font-size: 12px; color: #888; border-top: 1px solid #eee;">
-        <p style="margin: 0;">For support, email us at support@dexviewcinema.com or call 08139614950</p>
-        <p style="margin: 5px 0 0;">Developed by SydaTech - www.sydatech.com.ng</p>
-      </div>
-    </div>
-  `
-}
-
 interface BookingDetails {
-  _id: string
   customerName: string
   customerEmail: string
-  eventTitle: string
-  eventType: string
+  eventName: string
+  eventDate: string
+  eventTime: string
+  hallName: string
   seats: string[]
   seatType: string
   totalAmount: number
-  bookingDate: string
-  bookingTime: string
-  eventId: string
+  bookingReference: string
 }
 
-export async function sendBookingReceiptEmail(booking: BookingDetails) {
-  const BREVO_API_KEY = process.env.BREVO_API_KEY
-  const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || "no-reply@dexviewcinema.com"
+function generateReceiptHtml(details: BookingDetails): string {
+  const { customerName, eventName, eventDate, eventTime, hallName, seats, seatType, totalAmount, bookingReference } =
+    details
 
-  if (!BREVO_API_KEY) {
-    console.warn("EmailService: BREVO_API_KEY not configured. Skipping email sending.")
-    return { success: false, message: "Brevo API key not configured." }
+  return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Booking Confirmation - DexView Cinema</title>
+        <style>
+            body {
+                font-family: 'Arial', sans-serif;
+                line-height: 1.6;
+                color: #333;
+                background-color: #f4f4f4;
+                margin: 0;
+                padding: 20px;
+            }
+            .container {
+                max-width: 600px;
+                margin: 0 auto;
+                background: #fff;
+                padding: 30px;
+                border-radius: 8px;
+                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            }
+            .header {
+                text-align: center;
+                padding-bottom: 20px;
+                border-bottom: 1px solid #eee;
+            }
+            .header h1 {
+                color: #333;
+                margin: 0;
+            }
+            .content {
+                padding: 20px 0;
+            }
+            .content p {
+                margin-bottom: 10px;
+            }
+            .details-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 20px;
+            }
+            .details-table th, .details-table td {
+                border: 1px solid #eee;
+                padding: 10px;
+                text-align: left;
+            }
+            .details-table th {
+                background-color: #f9f9f9;
+                font-weight: bold;
+            }
+            .footer {
+                text-align: center;
+                padding-top: 20px;
+                margin-top: 20px;
+                border-top: 1px solid #eee;
+                font-size: 0.9em;
+                color: #777;
+            }
+            .highlight {
+                font-weight: bold;
+                color: #007bff; /* A nice blue color */
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>Booking Confirmation</h1>
+                <p>DexView Cinema</p>
+            </div>
+            <div class="content">
+                <p>Dear ${customerName},</p>
+                <p>Thank you for your booking with DexView Cinema! Your payment has been successfully processed, and your booking is confirmed.</p>
+                <p>Here are your booking details:</p>
+                <table class="details-table">
+                    <tr>
+                        <th>Booking Reference:</th>
+                        <td><span class="highlight">${bookingReference}</span></td>
+                    </tr>
+                    <tr>
+                        <th>Movie:</th>
+                        <td>${eventName}</td>
+                    </tr>
+                    <tr>
+                        <th>Date:</th>
+                        <td>${eventDate}</td>
+                    </tr>
+                    <tr>
+                        <th>Time:</th>
+                        <td>${eventTime}</td>
+                    </tr>
+                    <tr>
+                        <th>Hall:</th>
+                        <td>${hallName}</td>
+                    </tr>
+                    <tr>
+                        <th>Seats:</th>
+                        <td>${seats.join(", ")} (${seatType})</td>
+                    </tr>
+                    <tr>
+                        <th>Total Amount Paid:</th>
+                        <td>₦${totalAmount.toLocaleString()}</td>
+                    </tr>
+                </table>
+                <p>Please present this confirmation email at the cinema entrance.</p>
+                <p>We look forward to seeing you!</p>
+            </div>
+            <div class="footer">
+                <p>&copy; ${new Date().getFullYear()} DexView Cinema. All rights reserved.</p>
+                <p>123 Cinema Lane, Movie City, MC 12345</p>
+                <p>Contact: support@dexviewcinema.com</p>
+            </div>
+        </div>
+    </body>
+    </html>
+  `
+}
+
+export class EmailService {
+  private brevoApiKey: string
+  private senderEmail: string
+
+  constructor() {
+    this.brevoApiKey = process.env.BREVO_API_KEY!
+    this.senderEmail = process.env.BREVO_SENDER_EMAIL!
+
+    if (!this.brevoApiKey) {
+      console.error("EmailService: BREVO_API_KEY is not configured.")
+      throw new Error("BREVO_API_KEY is not configured.")
+    }
+    if (!this.senderEmail) {
+      console.error("EmailService: BREVO_SENDER_EMAIL is not configured.")
+      throw new Error("BREVO_SENDER_EMAIL is not configured.")
+    }
   }
 
-  try {
-    const { db } = await connectToDatabase()
+  async sendBookingReceipt(bookingId: string) {
+    console.log(`EmailService: Attempting to send email for booking ID: ${bookingId}`)
+    try {
+      const { db } = await connectToDatabase()
 
-    // Fetch event details
-    const event = await db.collection("events").findOne({ _id: new ObjectId(booking.eventId) })
-    if (!event) {
-      console.warn(`EmailService: Event not found for ID ${booking.eventId}. Cannot send detailed receipt.`)
-      // Continue without event details if not found, or throw error if critical
-    }
-
-    // Fetch hall details if available
-    let hall = null
-    if (event && event.hall_id) {
-      hall = await db.collection("halls").findOne({ _id: new ObjectId(event.hall_id) })
-      if (!hall) {
-        console.warn(`EmailService: Hall not found for ID ${event.hall_id} when sending email.`)
+      const booking = await db.collection("bookings").findOne({ _id: new ObjectId(bookingId) })
+      if (!booking) {
+        console.error(`EmailService: Booking not found for ID: ${bookingId}. Cannot send email.`)
+        return
       }
-    }
 
-    const htmlContent = generateReceiptHtml(booking, event, hall)
+      const event = await db.collection("events").findOne({ _id: new ObjectId(booking.eventId) })
+      if (!event) {
+        console.error(`EmailService: Event not found for booking ID: ${bookingId}. Cannot send email.`)
+        return
+      }
 
-    console.log(`EmailService: Attempting to send email to ${booking.customerEmail} for booking ${booking._id}.`)
+      const hall = await db.collection("halls").findOne({ _id: new ObjectId(event.hall_id) })
+      if (!hall) {
+        console.error(`EmailService: Hall not found for event ID: ${booking.eventId}. Cannot send email.`)
+        return
+      }
 
-    const brevoResponse = await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
-      headers: {
+      const bookingDetails: BookingDetails = {
+        customerName: booking.customerName,
+        customerEmail: booking.email,
+        eventName: event.title,
+        eventDate: new Date(event.date).toLocaleDateString("en-US", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        }),
+        eventTime: event.time,
+        hallName: hall.name,
+        seats: booking.seats,
+        seatType: booking.seatType,
+        totalAmount: booking.amount,
+        bookingReference: booking.reference,
+      }
+
+      const htmlContent = generateReceiptHtml(bookingDetails)
+
+      const brevoApiUrl = "https://api.brevo.com/v3/smtp/email"
+      const headers = {
+        "api-key": this.brevoApiKey,
         "Content-Type": "application/json",
-        "api-key": BREVO_API_KEY,
-      },
-      body: JSON.stringify({
-        sender: { email: BREVO_SENDER_EMAIL, name: "Dex View Cinema" },
-        to: [{ email: booking.customerEmail, name: booking.customerName }],
-        subject: `Your Dex View Cinema Booking Confirmation - ${booking.eventTitle}`,
+        Accept: "application/json",
+      }
+      const body = JSON.stringify({
+        sender: { email: this.senderEmail, name: "DexView Cinema" },
+        to: [{ email: bookingDetails.customerEmail, name: bookingDetails.customerName }],
+        subject: `Your DexView Cinema Booking Confirmation - ${bookingDetails.eventName}`,
         htmlContent: htmlContent,
-      }),
-    })
+      })
 
-    if (!brevoResponse.ok) {
-      const errorData = await brevoResponse.json()
-      console.error("EmailService: Brevo API error sending receipt email:", errorData)
-      return { success: false, message: "Brevo API error", error: errorData }
-    } else {
-      console.log("EmailService: Receipt email sent successfully for booking:", booking._id)
-      return { success: true, message: "Email sent successfully." }
+      console.log(
+        `EmailService: Sending email to ${bookingDetails.customerEmail} for booking reference ${bookingDetails.bookingReference}`,
+      )
+      const response = await fetch(brevoApiUrl, {
+        method: "POST",
+        headers: headers,
+        body: body,
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error("EmailService: Brevo API error sending receipt email:", {
+          status: response.status,
+          statusText: response.statusText,
+          errorData: errorData,
+        })
+        throw new Error(`Brevo API error: ${errorData.message || response.statusText}`)
+      }
+
+      console.log(`EmailService: Receipt email sent successfully for booking: ${bookingId}`)
+    } catch (error) {
+      console.error("EmailService: General error sending receipt email:", error)
     }
-  } catch (emailError) {
-    console.error("EmailService: General error sending receipt email:", emailError)
-    return { success: false, message: "Failed to send email due to internal error.", error: emailError }
   }
 }

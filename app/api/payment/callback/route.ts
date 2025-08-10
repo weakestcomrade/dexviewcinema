@@ -2,120 +2,138 @@ import { NextResponse } from "next/server"
 import { PaystackService } from "@/lib/paystack"
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
-import { sendBookingReceiptEmail } from "@/lib/emailService" // Import the new email service
+import { EmailService } from "@/lib/emailService" // Import the new EmailService
 
 export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url)
+  const reference = searchParams.get("reference")
+
+  if (!reference) {
+    return NextResponse.json({ message: "Payment reference not found" }, { status: 400 })
+  }
+
   try {
-    const { searchParams } = new URL(request.url)
-    const reference = searchParams.get("reference")
-
-    if (!reference) {
-      console.error("Payment callback: Missing reference in URL.")
-      return NextResponse.redirect(new URL("/payment/failed?error=missing-reference", request.url))
-    }
-
     const { db } = await connectToDatabase()
     const paystack = new PaystackService()
 
-    // Verify payment with Paystack
-    const paystackResponse = await paystack.verifyPayment(reference)
+    console.log(`Payment Callback: Verifying payment for reference: ${reference}`)
+    const verificationResult = await paystack.verifyPayment(reference)
 
-    if (!paystackResponse.status || paystackResponse.data.status !== "success") {
-      console.error(`Payment callback: Paystack verification failed for reference ${reference}.`)
-      return NextResponse.redirect(new URL(`/payment/failed?reference=${reference}`, request.url))
-    }
+    if (verificationResult.data.status === "success") {
+      console.log(`Payment Callback: Payment successful for reference: ${reference}`)
 
-    // Find payment record
-    const paymentRecord = await db.collection("payments").findOne({ reference })
+      // Find the pending payment record
+      const paymentRecord = await db.collection("payments").findOne({ reference })
 
-    if (!paymentRecord) {
-      console.error(`Payment callback: Payment record not found for reference ${reference}.`)
+      if (!paymentRecord) {
+        console.error(`Payment Callback: Payment record not found for reference: ${reference}`)
+        return NextResponse.redirect(
+          `${process.env.NEXT_PUBLIC_BASE_URL}/payment/callback?status=failed&message=Payment record not found`,
+        )
+      }
+
+      if (paymentRecord.status === "confirmed") {
+        console.log(`Payment Callback: Payment already confirmed for reference: ${reference}. Redirecting to receipt.`)
+        return NextResponse.redirect(
+          `${process.env.NEXT_PUBLIC_BASE_URL}/receipt/${paymentRecord.bookingId || "unknown"}`,
+        )
+      }
+
+      // Update payment record status
+      await db.collection("payments").updateOne(
+        { reference },
+        {
+          $set: {
+            status: "confirmed",
+            paystackData: verificationResult.data,
+            updatedAt: new Date(),
+          },
+        },
+      )
+
+      // Update event with booked seats
+      const event = await db.collection("events").findOne({ _id: new ObjectId(paymentRecord.eventId) })
+      if (!event) {
+        console.error(`Payment Callback: Event not found for ID: ${paymentRecord.eventId}`)
+        return NextResponse.redirect(
+          `${process.env.NEXT_PUBLIC_BASE_URL}/payment/callback?status=failed&message=Event not found`,
+        )
+      }
+
+      const bookedSeats = event.bookedSeats || []
+      const updatedBookedSeats = [...bookedSeats, ...paymentRecord.seats]
+
+      await db.collection("events").updateOne(
+        { _id: new ObjectId(paymentRecord.eventId) },
+        {
+          $set: {
+            bookedSeats: updatedBookedSeats,
+          },
+        },
+      )
+
+      // Create booking record
+      const booking = {
+        eventId: new ObjectId(paymentRecord.eventId),
+        customerName: paymentRecord.customerName,
+        email: paymentRecord.email,
+        phone: paymentRecord.customerPhone || null,
+        seats: paymentRecord.seats,
+        seatType: paymentRecord.seatType,
+        amount: paymentRecord.amount,
+        reference: paymentRecord.reference,
+        status: "confirmed",
+        createdAt: paymentRecord.createdAt,
+        updatedAt: new Date(),
+      }
+
+      const bookingResult = await db.collection("bookings").insertOne(booking)
+
+      // Update payment record with bookingId
+      await db.collection("payments").updateOne(
+        { reference },
+        {
+          $set: {
+            bookingId: bookingResult.insertedId,
+          },
+        },
+      )
+
+      // Send confirmation email
+      try {
+        const emailService = new EmailService()
+        await emailService.sendBookingReceipt(bookingResult.insertedId.toHexString())
+      } catch (emailError) {
+        console.error("Payment Callback: Failed to send booking receipt email:", emailError)
+        // Log the error but don't block the user redirect
+      }
+
       return NextResponse.redirect(
-        new URL(`/payment/failed?reference=${reference}&error=record-not-found`, request.url),
+        `${process.env.NEXT_PUBLIC_BASE_URL}/receipt/${bookingResult.insertedId.toHexString()}`,
+      )
+    } else {
+      console.log(`Payment Callback: Payment failed or not successful for reference: ${reference}`)
+      // Update payment record status to failed if it was pending
+      await db.collection("payments").updateOne(
+        { reference, status: "pending" },
+        {
+          $set: {
+            status: "failed",
+            paystackData: verificationResult.data,
+            updatedAt: new Date(),
+          },
+        },
+      )
+      return NextResponse.redirect(
+        `${process.env.NEXT_PUBLIC_BASE_URL}/payment/callback?status=failed&message=${
+          verificationResult.data.gateway_response || "Payment not successful"
+        }`,
       )
     }
-
-    // Check if already processed
-    if (paymentRecord.status === "confirmed") {
-      const booking = await db.collection("bookings").findOne({ paymentReference: reference })
-      if (booking) {
-        console.log(`Payment callback: Booking already confirmed for reference ${reference}. Redirecting to receipt.`)
-        return NextResponse.redirect(new URL(`/receipt/${booking._id}`, request.url))
-      }
-    }
-
-    // Process the payment (similar to verify endpoint)
-    const bookingData = {
-      customerName: paymentRecord.customerName,
-      customerEmail: paymentRecord.customerEmail,
-      customerPhone: paymentRecord.customerPhone,
-      eventId: paymentRecord.eventId,
-      eventTitle: "", // Will be populated from eventDoc
-      eventType: "", // Will be populated from eventDoc
-      seats: paymentRecord.seats,
-      seatType: paymentRecord.seatType,
-      amount: paymentRecord.amount,
-      processingFee: paymentRecord.processingFee,
-      totalAmount: paymentRecord.totalAmount,
-      status: "confirmed",
-      bookingDate: new Date().toISOString().split("T")[0],
-      bookingTime: new Date().toTimeString().split(" ")[0].substring(0, 5),
-      paymentMethod: "paystack",
-      paymentReference: reference,
-      paystackData: paystackResponse.data,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }
-
-    // Get event details to populate eventTitle and eventType for the booking and email
-    const event = await db.collection("events").findOne({ _id: new ObjectId(paymentRecord.eventId) })
-    if (event) {
-      bookingData.eventTitle = event.title
-      bookingData.eventType = event.event_type
-    } else {
-      console.warn(`Payment callback: Event not found for ID ${paymentRecord.eventId}.`)
-    }
-
-    // Insert booking
-    const bookingResult = await db.collection("bookings").insertOne(bookingData)
-
-    // Create the complete booking object for email
-    const createdBooking = {
-      ...bookingData,
-      _id: bookingResult.insertedId.toString(),
-      eventId: paymentRecord.eventId, // Ensure eventId is string for email service
-    }
-
-    // Update payment status
-    await db.collection("payments").updateOne(
-      { reference },
-      {
-        $set: {
-          status: "confirmed",
-          bookingId: bookingResult.insertedId,
-          updatedAt: new Date(),
-        },
-      },
-    )
-
-    // Update event's booked seats
-    await db.collection("events").updateOne(
-      { _id: new ObjectId(paymentRecord.eventId) },
-      {
-        $addToSet: {
-          bookedSeats: { $each: paymentRecord.seats },
-        },
-      },
-    )
-
-    // --- Send email automatically after successful booking using the new service ---
-    await sendBookingReceiptEmail(createdBooking)
-    // --- End email sending logic ---
-
-    // Redirect to receipt page
-    return NextResponse.redirect(new URL(`/receipt/${bookingResult.insertedId}`, request.url))
   } catch (error) {
-    console.error("Payment callback error:", error)
-    return NextResponse.redirect(new URL(`/payment/failed?error=processing-failed`, request.url))
+    console.error("Payment Callback: Error during payment verification or booking creation:", error)
+    return NextResponse.redirect(
+      `${process.env.NEXT_PUBLIC_BASE_URL}/payment/callback?status=failed&message=An unexpected error occurred`,
+    )
   }
 }

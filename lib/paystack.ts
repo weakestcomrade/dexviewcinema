@@ -1,10 +1,24 @@
+import type { PaystackInitResponse, PaystackVerifyResponse } from "@/types/paystack"
+
 export class PaystackService {
   private secretKey: string
   private publicKey: string
+  private baseUrl: string
 
   constructor() {
     this.secretKey = process.env.PAYSTACK_SECRET_KEY!
     this.publicKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY!
+    this.baseUrl = process.env.NEXT_PUBLIC_BASE_URL!
+
+    if (!this.secretKey) {
+      throw new Error("PAYSTACK_SECRET_KEY is not defined")
+    }
+    if (!this.publicKey) {
+      throw new Error("NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY is not defined")
+    }
+    if (!this.baseUrl) {
+      throw new Error("NEXT_PUBLIC_BASE_URL is not defined")
+    }
   }
 
   generateReference(): string {
@@ -13,66 +27,88 @@ export class PaystackService {
     return `dex_${timestamp}_${random}`
   }
 
-  async initializePayment(data: {
-    email: string
-    amount: number
-    reference: string
-    callback_url: string
-    metadata?: any
-  }) {
+  async initializePayment(
+    email: string,
+    amount: number,
+    reference: string,
+    callbackUrl?: string,
+    metadata?: any,
+  ): Promise<PaystackInitResponse> {
+    const url = "https://api.paystack.co/transaction/initialize"
+    const headers = {
+      Authorization: `Bearer ${this.secretKey}`,
+      "Content-Type": "application/json",
+    }
+    const body = JSON.stringify({
+      email,
+      amount: amount * 100, // Paystack expects amount in kobo
+      reference,
+      callback_url: callbackUrl || `${this.baseUrl}/api/payment/callback`,
+      metadata,
+    })
+
     try {
-      const response = await fetch("https://api.paystack.co/transaction/initialize", {
+      console.log("PaystackService: Initializing payment with data:", {
+        email,
+        amount,
+        reference,
+        callbackUrl,
+        metadata,
+      })
+      const response = await fetch(url, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${this.secretKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          ...data,
-          amount: data.amount * 100, // Convert to kobo
-        }),
+        headers,
+        body,
       })
 
-      const result = await response.json()
-
       if (!response.ok) {
-        throw new Error(result.message || "Payment initialization failed")
+        const errorData = await response.json()
+        console.error("PaystackService: Paystack initialization error:", errorData)
+        throw new Error(`Paystack initialization failed: ${errorData.message || response.statusText}`)
       }
 
-      return result
+      const data: PaystackInitResponse = await response.json()
+      console.log("PaystackService: Payment initialization successful:", data)
+      return data
     } catch (error) {
-      console.error("Paystack initialization error:", error)
+      console.error("PaystackService: Error initializing Paystack payment:", error)
       throw error
     }
   }
 
-  async verifyPayment(reference: string) {
+  async verifyPayment(reference: string): Promise<PaystackVerifyResponse> {
+    const url = `https://api.paystack.co/transaction/verify/${reference}`
+    const headers = {
+      Authorization: `Bearer ${this.secretKey}`,
+    }
+
     try {
-      const response = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
+      console.log(`PaystackService: Verifying payment for reference: ${reference}`)
+      const response = await fetch(url, {
         method: "GET",
-        headers: {
-          Authorization: `Bearer ${this.secretKey}`,
-          "Content-Type": "application/json",
-        },
+        headers,
       })
 
-      const result = await response.json()
-
       if (!response.ok) {
-        throw new Error(result.message || "Payment verification failed")
+        const errorData = await response.json()
+        console.error("PaystackService: Paystack verification error:", errorData)
+        throw new Error(`Paystack verification failed: ${errorData.message || response.statusText}`)
       }
 
-      return result
+      const data: PaystackVerifyResponse = await response.json()
+      console.log("PaystackService: Payment verification successful:", data)
+      return data
     } catch (error) {
-      console.error("Paystack verification error:", error)
+      console.error("PaystackService: Error verifying Paystack payment:", error)
       throw error
     }
   }
 }
 
-// Client-side redirect function - no need for external scripts
+// Client-side redirect function - now correctly exported
 export const redirectToPaystack = (authorizationUrl: string) => {
   if (typeof window !== "undefined") {
+    console.log("Redirecting to Paystack:", authorizationUrl)
     window.location.href = authorizationUrl
   }
 }
