@@ -28,114 +28,226 @@ interface BookingDocument {
 
 // Helper function to generate HTML content for the email
 function generateReceiptHtml(booking: any, event: any, hall: any) {
+  const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://dexviewcinema.vercel.app"
   const seatsFormatted = booking.seats
-    .map((seatId: string) => {
-      if (seatId.includes("-")) {
-        return seatId.split("-")[1]
-      }
-      return seatId
-    })
+    .map((seatId: string) => (seatId.includes("-") ? seatId.split("-")[1] : seatId))
     .join(", ")
 
   const eventDate = event?.date ? new Date(event.date).toLocaleDateString() : booking.bookingDate
   const eventTime = event?.time || booking.bookingTime
+  const venue = hall?.name || "Main Hall"
+  const receiptUrl = `${BASE_URL}/receipt/${booking._id}`
 
   return `
-    <!DOCTYPE html>
-    <html>
+  <!DOCTYPE html>
+  <html lang="en">
     <head>
       <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <meta http-equiv="x-ua-compatible" content="ie=edge">
       <title>Booking Confirmation - Dex View Cinema</title>
+      <style>
+        /* General resets for better email client support */
+        body,table,td,a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+        table,td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+        img { -ms-interpolation-mode: bicubic; }
+        img { border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
+        table { border-collapse: collapse !important; }
+        body { margin: 0 !important; padding: 0 !important; width: 100% !important; background-color: #f4f5f7; }
+        /* Mobile styles */
+        @media screen and (max-width: 600px) {
+          .container { width: 100% !important; }
+          .px { padding-left: 16px !important; padding-right: 16px !important; }
+        }
+      </style>
     </head>
-    <body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: Arial, sans-serif;">
-      <div style="max-width: 600px; margin: 20px auto; background-color: white; border-radius: 8px; overflow: hidden; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
-         Header 
-        <div style="background-color: #e53e3e; color: white; padding: 30px 20px; text-align: center;">
-          <h1 style="margin: 0; font-size: 28px; font-weight: bold;">Dex View Cinema</h1>
-          <p style="margin: 10px 0 0; font-size: 16px; opacity: 0.9;">Booking Confirmation</p>
-        </div>
-        
-         Content 
-        <div style="padding: 30px 20px;">
-          <h2 style="color: #e53e3e; font-size: 24px; margin: 0 0 20px 0; font-weight: bold;">🎉 Booking Confirmed!</h2>
-          
-          <p style="font-size: 16px; color: #333; margin-bottom: 10px;">Dear <strong>${booking.customerName}</strong>,</p>
-          
-          <p style="font-size: 16px; color: #555; line-height: 1.6; margin-bottom: 25px;">
-            Thank you for choosing Dex View Cinema! Your booking for <strong>${booking.eventTitle}</strong> has been successfully confirmed. 
-            Please find your booking details below:
-          </p>
-
-           Booking Details Table 
-          <table style="width: 100%; border-collapse: collapse; margin: 25px 0; background-color: #f9f9f9; border-radius: 8px; overflow: hidden;">
-            <tr>
-              <td style="padding: 15px; border-bottom: 1px solid #eee; font-weight: bold; color: #e53e3e; background-color: #fff;">Booking ID:</td>
-              <td style="padding: 15px; border-bottom: 1px solid #eee; background-color: #fff;">${booking._id}</td>
-            </tr>
-            <tr>
-              <td style="padding: 15px; border-bottom: 1px solid #eee; font-weight: bold; color: #e53e3e;">Event:</td>
-              <td style="padding: 15px; border-bottom: 1px solid #eee;">${booking.eventTitle}</td>
-            </tr>
-            <tr>
-              <td style="padding: 15px; border-bottom: 1px solid #eee; font-weight: bold; color: #e53e3e; background-color: #fff;">Type:</td>
-              <td style="padding: 15px; border-bottom: 1px solid #eee; background-color: #fff;">${booking.eventType === "match" ? "Sports Match" : "Movie"}</td>
-            </tr>
-            <tr>
-              <td style="padding: 15px; border-bottom: 1px solid #eee; font-weight: bold; color: #e53e3e;">Date & Time:</td>
-              <td style="padding: 15px; border-bottom: 1px solid #eee;">${eventDate} at ${eventTime}</td>
-            </tr>
-            <tr>
-              <td style="padding: 15px; border-bottom: 1px solid #eee; font-weight: bold; color: #e53e3e; background-color: #fff;">Venue:</td>
-              <td style="padding: 15px; border-bottom: 1px solid #eee; background-color: #fff;">${hall?.name || "Main Hall"}</td>
-            </tr>
-            <tr>
-              <td style="padding: 15px; border-bottom: 1px solid #eee; font-weight: bold; color: #e53e3e;">Seats:</td>
-              <td style="padding: 15px; border-bottom: 1px solid #eee;">
-                <span style="background-color: #e53e3e; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold;">${seatsFormatted}</span>
-                <br><small style="color: #666; margin-top: 5px; display: inline-block;">${booking.seatType}</small>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding: 15px; font-weight: bold; color: #e53e3e; background-color: #fff; font-size: 18px;">Total Amount:</td>
-              <td style="padding: 15px; background-color: #fff; font-size: 18px; font-weight: bold; color: #e53e3e;">₦${booking.totalAmount.toLocaleString()}</td>
-            </tr>
-          </table>
-
-           Important Notes 
-          <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 20px; margin: 25px 0;">
-            <h3 style="margin: 0 0 10px 0; color: #856404; font-size: 16px;">📋 Important Notes:</h3>
-            <ul style="margin: 0; padding-left: 20px; color: #856404;">
-              <li style="margin-bottom: 5px;">Please arrive at least 15 minutes before the event starts</li>
-              <li style="margin-bottom: 5px;">Bring a valid ID for verification</li>
-              <li style="margin-bottom: 5px;">Your seats are reserved and guaranteed</li>
-              <li>Keep this email as your booking receipt</li>
-            </ul>
-          </div>
-
-          <p style="font-size: 16px; color: #555; line-height: 1.6; margin-top: 30px;">
-            We're excited to have you join us for this amazing experience! If you have any questions or need assistance, 
-            don't hesitate to contact our support team.
-          </p>
-
-          <p style="font-size: 16px; color: #333; margin-top: 20px;">
-            Thank you for choosing <strong>Dex View Cinema</strong>!
-          </p>
-        </div>
-        
-         Footer 
-        <div style="background-color: #f8f8f8; padding: 20px; text-align: center; border-top: 1px solid #eee;">
-          <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">
-            📧 <strong>Support:</strong> support@dexviewcinema.com | 📞 <strong>Phone:</strong> 08139614950
-          </p>
-          <p style="margin: 0; font-size: 12px; color: #999;">
-            Developed by <strong>SydaTech</strong> - www.sydatech.com.ng
-          </p>
-        </div>
+    <body style="background-color:#f4f5f7; margin:0; padding:0;">
+      <!-- Preheader text: appears in inbox preview, hidden in body -->
+      <div style="display:none; font-size:1px; color:#f4f5f7; line-height:1px; max-height:0; max-width:0; opacity:0; overflow:hidden;">
+        Your booking for ${booking.eventTitle} is confirmed. Seats: ${seatsFormatted}. Total: ₦${booking.totalAmount.toLocaleString()}
       </div>
+
+      <!-- Outer wrapper -->
+      <table border="0" cellpadding="0" cellspacing="0" width="100%">
+        <tr>
+          <td align="center" style="padding: 24px 12px;">
+            <!-- Card -->
+            <table border="0" cellpadding="0" cellspacing="0" width="600" class="container" style="width:600px; max-width:600px; background-color:#ffffff; border-radius:8px; overflow:hidden; box-shadow:0 2px 8px rgba(16,24,40,0.08);">
+              <!-- Header -->
+              <tr>
+                <td align="center" style="background-color:#e53e3e; padding:28px 24px;">
+                  <h1 style="margin:0; color:#ffffff; font-family:Arial, Helvetica, sans-serif; font-size:24px; font-weight:700;">Dex View Cinema</h1>
+                  <p style="margin:6px 0 0; color:#ffe8e8; font-family:Arial, Helvetica, sans-serif; font-size:14px;">Booking Confirmation</p>
+                </td>
+              </tr>
+
+              <!-- Body Intro -->
+              <tr>
+                <td class="px" style="padding: 28px 24px 8px 24px;">
+                  <h2 style="margin:0 0 12px 0; color:#101828; font-family:Arial, Helvetica, sans-serif; font-size:20px; font-weight:700;">🎉 Booking Confirmed!</h2>
+                  <p style="margin:0; color:#475467; font-family:Arial, Helvetica, sans-serif; font-size:14px; line-height:1.6;">
+                    Dear <strong style="color:#101828;">${booking.customerName}</strong>,<br/>
+                    Thank you for choosing Dex View Cinema! Your booking for <strong>${booking.eventTitle}</strong> has been successfully confirmed.
+                  </p>
+                </td>
+              </tr>
+
+              <!-- View Receipt Button -->
+              <tr>
+                <td class="px" align="left" style="padding: 16px 24px 8px 24px;">
+                  <table border="0" cellspacing="0" cellpadding="0">
+                    <tr>
+                      <td align="center" bgcolor="#e53e3e" style="border-radius:6px;">
+                        <a href="${receiptUrl}" target="_blank"
+                           style="display:inline-block; padding:10px 16px; font-family:Arial, Helvetica, sans-serif; font-size:14px; color:#ffffff; text-decoration:none; border-radius:6px;">
+                           View Receipt
+                        </a>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+
+              <!-- Details Heading -->
+              <tr>
+                <td class="px" style="padding: 16px 24px 0 24px;">
+                  <p style="margin:0; color:#98A2B3; font-family:Arial, Helvetica, sans-serif; font-size:12px; text-transform:uppercase; letter-spacing:0.6px;">
+                    Booking Details
+                  </p>
+                </td>
+              </tr>
+
+              <!-- Details Table -->
+              <tr>
+                <td class="px" style="padding: 8px 24px 24px 24px;">
+                  <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #EAECF0; border-radius:8px; overflow:hidden;">
+                    <tbody>
+                      <tr>
+                        <td width="40%" style="background:#F9FAFB; padding:12px; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#344054; font-weight:600;">Booking ID</td>
+                        <td style="padding:12px; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#475467;">${booking._id}</td>
+                      </tr>
+                      <tr>
+                        <td width="40%" style="background:#F9FAFB; padding:12px; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#344054; font-weight:600;">Event</td>
+                        <td style="padding:12px; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#475467;">${booking.eventTitle}</td>
+                      </tr>
+                      <tr>
+                        <td width="40%" style="background:#F9FAFB; padding:12px; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#344054; font-weight:600;">Type</td>
+                        <td style="padding:12px; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#475467;">${booking.eventType === "match" ? "Sports Match" : "Movie"}</td>
+                      </tr>
+                      <tr>
+                        <td width="40%" style="background:#F9FAFB; padding:12px; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#344054; font-weight:600;">Date &amp; Time</td>
+                        <td style="padding:12px; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#475467;">${eventDate} at ${eventTime}</td>
+                      </tr>
+                      <tr>
+                        <td width="40%" style="background:#F9FAFB; padding:12px; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#344054; font-weight:600;">Venue</td>
+                        <td style="padding:12px; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#475467;">${venue}</td>
+                      </tr>
+                      <tr>
+                        <td width="40%" style="background:#F9FAFB; padding:12px; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#344054; font-weight:600;">Seats</td>
+                        <td style="padding:12px; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#475467;">
+                          <span style="display:inline-block; background:#fee2e2; color:#b91c1c; padding:4px 8px; border-radius:4px; font-weight:700;">${seatsFormatted}</span>
+                          <div style="margin-top:4px; color:#667085; font-size:12px;">${booking.seatType}</div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td width="40%" style="background:#F9FAFB; padding:12px; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#344054; font-weight:600;">Total Amount</td>
+                        <td style="padding:12px; font-family:Arial, Helvetica, sans-serif; font-size:15px; color:#e53e3e; font-weight:700;">₦${booking.totalAmount.toLocaleString()}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </td>
+              </tr>
+
+              <!-- Notes -->
+              <tr>
+                <td class="px" style="padding: 0 24px 24px 24px;">
+                  <table width="100%" cellpadding="0" cellspacing="0" style="background:#FFFAEB; border:1px solid #FDE68A; border-radius:8px;">
+                    <tr>
+                      <td style="padding:16px 16px 10px 16px;">
+                        <p style="margin:0 0 8px 0; color:#92400E; font-family:Arial, Helvetica, sans-serif; font-size:14px; font-weight:700;">Important Notes</p>
+                        <ul style="margin:0; padding-left:18px; color:#92400E; font-family:Arial, Helvetica, sans-serif; font-size:13px; line-height:1.6;">
+                          <li>Please arrive at least 15 minutes before the event starts</li>
+                          <li>Bring a valid ID for verification</li>
+                          <li>Your seats are reserved and guaranteed</li>
+                          <li>Keep this email as your booking receipt</li>
+                        </ul>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+
+              <!-- Closing copy -->
+              <tr>
+                <td class="px" style="padding: 0 24px 28px 24px;">
+                  <p style="margin:0; color:#475467; font-family:Arial, Helvetica, sans-serif; font-size:14px; line-height:1.6;">
+                    We're excited to have you join us! For assistance, reply to this email or contact our support team.
+                  </p>
+                </td>
+              </tr>
+
+              <!-- Footer -->
+              <tr>
+                <td align="center" style="background:#F9FAFB; padding:16px 24px; border-top:1px solid #EAECF0;">
+                  <p style="margin:0 0 6px 0; color:#667085; font-family:Arial, Helvetica, sans-serif; font-size:12px;">
+                    📧 support@dexviewcinema.com &nbsp;&nbsp;|&nbsp;&nbsp; 📞 08139614950
+                  </p>
+                  <p style="margin:0; color:#98A2B3; font-family:Arial, Helvetica, sans-serif; font-size:11px;">
+                    Developed by <strong>SydaTech</strong> &middot; sydatech.com.ng
+                  </p>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Small legal line -->
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" class="container" style="width:600px; max-width:600px; margin-top:12px;">
+              <tr>
+                <td align="center" style="padding: 0 12px;">
+                  <p style="margin:0; color:#98A2B3; font-family:Arial, Helvetica, sans-serif; font-size:11px;">
+                    You received this email because you made a booking at Dex View Cinema.
+                  </p>
+                </td>
+              </tr>
+            </table>
+
+          </td>
+        </tr>
+      </table>
     </body>
-    </html>
-  `
+  </html>
+    `
+}
+
+function generateReceiptText(booking: any, event: any, hall: any) {
+  const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://dexviewcinema.vercel.app"
+  const seatsFormatted = booking.seats
+    .map((seatId: string) => (seatId.includes("-") ? seatId.split("-")[1] : seatId))
+    .join(", ")
+  const eventDate = event?.date ? new Date(event.date).toLocaleDateString() : booking.bookingDate
+  const eventTime = event?.time || booking.bookingTime
+  const venue = hall?.name || "Main Hall"
+  const receiptUrl = `${BASE_URL}/receipt/${booking._id}`
+
+  return [
+    "Dex View Cinema - Booking Confirmation",
+    "",
+    `Hello ${booking.customerName},`,
+    `Your booking for "${booking.eventTitle}" is confirmed.`,
+    "",
+    "Booking Details:",
+    `- Booking ID: ${booking._id}`,
+    `- Type: ${booking.eventType === "match" ? "Sports Match" : "Movie"}`,
+    `- Date & Time: ${eventDate} at ${eventTime}`,
+    `- Venue: ${venue}`,
+    `- Seats: ${seatsFormatted} (${booking.seatType})`,
+    `- Total Amount: ₦${booking.totalAmount.toLocaleString()}`,
+    "",
+    `View your receipt: ${receiptUrl}`,
+    "",
+    "Please arrive 15 minutes early and bring a valid ID.",
+    "",
+    "Thank you for choosing Dex View Cinema!",
+  ].join("\n")
 }
 
 // Helper function to send email using Brevo
@@ -170,7 +282,9 @@ async function sendBookingConfirmationEmail(booking: any, event: any, hall: any)
         },
       ],
       subject: `🎬 Booking Confirmed - ${booking.eventTitle} | Dex View Cinema`,
-      htmlContent: htmlContent,
+      htmlContent: generateReceiptHtml(booking, event, hall),
+      textContent: generateReceiptText(booking, event, hall),
+      replyTo: { email: "support@dexviewcinema.com", name: "Dex View Cinema Support" },
     }
 
     console.log("Sending email with data:", {
