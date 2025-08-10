@@ -14,7 +14,6 @@ import jsPDF from "jspdf"
 
 interface Booking {
   _id: string
-  bookingCode?: string
   customerName: string
   customerEmail: string
   customerPhone: string
@@ -52,10 +51,12 @@ export default function ReceiptPage() {
   useEffect(() => {
     const fetchBookingAndHall = async () => {
       if (!id) return
+
       try {
         setLoading(true)
         setError(null)
 
+        // Fetch booking details
         const bookingRes = await fetch(`/api/bookings/${id}`)
         if (!bookingRes.ok) {
           throw new Error(`Failed to fetch booking: ${bookingRes.statusText}`)
@@ -63,6 +64,7 @@ export default function ReceiptPage() {
         const bookingData: Booking = await bookingRes.json()
         setBooking(bookingData)
 
+        // Fetch hall details using eventId from booking
         if (bookingData.eventId) {
           const eventRes = await fetch(`/api/events/${bookingData.eventId}`)
           if (!eventRes.ok) {
@@ -97,35 +99,53 @@ export default function ReceiptPage() {
     try {
       const element = document.getElementById("receipt-print-area") as HTMLElement | null
       if (!element) return
+
+      // Render the receipt area to canvas
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
         backgroundColor: "#ffffff",
+        // You can tweak these if you find any clipping in certain clients
+        // windowWidth: element.scrollWidth,
+        // windowHeight: element.scrollHeight,
       })
+
       const imgData = canvas.toDataURL("image/png")
+
+      // Create an A4 PDF and fit the image while preserving aspect ratio
       const pdf = new jsPDF("p", "mm", "a4")
       const pdfWidth = pdf.internal.pageSize.getWidth()
+      const pdfHeight = pdf.internal.pageSize.getHeight()
+
       const imgWidth = pdfWidth
       const imgHeight = (canvas.height * imgWidth) / canvas.width
+
       let heightLeft = imgHeight
       let position = 0
+
       pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight)
-      heightLeft -= pdf.internal.pageSize.getHeight()
+      heightLeft -= pdfHeight
+
       while (heightLeft > 0) {
         position = heightLeft - imgHeight
         pdf.addPage()
         pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight)
-        heightLeft -= pdf.internal.pageSize.getHeight()
+        heightLeft -= pdfHeight
       }
-      const name = booking?.bookingCode || booking?._id || "receipt"
-      pdf.save(`dex-view-cinema-${name}.pdf`)
+
+      pdf.save(`dex-view-cinema-receipt-${booking?._id ?? "receipt"}.pdf`)
     } catch (err) {
       console.error("Failed to generate PDF:", err)
     }
   }
 
   const seatsFormatted = booking?.seats
-    .map((seatId) => (seatId.includes("-") ? seatId.split("-")[1] : seatId))
+    .map((seatId) => {
+      if (seatId.includes("-")) {
+        return seatId.split("-")[1]
+      }
+      return seatId
+    })
     .join(", ")
 
   if (loading) {
@@ -214,7 +234,7 @@ export default function ReceiptPage() {
               <div>
                 <h3 className="font-bold text-lg mb-3 text-brand-red-600">Booking Details</h3>
                 <p>
-                  <strong>Booking Code:</strong> {booking.bookingCode || booking._id}
+                  <strong>Booking ID:</strong> {booking._id}
                 </p>
                 <p>
                   <strong>Date:</strong> {booking.bookingDate}
@@ -266,6 +286,10 @@ export default function ReceiptPage() {
               <div className="flex justify-between mb-2">
                 <span>Base Amount:</span>
                 <span>₦{booking.amount.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between mb-2">
+                <span>Processing Fee:</span>
+                <span>₦{booking.processingFee.toLocaleString()}</span>
               </div>
               <div className="flex justify-between font-bold text-lg border-t border-gray-300 pt-2">
                 <span>Total Amount:</span>
@@ -327,12 +351,14 @@ export default function ReceiptPage() {
             left: 0;
             top: 0;
             width: 100%;
-            padding: 20px;
+            padding: 20px; /* Add padding for print layout */
           }
+          /* Ensure images are visible */
           #receipt-print-area img {
             display: block !important;
             visibility: visible !important;
           }
+          /* Hide buttons and non-receipt elements */
           .print\\:hidden {
             display: none !important;
           }
