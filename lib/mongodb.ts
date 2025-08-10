@@ -1,39 +1,33 @@
-import { MongoClient } from "mongodb"
+import { MongoClient, type Db } from "mongodb"
+
+const uri = process.env.MONGODB_URI
+const options = {}
 
 let client: MongoClient
 let clientPromise: Promise<MongoClient>
 
-const uri = process.env.MONGODB_URI!
-const dbName = process.env.MONGODB_DB!
-
 if (!uri) {
-  throw new Error("Please add your Mongo URI to .env.local")
+  throw new Error("Please add your MONGODB_URI to .env.local")
 }
 
-if (!dbName) {
-  throw new Error("Please add your Mongo DB Name to .env.local")
-}
-
+// In production, it's best to not use a global variable.
+// In development, use a global variable so that the client is not created every time.
 if (process.env.NODE_ENV === "development") {
-  // In development mode, use a global variable so that the value
-  // is preserved across module reloads caused by HMR (Hot Module Replacement).
-  const globalWithMongoClientPromise = global as typeof globalThis & {
-    _mongoClientPromise?: Promise<MongoClient>
+  // @ts-ignore
+  if (!global._mongoClientPromise) {
+    client = new MongoClient(uri, options)
+    // @ts-ignore
+    global._mongoClientPromise = client.connect()
   }
-
-  if (!globalWithMongoClientPromise._mongoClientPromise) {
-    client = new MongoClient(uri)
-    globalWithMongoClientPromise._mongoClientPromise = client.connect()
-  }
-  clientPromise = globalWithMongoClientPromise._mongoClientPromise
+  // @ts-ignore
+  clientPromise = global._mongoClientPromise
 } else {
-  // In production mode, it's best to not use a global variable.
-  client = new MongoClient(uri)
+  client = new MongoClient(uri, options)
   clientPromise = client.connect()
 }
 
-export async function connectToDatabase() {
-  const client = await clientPromise
-  const db = client.db(dbName)
-  return { client, db }
+export async function connectToDatabase(): Promise<{ client: MongoClient; db: Db }> {
+  const connectedClient = await clientPromise
+  const db = connectedClient.db("cinema_db") // Replace with your database name
+  return { client: connectedClient, db }
 }
