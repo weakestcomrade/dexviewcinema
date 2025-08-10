@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Printer, XCircle, CalendarIcon, Clock, MapPin, Ticket } from "lucide-react"
+import { Printer, XCircle, CalendarIcon, Clock, MapPin, Ticket, Home } from "lucide-react"
 import Image from "next/image"
 import { useToast } from "@/components/ui/use-toast"
 import Link from "next/link"
@@ -276,6 +276,15 @@ export default function ReceiptPage() {
                 className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl shadow-cyber-card"
               >
                 Back to Bookings
+              </Button>
+            </Link>
+            <Link href="/" aria-label="Back to Home">
+              <Button
+                variant="outline"
+                className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl shadow-cyber-card"
+              >
+                <Home className="w-4 h-4 mr-2" />
+                Back to Home
               </Button>
             </Link>
           </div>
