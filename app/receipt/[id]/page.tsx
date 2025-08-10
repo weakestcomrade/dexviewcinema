@@ -4,11 +4,13 @@ import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Printer, XCircle, CalendarIcon, Clock, MapPin, Ticket, Home } from "lucide-react"
+import { Download, XCircle, CalendarIcon, Clock, MapPin, Ticket, Home } from "lucide-react"
 import Image from "next/image"
 import { useToast } from "@/components/ui/use-toast"
 import Link from "next/link"
 import { Loader2 } from "lucide-react"
+import html2canvas from "html2canvas"
+import jsPDF from "jspdf"
 
 interface Booking {
   _id: string
@@ -93,8 +95,48 @@ export default function ReceiptPage() {
     fetchBookingAndHall()
   }, [id, toast])
 
-  const handlePrint = () => {
-    window.print()
+  const handleDownload = async () => {
+    try {
+      const element = document.getElementById("receipt-print-area") as HTMLElement | null
+      if (!element) return
+
+      // Render the receipt area to canvas
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        // You can tweak these if you find any clipping in certain clients
+        // windowWidth: element.scrollWidth,
+        // windowHeight: element.scrollHeight,
+      })
+
+      const imgData = canvas.toDataURL("image/png")
+
+      // Create an A4 PDF and fit the image while preserving aspect ratio
+      const pdf = new jsPDF("p", "mm", "a4")
+      const pdfWidth = pdf.internal.pageSize.getWidth()
+      const pdfHeight = pdf.internal.pageSize.getHeight()
+
+      const imgWidth = pdfWidth
+      const imgHeight = (canvas.height * imgWidth) / canvas.width
+
+      let heightLeft = imgHeight
+      let position = 0
+
+      pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight)
+      heightLeft -= pdfHeight
+
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight
+        pdf.addPage()
+        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight)
+        heightLeft -= pdfHeight
+      }
+
+      pdf.save(`dex-view-cinema-receipt-${booking?._id ?? "receipt"}.pdf`)
+    } catch (err) {
+      console.error("Failed to generate PDF:", err)
+    }
   }
 
   const seatsFormatted = booking?.seats
@@ -264,11 +306,12 @@ export default function ReceiptPage() {
 
           <div className="flex justify-center mt-8 gap-4 print:hidden">
             <Button
-              onClick={handlePrint}
+              onClick={handleDownload}
               className="bg-gradient-to-r from-cyber-green-500 via-cyber-green-600 to-cyber-green-700 hover:from-cyber-green-600 hover:via-cyber-green-700 hover:to-cyber-green-800 text-white rounded-2xl shadow-glow-green"
+              aria-label="Download Receipt"
             >
-              <Printer className="w-4 h-4 mr-2" />
-              Print Receipt
+              <Download className="w-4 h-4 mr-2" />
+              Download Receipt
             </Button>
             <Link href="/bookings">
               <Button
