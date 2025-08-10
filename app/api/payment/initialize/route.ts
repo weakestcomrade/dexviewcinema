@@ -1,113 +1,90 @@
 import { NextResponse } from "next/server"
 import { PaystackService } from "@/lib/paystack"
 import { connectToDatabase } from "@/lib/mongodb"
+import { ObjectId } from "mongodb"
 
 export async function POST(request: Request) {
   try {
-    const { db } = await connectToDatabase()
-    const paystack = new PaystackService()
-
-    const body = await request.json()
-    const {
-      email,
-      amount,
-      eventId,
-      eventTitle,
-      eventType,
-      seats,
-      seatType,
-      customerName,
-      customerPhone,
-      bookingDate,
-      bookingTime,
-      baseAmount,
-      processingFee,
-    } = body
+    const { email, amount, eventId, seats, seatType, customerName, customerPhone } = await request.json()
 
     // Validate required fields
-    if (!email || !amount || !eventId || !customerName) {
-      return NextResponse.json({ status: false, message: "Missing required fields" }, { status: 400 })
+    if (
+      !email ||
+      typeof amount !== "number" ||
+      amount <= 0 ||
+      !eventId ||
+      !seats ||
+      seats.length === 0 ||
+      !customerName
+    ) {
+      return NextResponse.json({ status: false, message: "Missing or invalid required fields" }, { status: 400 })
     }
 
-    // Generate payment reference
+    const { db } = await connectToDatabase()
+
+    // Fetch event details (for metadata completeness)
+    const event = await db.collection("events").findOne({ _id: new ObjectId(eventId) })
+    if (!event) {
+      return NextResponse.json({ status: false, message: "Event not found" }, { status: 404 })
+    }
+
+    const paystack = new PaystackService()
     const reference = paystack.generateReference()
 
-    // Create callback URL
-    const callbackUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/payment/callback`
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
+    const callbackUrl = `${baseUrl}/payment/callback?reference=${reference}`
 
-    // Prepare metadata for Paystack
+    // Metadata for verification and booking creation (no processing fee)
     const metadata = {
       eventId,
-      eventTitle,
-      eventType,
-      seats,
-      seatType,
+      eventTitle: event.title,
+      eventType: event.event_type || event.type || "movie",
       customerName,
       customerPhone,
-      bookingDate,
-      bookingTime,
-      baseAmount,
-      processingFee,
+      seats,
+      seatType,
+      amount, // exact ticket total
+      processingFee: 0, // always zero now
+      totalAmount: amount, // kept for backward compatibility
+      bookingDate: event.date || new Date().toISOString().split("T")[0],
+      bookingTime: event.time || new Date().toLocaleTimeString(),
       reference,
     }
 
-    console.log("Initializing payment with metadata:", metadata)
-
-    // Initialize payment with Paystack
-    const paymentData = await paystack.initializePayment({
+    // Store payment record
+    await db.collection("payments").insertOne({
+      reference,
       email,
-      amount,
+      amount, // exact amount without fee
+      status: "pending",
+      metadata,
+      createdAt: new Date(),
+    })
+
+    // Initialize payment with Paystack for the exact amount
+    const paymentData = {
+      email,
+      amount, // PaystackService should handle conversion to kobo internally
       reference,
       callback_url: callbackUrl,
       metadata,
-    })
-
-    // Store payment record in database
-    const paymentRecord = {
-      reference,
-      email,
-      amount,
-      eventId,
-      eventTitle,
-      eventType,
-      seats,
-      seatType,
-      customerName,
-      customerPhone,
-      bookingDate,
-      bookingTime,
-      baseAmount,
-      processingFee,
-      status: "pending",
-      paystackData: paymentData.data,
-      createdAt: new Date(),
-      updatedAt: new Date(),
     }
 
-    await db.collection("payments").insertOne(paymentRecord)
+    const result = await paystack.initializePayment(paymentData)
 
-    console.log("Payment initialized successfully:", {
-      reference,
-      authorizationUrl: paymentData.data.authorization_url,
-    })
+    if (!result.status) {
+      throw new Error(result.message || "Payment initialization failed")
+    }
 
     return NextResponse.json({
       status: true,
       message: "Payment initialized successfully",
-      data: {
-        authorization_url: paymentData.data.authorization_url,
-        access_code: paymentData.data.access_code,
-        reference,
-      },
+      data: result.data,
     })
   } catch (error) {
     console.error("Payment initialization error:", error)
     return NextResponse.json(
-      {
-        status: false,
-        message: "Payment initialization failed",
-        error: (error as Error).message,
-      },
+      { status: false, message: "Payment initialization failed", error: (error as Error).message },
       { status: 500 },
     )
   }
