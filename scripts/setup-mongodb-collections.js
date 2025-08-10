@@ -1,68 +1,56 @@
-// MongoDB Collection Setup Script
-// This script sets up all necessary collections and indexes for the Dex View Cinema application
+import { MongoClient } from 'mongodb';
 
-const { MongoClient } = require("mongodb")
+const uri = process.env.MONGODB_URI;
+const dbName = process.env.MONGODB_DB;
 
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017"
-const MONGODB_DB = process.env.MONGODB_DB || "dex_view_cinema"
+if (!uri) {
+  console.error('MONGODB_URI environment variable is not set.');
+  process.exit(1);
+}
+if (!dbName) {
+  console.error('MONGODB_DB environment variable is not set.');
+  process.exit(1);
+}
 
 async function setupCollections() {
-  const client = new MongoClient(MONGODB_URI)
+  const client = new MongoClient(uri);
 
   try {
-    await client.connect()
-    console.log("Connected to MongoDB")
+    await client.connect();
+    console.log('Connected to MongoDB');
 
-    const db = client.db(MONGODB_DB)
+    const db = client.db(dbName);
 
-    // Create collections if they don't exist
-    const collections = ["events", "bookings", "payments", "halls"]
+    // Create 'events' collection and indexes
+    await db.createCollection('events');
+    await db.collection('events').createIndex({ title: 1 }, { unique: true });
+    await db.collection('events').createIndex({ event_date: 1, event_time: 1 });
+    console.log('Collection "events" created and indexed.');
 
-    for (const collectionName of collections) {
-      const exists = await db.listCollections({ name: collectionName }).hasNext()
-      if (!exists) {
-        await db.createCollection(collectionName)
-        console.log(`Created collection: ${collectionName}`)
-      } else {
-        console.log(`Collection already exists: ${collectionName}`)
-      }
-    }
+    // Create 'halls' collection and indexes
+    await db.createCollection('halls');
+    await db.collection('halls').createIndex({ name: 1 }, { unique: true });
+    console.log('Collection "halls" created and indexed.');
 
-    // Create indexes for better performance
+    // Create 'bookings' collection and indexes
+    await db.createCollection('bookings');
+    await db.collection('bookings').createIndex({ eventId: 1 });
+    await db.collection('bookings').createIndex({ customerEmail: 1 });
+    await db.collection('bookings').createIndex({ reference: 1 }, { unique: true });
+    console.log('Collection "bookings" created and indexed.');
 
-    // Events collection indexes
-    await db.collection("events").createIndex({ event_date: 1, event_time: 1 })
-    await db.collection("events").createIndex({ status: 1 })
-    await db.collection("events").createIndex({ hall_id: 1 })
-    console.log("Created indexes for events collection")
+    // Create 'payments' collection and indexes
+    await db.createCollection('payments');
+    await db.collection('payments').createIndex({ reference: 1 }, { unique: true });
+    await db.collection('payments').createIndex({ bookingId: 1 });
+    console.log('Collection "payments" created and indexed.');
 
-    // Bookings collection indexes
-    await db.collection("bookings").createIndex({ eventId: 1 })
-    await db.collection("bookings").createIndex({ customerEmail: 1 })
-    await db.collection("bookings").createIndex({ paymentReference: 1 }, { unique: true })
-    await db.collection("bookings").createIndex({ createdAt: -1 })
-    console.log("Created indexes for bookings collection")
-
-    // Payments collection indexes
-    await db.collection("payments").createIndex({ reference: 1 }, { unique: true })
-    await db.collection("payments").createIndex({ eventId: 1 })
-    await db.collection("payments").createIndex({ customerEmail: 1 })
-    await db.collection("payments").createIndex({ status: 1 })
-    await db.collection("payments").createIndex({ createdAt: -1 })
-    console.log("Created indexes for payments collection")
-
-    // Halls collection indexes
-    await db.collection("halls").createIndex({ name: 1 }, { unique: true })
-    await db.collection("halls").createIndex({ type: 1 })
-    console.log("Created indexes for halls collection")
-
-    console.log("MongoDB collections and indexes setup completed successfully!")
   } catch (error) {
-    console.error("Error setting up MongoDB collections:", error)
+    console.error('Error setting up MongoDB collections:', error);
   } finally {
-    await client.close()
+    await client.close();
+    console.log('Disconnected from MongoDB');
   }
 }
 
-// Run the setup
-setupCollections()
+setupCollections();

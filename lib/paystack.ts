@@ -109,7 +109,10 @@ export const initializePaystackPopup = (config: {
         config.onClose()
       },
     })
-    handler.openIframe()
+    // Add a small timeout before opening the iframe
+    setTimeout(() => {
+      handler.openIframe()
+    }, 100); // 100ms delay
   } else {
     throw new Error("Paystack script not loaded")
   }

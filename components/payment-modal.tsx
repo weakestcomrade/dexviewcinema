@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/components/ui/use-toast"
-import { CreditCard, Shield, Loader2, Lock } from "lucide-react"
+import { CreditCard, Shield, Loader2, Lock } from 'lucide-react'
 import { loadPaystackScript, initializePaystackPopup } from "@/lib/paystack"
 
 interface PaymentModalProps {
@@ -39,10 +39,10 @@ export function PaymentModal({ isOpen, onClose, onSuccess, paymentData }: Paymen
       loadPaystackScript()
         .then(() => {
           setPaystackLoaded(true)
-          console.log("Paystack script loaded successfully")
+          console.log("Paystack script loaded successfully.")
         })
         .catch((error) => {
-          console.error("Failed to load Paystack:", error)
+          console.error("Failed to load Paystack script:", error)
           toast({
             title: "Payment System Error",
             description: "Failed to load payment system. Please try again.",
@@ -91,7 +91,7 @@ export function PaymentModal({ isOpen, onClose, onSuccess, paymentData }: Paymen
       })
 
       const initData = await initResponse.json()
-      console.log("Payment initialization response:", initData)
+      console.log("Payment initialization response from backend:", initData)
 
       if (!initResponse.ok || !initData.status) {
         throw new Error(initData.message || "Failed to initialize payment")
@@ -111,12 +111,12 @@ export function PaymentModal({ isOpen, onClose, onSuccess, paymentData }: Paymen
           seat_type: paymentData.seatType,
         },
         callback: (response: any) => {
-          console.log("Payment callback received:", response)
+          console.log("Paystack callback received:", response)
           setPaymentStep("verifying")
           handlePaymentCallback(response)
         },
         onClose: () => {
-          console.log("Payment popup closed")
+          console.log("Paystack popup closed by user.")
           if (paymentStep === "processing") {
             setIsProcessing(false)
             setPaymentStep("confirm")
@@ -157,7 +157,7 @@ export function PaymentModal({ isOpen, onClose, onSuccess, paymentData }: Paymen
       })
 
       const verifyData = await verifyResponse.json()
-      console.log("Payment verification response:", verifyData)
+      console.log("Payment verification response from backend:", verifyData)
 
       if (!verifyResponse.ok || !verifyData.status) {
         throw new Error(verifyData.message || "Payment verification failed")

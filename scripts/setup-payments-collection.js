@@ -1,50 +1,40 @@
-// MongoDB Payments Collection Setup
-// This script ensures the payments collection is properly configured
+import { MongoClient } from 'mongodb';
 
-const { MongoClient } = require("mongodb")
+const uri = process.env.MONGODB_URI;
+const dbName = process.env.MONGODB_DB;
 
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017"
-const MONGODB_DB = process.env.MONGODB_DB || "dex_view_cinema"
+if (!uri) {
+  console.error('MONGODB_URI environment variable is not set.');
+  process.exit(1);
+}
+if (!dbName) {
+  console.error('MONGODB_DB environment variable is not set.');
+  process.exit(1);
+}
 
 async function setupPaymentsCollection() {
-  const client = new MongoClient(MONGODB_URI)
+  const client = new MongoClient(uri);
 
   try {
-    await client.connect()
-    console.log("Connected to MongoDB")
+    await client.connect();
+    console.log('Connected to MongoDB');
 
-    const db = client.db(MONGODB_DB)
+    const db = client.db(dbName);
 
-    // Create payments collection if it doesn't exist
-    const exists = await db.listCollections({ name: "payments" }).hasNext()
-    if (!exists) {
-      await db.createCollection("payments")
-      console.log("Created payments collection")
-    } else {
-      console.log("Payments collection already exists")
-    }
+    // Create 'payments' collection if it doesn't exist
+    await db.createCollection('payments');
+    // Create unique index on 'reference' field for payments
+    await db.collection('payments').createIndex({ reference: 1 }, { unique: true });
+    // Create index on 'bookingId' for payments
+    await db.collection('payments').createIndex({ bookingId: 1 });
+    console.log('Collection "payments" created and indexed.');
 
-    // Create indexes for the payments collection
-    await db.collection("payments").createIndex({ reference: 1 }, { unique: true })
-    await db.collection("payments").createIndex({ eventId: 1 })
-    await db.collection("payments").createIndex({ customerEmail: 1 })
-    await db.collection("payments").createIndex({ status: 1 })
-    await db.collection("payments").createIndex({ createdAt: -1 })
-
-    console.log("Payments collection indexes created successfully")
-
-    // Verify the collection structure
-    const indexes = await db.collection("payments").indexes()
-    console.log("Current indexes on payments collection:")
-    indexes.forEach((index) => {
-      console.log(`- ${index.name}: ${JSON.stringify(index.key)}`)
-    })
   } catch (error) {
-    console.error("Error setting up payments collection:", error)
+    console.error('Error setting up MongoDB payments collection:', error);
   } finally {
-    await client.close()
+    await client.close();
+    console.log('Disconnected from MongoDB');
   }
 }
 
-// Run the setup
-setupPaymentsCollection()
+setupPaymentsCollection();

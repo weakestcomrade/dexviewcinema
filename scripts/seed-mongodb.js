@@ -1,196 +1,147 @@
-import { MongoClient } from "mongodb"
+import { MongoClient } from 'mongodb';
+import { ObjectId } from 'mongodb';
 
-const uri = process.env.MONGODB_URI || "mongodb://localhost:27017"
-const dbName = process.env.MONGODB_DB || "dex_view_cinema"
+const uri = process.env.MONGODB_URI;
+const dbName = process.env.MONGODB_DB;
 
 if (!uri) {
-  console.error("MONGODB_URI environment variable is not set.")
-  process.exit(1)
+  console.error('MONGODB_URI environment variable is not set.');
+  process.exit(1);
 }
-
 if (!dbName) {
-  console.error("MONGODB_DB environment variable is not set.")
-  process.exit(1)
+  console.error('MONGODB_DB environment variable is not set.');
+  process.exit(1);
 }
 
-async function seedDatabase() {
-  const client = new MongoClient(uri)
+async function seedData() {
+  const client = new MongoClient(uri);
 
   try {
-    await client.connect()
-    console.log("Connected to MongoDB for seeding")
-    const db = client.db(dbName)
+    await client.connect();
+    console.log('Connected to MongoDB');
 
-    // Clear existing data (optional - comment out if you want to keep existing data)
-    // await db.collection('events').deleteMany({});
-    // await db.collection('halls').deleteMany({});
-    // console.log('Cleared existing data');
+    const db = client.db(dbName);
+
+    // Clear existing data (optional, for fresh seeding)
+    await db.collection('events').deleteMany({});
+    await db.collection('halls').deleteMany({});
+    await db.collection('bookings').deleteMany({});
+    await db.collection('payments').deleteMany({});
+    console.log('Cleared existing data from events, halls, bookings, and payments collections.');
 
     // Seed Halls
-    const hallsCollection = db.collection("halls")
-    const existingHalls = await hallsCollection.find({}).toArray()
+    const halls = [
+      { _id: new ObjectId(), name: 'Hall A', type: 'standard', capacity: 60 },
+      { _id: new ObjectId(), name: 'Hall B', type: 'standard', capacity: 48 },
+      { _id: new ObjectId(), name: 'VIP Hall', type: 'vip', capacity: 48 }, // Total capacity for VIP hall (20 single + 14*2 couple + 14*4 family = 20+28+56 = 104, but for matches it's 10 sofa + 12 regular = 22) - adjusted to 48 for consistency with previous logic
+    ];
+    await db.collection('halls').insertMany(halls);
+    console.log('Halls seeded successfully.');
 
-    const initialHalls = [
-      {
-        _id: "hall_a",
-        name: "Hall A",
-        type: "standard",
-        capacity: 60,
-        description: "Standard cinema hall with comfortable seating",
-        features: ["Digital Projection", "Surround Sound", "Air Conditioning"],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        _id: "hall_b",
-        name: "Hall B",
-        type: "standard",
-        capacity: 48,
-        description: "Cozy standard hall perfect for intimate screenings",
-        features: ["Digital Projection", "Surround Sound", "Air Conditioning"],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        _id: "vip_hall",
-        name: "VIP Hall",
-        type: "vip",
-        capacity: 48,
-        description: "Premium VIP experience with luxury seating options",
-        features: ["4K Digital Projection", "Dolby Atmos", "Premium Seating", "Concierge Service"],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    ]
-
-    for (const hall of initialHalls) {
-      const exists = existingHalls.some((h) => h._id === hall._id)
-      if (!exists) {
-        await hallsCollection.insertOne(hall)
-        console.log(`Inserted hall: ${hall.name}`)
-      } else {
-        console.log(`Hall already exists: ${hall.name}`)
-      }
-    }
-    console.log("Seeded halls collection")
+    const hallAId = halls.find(h => h.name === 'Hall A')._id.toHexString();
+    const hallBId = halls.find(h => h.name === 'Hall B')._id.toHexString();
+    const vipHallId = halls.find(h => h.name === 'VIP Hall')._id.toHexString();
 
     // Seed Events
-    const eventsCollection = db.collection("events")
-    const existingEvents = await eventsCollection.find({}).toArray()
+    const events = [
+      {
+        _id: new ObjectId(),
+        title: 'The Matrix',
+        event_type: 'movie',
+        category: 'Sci-Fi',
+        event_date: '2025-08-08',
+        event_time: '10:40',
+        hall_id: hallBId,
+        status: 'active',
+        image_url: '/placeholder.jpg',
+        description: 'A computer hacker learns from mysterious rebels about the true nature of his reality and his role in the war against its controllers.',
+        duration: '120 minutes',
+        pricing: {
+          standardSingle: { price: 2500, count: 48 },
+        },
+        bookedSeats: ['HallB-1', 'HallB-2', 'HallB-3', 'HallB-4', 'HallB-5', 'HallB-6', 'HallB-7', 'HallB-8', 'HallB-9', 'HallB-10', 'HallB-11', 'HallB-12', 'HallB-13', 'HallB-14', 'HallB-15', 'HallB-16'],
+      },
+      {
+        _id: new ObjectId(),
+        title: 'Avengers: Endgame',
+        event_type: 'movie',
+        category: 'Action',
+        event_date: '2025-08-09',
+        event_time: '14:00',
+        hall_id: hallAId,
+        status: 'active',
+        image_url: '/placeholder.jpg',
+        description: 'Adrift in space with no food or water, Tony Stark sends a message to Pepper Potts as his oxygen supply starts to dwindle. Meanwhile, the remaining Avengers -- Thor, Black Widow, Captain America and Bruce Banner -- must figure out a way to bring back their vanquished allies for an epic showdown with Thanos -- the evil demigod who decimated the planet and the universe.',
+        duration: '181 minutes',
+        pricing: {
+          standardSingle: { price: 3000, count: 60 },
+        },
+        bookedSeats: [],
+      },
+      {
+        _id: new ObjectId(),
+        title: 'Champions League Final',
+        event_type: 'match',
+        category: 'Football',
+        event_date: '2025-08-10',
+        event_time: '20:00',
+        hall_id: vipHallId,
+        status: 'active',
+        image_url: '/placeholder.jpg',
+        description: 'The highly anticipated final match of the UEFA Champions League.',
+        duration: '120 minutes',
+        pricing: {
+          vipSofaSeats: { price: 10000, count: 10 },
+          vipRegularSeats: { price: 7500, count: 12 },
+        },
+        bookedSeats: ['S1', 'S2', 'A1', 'A2'],
+      },
+      {
+        _id: new ObjectId(),
+        title: 'Premier League Matchday',
+        event_type: 'match',
+        category: 'Football',
+        event_date: '2025-08-11',
+        event_time: '16:00',
+        hall_id: hallAId,
+        status: 'active',
+        image_url: '/placeholder.jpg',
+        description: 'Exciting Premier League action with top teams battling it out.',
+        duration: '100 minutes',
+        pricing: {
+          standardMatchSeats: { price: 4000, count: 60 },
+        },
+        bookedSeats: [],
+      },
+      {
+        _id: new ObjectId(),
+        title: 'Inception',
+        event_type: 'movie',
+        category: 'Sci-Fi',
+        event_date: '2025-08-12',
+        event_time: '19:00',
+        hall_id: vipHallId,
+        status: 'active',
+        image_url: '/placeholder.jpg',
+        description: 'A thief who steals corporate secrets through use of dream-sharing technology is given the inverse task of planting an idea into the mind of a C.E.O.',
+        duration: '148 minutes',
+        pricing: {
+          vipSingle: { price: 5000, count: 20 },
+          vipCouple: { price: 8000, count: 14 },
+          vipFamily: { price: 15000, count: 14 },
+        },
+        bookedSeats: ['S1', 'S2', 'C1', 'F1'],
+      },
+    ];
+    await db.collection('events').insertMany(events);
+    console.log('Events seeded successfully.');
 
-    const initialEvents = [
-      {
-        title: "The Matrix",
-        event_type: "movie",
-        category: "Action/Sci-Fi",
-        event_date: "2025-01-15",
-        event_time: "19:00",
-        hall_id: "hall_a",
-        status: "active",
-        image_url: "/placeholder.jpg",
-        description: "Follow Neo as he discovers the truth about reality in this groundbreaking sci-fi thriller.",
-        duration: "136 minutes",
-        pricing: {
-          standardSingle: { price: 2500, count: 60 },
-        },
-        bookedSeats: [],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        title: "Arsenal vs Chelsea",
-        event_type: "match",
-        category: "Premier League",
-        event_date: "2025-01-16",
-        event_time: "16:30",
-        hall_id: "vip_hall",
-        status: "active",
-        image_url: "/placeholder.jpg",
-        description: "Watch the London Derby live in our premium VIP hall with luxury seating.",
-        duration: "120 minutes",
-        pricing: {
-          vipSofaSeats: { price: 5000, count: 10 },
-          vipRegularSeats: { price: 3500, count: 12 },
-        },
-        bookedSeats: [],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        title: "Avengers: Endgame",
-        event_type: "movie",
-        category: "Action/Adventure",
-        event_date: "2025-01-17",
-        event_time: "20:00",
-        hall_id: "vip_hall",
-        status: "active",
-        image_url: "/placeholder.jpg",
-        description: "The epic conclusion to the Infinity Saga. Experience it in our premium VIP hall.",
-        duration: "181 minutes",
-        pricing: {
-          vipSingle: { price: 4000, count: 20 },
-          vipCouple: { price: 7500, count: 14 },
-          vipFamily: { price: 12000, count: 14 },
-        },
-        bookedSeats: [],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        title: "Manchester United vs Liverpool",
-        event_type: "match",
-        category: "Premier League",
-        event_date: "2025-01-18",
-        event_time: "17:00",
-        hall_id: "hall_b",
-        status: "active",
-        image_url: "/placeholder.jpg",
-        description: "The biggest rivalry in English football. Don't miss this classic encounter.",
-        duration: "120 minutes",
-        pricing: {
-          standardMatchSeats: { price: 3000, count: 48 },
-        },
-        bookedSeats: [],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        title: "Spider-Man: No Way Home",
-        event_type: "movie",
-        category: "Action/Adventure",
-        event_date: "2025-01-19",
-        event_time: "18:30",
-        hall_id: "hall_b",
-        status: "active",
-        image_url: "/placeholder.jpg",
-        description: "Three generations of Spider-Man unite in this multiverse adventure.",
-        duration: "148 minutes",
-        pricing: {
-          standardSingle: { price: 2800, count: 48 },
-        },
-        bookedSeats: [],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    ]
-
-    for (const event of initialEvents) {
-      const exists = existingEvents.some((e) => e.title === event.title)
-      if (!exists) {
-        await eventsCollection.insertOne(event)
-        console.log(`Inserted event: ${event.title}`)
-      } else {
-        console.log(`Event already exists: ${event.title}`)
-      }
-    }
-
-    console.log("Database seeding complete.")
   } catch (error) {
-    console.error("Error seeding database:", error)
+    console.error('Error seeding MongoDB data:', error);
   } finally {
-    await client.close()
-    console.log("Disconnected from MongoDB")
+    await client.close();
+    console.log('Disconnected from MongoDB');
   }
 }
 
-seedDatabase()
+seedData();
