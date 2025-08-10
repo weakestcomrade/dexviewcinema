@@ -1,0 +1,31 @@
+-- MongoDB collection for payments (this is a reference - actual creation happens in MongoDB)
+-- Collection: payments
+-- 
+-- Document structure:
+-- {
+--   _id: ObjectId,
+--   reference: String (unique payment reference),
+--   eventId: ObjectId (reference to events collection),
+--   customerEmail: String,
+--   customerName: String,
+--   customerPhone: String,
+--   seats: Array of Strings,
+--   seatType: String,
+--   amount: Number (base amount in Naira),
+--   processingFee: Number (processing fee in Naira),
+--   totalAmount: Number (total amount in Naira),
+--   status: String (pending, completed, failed, cancelled),
+--   paystackData: Object (response from Paystack initialization),
+--   paystackVerificationData: Object (response from Paystack verification),
+--   webhookData: Object (webhook data from Paystack),
+--   bookingId: ObjectId (reference to bookings collection, set after successful payment),
+--   createdAt: Date,
+--   updatedAt: Date
+-- }
+--
+-- Indexes:
+-- - reference (unique)
+-- - eventId
+-- - customerEmail
+-- - status
+-- - createdAt

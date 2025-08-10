@@ -8,11 +8,11 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { Calendar, Clock, MapPin, Users, ArrowLeft, CreditCard, Shield, Sparkles, Star, Trophy } from 'lucide-react'
+import { Calendar, Clock, MapPin, Users, ArrowLeft, CreditCard, Shield, Sparkles, Star, Trophy } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/components/ui/use-toast"
-import { format } from "date-fns"
-import { type Hall } from "@/types/hall" // Import the Hall type
+import type { Hall } from "@/types/hall" // Import the Hall type
+import { PaymentModal } from "@/components/payment-modal"
 
 // Define types for event fetched from the database
 interface Event {
@@ -51,12 +51,11 @@ interface Seat {
 }
 
 // Helper functions to get hall details dynamically
-const getHallDetails = (hallId: string, allHalls: Hall[]) => allHalls.find(hall => hall._id === hallId);
-const getHallDisplayName = (hallId: string, allHalls: Hall[]) => getHallDetails(hallId, allHalls)?.name || hallId;
-const getHallType = (hallId: string, allHalls: Hall[]) => getHallDetails(hallId, allHalls)?.type || "standard";
+const getHallDetails = (hallId: string, allHalls: Hall[]) => allHalls.find((hall) => hall._id === hallId)
+const getHallDisplayName = (hallId: string, allHalls: Hall[]) => getHallDetails(hallId, allHalls)?.name || hallId
+const getHallType = (hallId: string, allHalls: Hall[]) => getHallDetails(hallId, allHalls)?.type || "standard"
 // FIX: Changed from .total_seats to .capacity
-const getHallTotalSeats = (hallId: string, allHalls: Hall[]) => getHallDetails(hallId, allHalls)?.capacity || 0;
-
+const getHallTotalSeats = (hallId: string, allHalls: Hall[]) => getHallDetails(hallId, allHalls)?.capacity || 0
 
 // Seat layout for VIP Hall matches (10 sofa, 12 regular)
 const generateVipMatchSeats = (eventPricing: Event["pricing"], bookedSeats: string[] = []) => {
@@ -96,7 +95,12 @@ const generateVipMatchSeats = (eventPricing: Event["pricing"], bookedSeats: stri
 }
 
 // Seat layout for Standard Hall A or Hall B matches (all single seats)
-const generateStandardMatchSeats = (eventPricing: Event["pricing"], hallId: string, allHalls: Hall[], bookedSeats: string[] = []) => {
+const generateStandardMatchSeats = (
+  eventPricing: Event["pricing"],
+  hallId: string,
+  allHalls: Hall[],
+  bookedSeats: string[] = [],
+) => {
   const seats: Seat[] = []
   const totalSeats = getHallTotalSeats(hallId, allHalls)
   for (let i = 1; i <= totalSeats; i++) {
@@ -112,7 +116,12 @@ const generateStandardMatchSeats = (eventPricing: Event["pricing"], hallId: stri
 }
 
 // Seat layout for movies based on hall type
-const generateMovieSeats = (eventPricing: Event["pricing"], hallId: string, allHalls: Hall[], bookedSeats: string[] = []) => {
+const generateMovieSeats = (
+  eventPricing: Event["pricing"],
+  hallId: string,
+  allHalls: Hall[],
+  bookedSeats: string[] = [],
+) => {
   const seats: Seat[] = []
   const hallType = getHallType(hallId, allHalls)
   const totalSeats = getHallTotalSeats(hallId, allHalls)
@@ -168,7 +177,7 @@ const generateMovieSeats = (eventPricing: Event["pricing"], hallId: string, allH
 
 export default function BookingPage({ params }: { params: { id: string } }) {
   const [event, setEvent] = useState<Event | null>(null)
-  const [halls, setHalls] = useState<Hall[]>([]); // State to store fetched halls
+  const [halls, setHalls] = useState<Hall[]>([]) // State to store fetched halls
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -180,6 +189,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     phone: "",
   })
   const [paymentMethod, setPaymentMethod] = useState("card")
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
   const { toast } = useToast()
   const router = useRouter()
 
@@ -209,21 +219,23 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       const data: Event = await eventRes.json()
 
       // Find the hall details for the current event
-      const hallDetails = allHalls.find(h => h._id === data.hall_id);
+      const hallDetails = allHalls.find((h) => h._id === data.hall_id)
       if (!hallDetails) {
-        throw new Error(`Hall details not found for event's hall_id: ${data.hall_id}`);
+        throw new Error(`Hall details not found for event's hall_id: ${data.hall_id}`)
       }
 
       let calculatedPricing = data.pricing || {}
 
       // Ensure pricing object exists and has correct structure based on event type and hall
       if (data.event_type === "match") {
-        if (hallDetails.type === "vip") { // Use hallDetails.type
+        if (hallDetails.type === "vip") {
+          // Use hallDetails.type
           calculatedPricing = {
             vipSofaSeats: { price: calculatedPricing.vipSofaSeats?.price || 0, count: 10 }, // Fixed count for VIP match sofa
             vipRegularSeats: { price: calculatedPricing.vipRegularSeats?.price || 0, count: 12 }, // Fixed count for VIP match regular
           }
-        } else { // Standard match halls
+        } else {
+          // Standard match halls
           calculatedPricing = {
             standardMatchSeats: {
               price: calculatedPricing.standardMatchSeats?.price || 0,
@@ -231,14 +243,16 @@ export default function BookingPage({ params }: { params: { id: string } }) {
             },
           }
         }
-      } else { // Movie events
+      } else {
+        // Movie events
         if (hallDetails.type === "vip") {
           calculatedPricing = {
             vipSingle: { price: calculatedPricing.vipSingle?.price || 0, count: 20 }, // Fixed count for VIP movie single
             vipCouple: { price: calculatedPricing.vipCouple?.price || 0, count: 14 }, // Fixed count for VIP movie couple
             vipFamily: { price: calculatedPricing.vipFamily?.price || 0, count: 14 }, // Fixed count for VIP movie family
           }
-        } else { // Standard movie halls
+        } else {
+          // Standard movie halls
           calculatedPricing = {
             standardSingle: {
               price: calculatedPricing.standardSingle?.price || 0,
@@ -367,72 +381,17 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       return
     }
 
-    try {
-      // 1. Create the booking record
-      const bookingData = {
-        customerName: customerInfo.name,
-        customerEmail: customerInfo.email,
-        customerPhone: customerInfo.phone,
-        eventId: event._id,
-        eventTitle: event.title,
-        eventType: event.event_type,
-        seats: selectedSeats,
-        seatType: selectedSeatType,
-        amount: totalAmount,
-        processingFee: processingFee,
-        totalAmount: finalAmount,
-        status: "confirmed",
-        bookingDate: format(new Date(), "yyyy-MM-dd"),
-        bookingTime: format(new Date(), "HH:mm"),
-        paymentMethod: paymentMethod,
-      }
+    // Open payment modal instead of direct booking
+    setShowPaymentModal(true)
+  }
 
-      const bookingRes = await fetch("/api/bookings", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(bookingData),
-      })
-
-      if (!bookingRes.ok) {
-        const errorData = await bookingRes.json()
-        throw new Error(errorData.message || `HTTP error! status: ${bookingRes.status}`)
-      }
-
-      const confirmedBooking = await bookingRes.json()
-
-      // 2. Update the event's booked seats
-      const updateEventRes = await fetch(`/api/events/${event._id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ newBookedSeats: selectedSeats }),
-      })
-
-      if (!updateEventRes.ok) {
-        const errorData = await updateEventRes.json()
-        throw new Error(errorData.message || `Failed to update event seats: ${updateEventRes.statusText}`)
-      }
-
-      toast({
-        title: "Booking Confirmed!",
-        description: `Your booking for ${event.title} is successful.`,
-      })
-      // Redirect to the new receipt page
-      router.push(`/receipt/${confirmedBooking._id}`)
-
-      // Re-fetch event data to update the UI with newly booked seats
-      await fetchAllData() // Call fetchAllData to re-fetch both event and halls
-    } catch (error) {
-      console.error("Failed to book seats:", error)
-      toast({
-        title: "Booking Failed",
-        description: (error as Error).message,
-        variant: "destructive",
-      })
-    }
+  const handlePaymentSuccess = (bookingId: string) => {
+    setShowPaymentModal(false)
+    toast({
+      title: "Payment Successful!",
+      description: `Your booking has been confirmed.`,
+    })
+    router.push(`/receipt/${bookingId}`)
   }
 
   const getSeatTypeName = (type: string) => {
@@ -554,7 +513,9 @@ export default function BookingPage({ params }: { params: { id: string } }) {
               </CardHeader>
               <CardContent className="p-6">
                 {event.event_type === "match" ? (
-                  getHallType(event.hall_id, halls) === "vip" && event.pricing?.vipSofaSeats && event.pricing?.vipRegularSeats ? (
+                  getHallType(event.hall_id, halls) === "vip" &&
+                  event.pricing?.vipSofaSeats &&
+                  event.pricing?.vipRegularSeats ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="bg-glass-white p-4 rounded-3xl border border-brand-red-500/30">
                         <div className="flex items-center gap-3 mb-3">
@@ -800,7 +761,9 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                         <h4 className="text-lg font-bold text-cyber-green-300 mb-4">Standard Match Seats</h4>
                         <div
                           className={`grid gap-3 ${
-                            getHallTotalSeats(event.hall_id, halls) === 48 ? "grid-cols-6 sm:grid-cols-8" : "grid-cols-6 sm:grid-cols-10"
+                            getHallTotalSeats(event.hall_id, halls) === 48
+                              ? "grid-cols-6 sm:grid-cols-8"
+                              : "grid-cols-6 sm:grid-cols-10"
                           }`}
                         >
                           {seats
@@ -820,10 +783,10 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                                      : "bg-glass-white-strong text-cyber-slate-300 border-white/30 hover:border-cyber-green-400/50 hover:bg-cyber-green-500/20 shadow-cyber-card"
                                }
                              `}
-                            >
-                              {seat.id.split("-")[1]}
-                            </button>
-                          ))}
+                              >
+                                {seat.id.split("-")[1]}
+                              </button>
+                            ))}
                         </div>
                       </div>
                     </div>
@@ -921,7 +884,9 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                       <h4 className="text-lg font-bold text-cyber-green-300 mb-4">Standard Seats</h4>
                       <div
                         className={`grid gap-3 ${
-                          getHallTotalSeats(event.hall_id, halls) === 48 ? "grid-cols-6 sm:grid-cols-8" : "grid-cols-6 sm:grid-cols-10"
+                          getHallTotalSeats(event.hall_id, halls) === 48
+                            ? "grid-cols-6 sm:grid-cols-8"
+                            : "grid-cols-6 sm:grid-cols-10"
                         }`}
                       >
                         {seats
@@ -1094,7 +1059,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                   disabled={selectedSeats.length === 0}
                 >
                   <CreditCard className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3 group-hover:rotate-12 transition-transform" />
-                  Proceed to Payment
+                  Proceed to Secure Payment
                   <div className="absolute inset-0 bg-gradient-to-r from-brand-red-400/20 to-brand-red-600/20 rounded-3xl blur-xl group-hover:blur-2xl transition-all duration-500"></div>
                 </Button>
 
@@ -1137,6 +1102,25 @@ export default function BookingPage({ params }: { params: { id: string } }) {
           </div>
         </div>
       </div>
+
+      {/* Payment Modal */}
+      <PaymentModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        onSuccess={handlePaymentSuccess}
+        paymentData={{
+          customerName: customerInfo.name,
+          customerEmail: customerInfo.email,
+          customerPhone: customerInfo.phone,
+          eventId: event._id,
+          eventTitle: event.title,
+          seats: selectedSeats,
+          seatType: selectedSeatType,
+          amount: totalAmount,
+          processingFee: processingFee,
+          totalAmount: finalAmount,
+        }}
+      />
 
       {/* Footer */}
       <footer className="bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 text-white py-16 relative overflow-hidden border-t border-white/10 mt-20">
