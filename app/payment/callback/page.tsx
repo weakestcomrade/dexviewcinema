@@ -1,27 +1,26 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useSearchParams, useRouter } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useRouter, useSearchParams } from "next/navigation"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Loader2, CheckCircle, XCircle, AlertCircle } from "lucide-react"
-import Link from "next/link"
+import { CheckCircle, XCircle, Loader2, Home, Receipt } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function PaymentCallbackPage() {
-  const [status, setStatus] = useState<"loading" | "success" | "failed">("loading")
-  const [message, setMessage] = useState("")
-  const [bookingId, setBookingId] = useState<string | null>(null)
-  const searchParams = useSearchParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const [status, setStatus] = useState<"loading" | "success" | "failed">("loading")
+  const [bookingId, setBookingId] = useState<string | null>(null)
+  const [message, setMessage] = useState("")
+  const { toast } = useToast()
 
   useEffect(() => {
     const reference = searchParams.get("reference")
-    const trxref = searchParams.get("trxref")
-    const paymentRef = reference || trxref
 
-    if (!paymentRef) {
+    if (!reference) {
       setStatus("failed")
-      setMessage("Payment reference not found")
+      setMessage("No payment reference found")
       return
     }
 
@@ -33,95 +32,117 @@ export default function PaymentCallbackPage() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ reference: paymentRef }),
+          body: JSON.stringify({ reference }),
         })
 
         const data = await response.json()
 
-        if (response.ok && data.status) {
+        if (data.status && data.data.bookingId) {
           setStatus("success")
-          setMessage("Payment successful! Your booking has been confirmed.")
           setBookingId(data.data.bookingId)
-
-          // Redirect to receipt after 3 seconds
-          setTimeout(() => {
-            router.push(`/receipt/${data.data.bookingId}`)
-          }, 3000)
+          setMessage("Payment successful! Your booking has been confirmed.")
+          toast({
+            title: "Payment Successful!",
+            description: "Your booking has been confirmed.",
+          })
         } else {
           setStatus("failed")
           setMessage(data.message || "Payment verification failed")
+          toast({
+            title: "Payment Failed",
+            description: data.message || "Payment verification failed",
+            variant: "destructive",
+          })
         }
       } catch (error) {
+        console.error("Payment verification error:", error)
         setStatus("failed")
         setMessage("An error occurred while verifying your payment")
+        toast({
+          title: "Verification Error",
+          description: "An error occurred while verifying your payment",
+          variant: "destructive",
+        })
       }
     }
 
     verifyPayment()
-  }, [searchParams, router])
+  }, [searchParams, toast])
+
+  const handleGoHome = () => {
+    router.push("/")
+  }
+
+  const handleViewReceipt = () => {
+    if (bookingId) {
+      router.push(`/receipt/${bookingId}`)
+    }
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-cyber-dark via-cyber-dark-lighter to-cyber-dark flex items-center justify-center p-4">
       <Card className="w-full max-w-md bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card">
-        <CardHeader className="text-center">
-          <CardTitle className="text-white flex items-center justify-center gap-3 text-xl font-bold">
-            {status === "loading" && <Loader2 className="w-6 h-6 text-brand-red-400 animate-spin" />}
-            {status === "success" && <CheckCircle className="w-6 h-6 text-green-400" />}
-            {status === "failed" && <XCircle className="w-6 h-6 text-red-400" />}
-
-            {status === "loading" && "Processing Payment"}
-            {status === "success" && "Payment Successful"}
-            {status === "failed" && "Payment Failed"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="text-center space-y-6">
-          <p className="text-cyber-slate-300 text-lg">{message}</p>
-
-          {status === "success" && bookingId && (
-            <div className="space-y-4">
-              <div className="bg-glass-white p-4 rounded-2xl border border-green-500/30">
-                <p className="text-green-300 font-semibold">Booking ID: {bookingId}</p>
-                <p className="text-cyber-slate-300 text-sm mt-2">Redirecting to your receipt in 3 seconds...</p>
+        <CardContent className="p-8 text-center space-y-6">
+          {status === "loading" && (
+            <>
+              <div className="flex justify-center">
+                <Loader2 className="w-16 h-16 text-brand-red-400 animate-spin" />
               </div>
-              <Link href={`/receipt/${bookingId}`}>
-                <Button className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white">
-                  View Receipt
+              <div>
+                <h2 className="text-2xl font-bold text-white mb-2">Verifying Payment</h2>
+                <p className="text-cyber-slate-300">Please wait while we confirm your payment...</p>
+              </div>
+            </>
+          )}
+
+          {status === "success" && (
+            <>
+              <div className="flex justify-center">
+                <CheckCircle className="w-16 h-16 text-cyber-green-400" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-white mb-2">Payment Successful!</h2>
+                <p className="text-cyber-slate-300">{message}</p>
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  onClick={handleGoHome}
+                  variant="outline"
+                  className="flex-1 bg-glass-white border-white/20 text-cyber-slate-300 hover:bg-white/10"
+                >
+                  <Home className="w-4 h-4 mr-2" />
+                  Home
                 </Button>
-              </Link>
-            </div>
+                {bookingId && (
+                  <Button
+                    onClick={handleViewReceipt}
+                    className="flex-1 bg-gradient-to-r from-brand-red-500 to-brand-red-600 hover:from-brand-red-600 hover:to-brand-red-700 text-white"
+                  >
+                    <Receipt className="w-4 h-4 mr-2" />
+                    Receipt
+                  </Button>
+                )}
+              </div>
+            </>
           )}
 
           {status === "failed" && (
-            <div className="space-y-4">
-              <div className="bg-glass-white p-4 rounded-2xl border border-red-500/30">
-                <AlertCircle className="w-8 h-8 text-red-400 mx-auto mb-2" />
-                <p className="text-red-300 font-semibold">What to do next:</p>
-                <ul className="text-cyber-slate-300 text-sm mt-2 space-y-1">
-                  <li>• Check your bank statement</li>
-                  <li>• Contact support if charged</li>
-                  <li>• Try booking again</li>
-                </ul>
+            <>
+              <div className="flex justify-center">
+                <XCircle className="w-16 h-16 text-red-400" />
               </div>
-              <div className="flex gap-3">
-                <Link href="/" className="flex-1">
-                  <Button variant="outline" className="w-full bg-glass-white border-white/20 text-cyber-slate-300">
-                    Go Home
-                  </Button>
-                </Link>
-                <Button
-                  onClick={() => router.back()}
-                  className="flex-1 bg-gradient-to-r from-brand-red-500 to-brand-red-600 hover:from-brand-red-600 hover:to-brand-red-700 text-white"
-                >
-                  Try Again
-                </Button>
+              <div>
+                <h2 className="text-2xl font-bold text-white mb-2">Payment Failed</h2>
+                <p className="text-cyber-slate-300">{message}</p>
               </div>
-            </div>
-          )}
-
-          {status === "loading" && (
-            <div className="bg-glass-white p-4 rounded-2xl border border-white/10">
-              <p className="text-cyber-slate-300 text-sm">Please wait while we verify your payment...</p>
-            </div>
+              <Button
+                onClick={handleGoHome}
+                className="w-full bg-gradient-to-r from-brand-red-500 to-brand-red-600 hover:from-brand-red-600 hover:to-brand-red-700 text-white"
+              >
+                <Home className="w-4 h-4 mr-2" />
+                Back to Home
+              </Button>
+            </>
           )}
         </CardContent>
       </Card>

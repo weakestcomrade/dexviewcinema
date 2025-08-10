@@ -70,50 +70,9 @@ export class PaystackService {
   }
 }
 
-// Client-side Paystack functions
-export const loadPaystackScript = (): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    if (typeof window !== "undefined" && (window as any).PaystackPop) {
-      resolve()
-      return
-    }
-
-    const script = document.createElement("script")
-    script.src = "https://js.paystack.co/v1/inline.js"
-    script.onload = () => resolve()
-    script.onerror = () => reject(new Error("Failed to load Paystack script"))
-    document.head.appendChild(script)
-  })
-}
-
-export const initializePaystackPopup = (config: {
-  key: string
-  email: string
-  amount: number
-  ref: string
-  metadata?: any
-  callback: (response: any) => void
-  onClose: () => void
-}) => {
-  if (typeof window !== "undefined" && (window as any).PaystackPop) {
-    const handler = (window as any).PaystackPop.setup({
-      key: config.key,
-      email: config.email,
-      amount: config.amount * 100, // Convert to kobo
-      ref: config.ref,
-      metadata: config.metadata,
-      callback: (response: any) => {
-        config.callback(response)
-      },
-      onClose: () => {
-        config.onClose()
-      },
-    })
-    // Add a small timeout before opening the iframe
-    setTimeout(() => {
-      handler.openIframe()
-    }, 100); // 100ms delay
-  } else {
-    throw new Error("Paystack script not loaded")
+// Client-side redirect function - no need for external scripts
+export const redirectToPaystack = (authorizationUrl: string) => {
+  if (typeof window !== "undefined") {
+    window.location.href = authorizationUrl
   }
 }
