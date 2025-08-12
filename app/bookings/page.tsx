@@ -182,24 +182,19 @@ export default function BookingsPage() {
 
       {/* Header with glassmorphism */}
       <header className="relative backdrop-blur-xl bg-glass-white border-b border-white/10 shadow-cyber-card z-50">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
-          <div className="flex items-center h-16 sm:h-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center h-20">
             <Link href="/">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="mr-3 sm:mr-4 text-cyber-slate-300 hover:bg-glass-white group text-sm"
-              >
-                <ArrowLeft className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 group-hover:-translate-x-1 transition-transform" />
-                <span className="hidden sm:inline">Back to Home</span>
-                <span className="sm:hidden">Back</span>
+              <Button variant="ghost" size="sm" className="mr-4 text-cyber-slate-300 hover:bg-glass-white group">
+                <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
+                Back to Home
               </Button>
             </Link>
             <div>
-              <h1 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-white via-brand-red-300 to-white bg-clip-text text-transparent">
+              <h1 className="text-xl font-bold bg-gradient-to-r from-white via-brand-red-300 to-white bg-clip-text text-transparent">
                 My Bookings
               </h1>
-              <p className="text-xs sm:text-sm text-brand-red-400 font-medium">View and manage your event tickets</p>
+              <p className="text-sm text-brand-red-400 font-medium">View and manage your event tickets</p>
             </div>
           </div>
         </div>
@@ -207,59 +202,62 @@ export default function BookingsPage() {
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Section to find bookings by customer details */}
-        <Card className="mb-6 sm:mb-8 bg-glass-white-strong backdrop-blur-xl shadow-cyber-card border border-white/20 rounded-3xl p-4 sm:p-6">
-          <CardTitle className="text-white text-lg sm:text-xl font-bold mb-3 sm:mb-4">Find My Bookings</CardTitle>
-          <CardDescription className="text-cyber-slate-300 mb-3 sm:mb-4 text-sm sm:text-base">
+        <Card className="mb-8 bg-glass-white-strong backdrop-blur-xl shadow-cyber-card border border-white/20 rounded-3xl p-6">
+          <CardTitle className="text-white text-xl font-bold mb-4">Find My Bookings</CardTitle>
+          <CardDescription className="text-cyber-slate-300 mb-4">
             Enter your email to retrieve your bookings.
           </CardDescription>
-          <div className="grid grid-cols-1 gap-3 sm:gap-4 mb-3 sm:mb-4">
+          <div className="grid grid-cols-1 gap-4 mb-4">
             <Input
               type="email"
               placeholder="Your Email"
               value={customerEmail}
               onChange={(e) => setCustomerEmail(e.target.value)}
-              className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-400 focus:ring-brand-red-400 shadow-cyber-card h-10 sm:h-12 text-sm sm:text-base"
+              className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-400 focus:ring-brand-red-400 shadow-cyber-card"
             />
           </div>
           <Button
             onClick={fetchBookings}
             disabled={isLoading || !customerEmail}
-            className="w-full bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 text-white rounded-2xl shadow-cyber-card h-10 sm:h-12 text-sm sm:text-base"
+            className="w-full bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 text-white rounded-2xl shadow-cyber-card"
           >
             {isLoading ? (
               <>
-                <Loader2 className="mr-2 h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Searching...
               </>
             ) : (
               "Search My Bookings"
             )}
           </Button>
+          {/* Security Note: In a real application, fetching bookings by email/name/phone without authentication
+              is a security risk. This implementation assumes a future authentication system where the user
+              is verified before accessing their bookings. */}
         </Card>
 
         {/* Existing search bar for client-side filtering of fetched results */}
-        <div className="mb-6 sm:mb-8">
+        <div className="mb-8">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-cyber-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-cyber-slate-400" />
             <Input
               type="text"
               placeholder="Filter results by booking ID, customer name, or event title..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 sm:pl-10 pr-4 py-2 sm:py-3 rounded-2xl bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-400 focus:ring-brand-red-400 shadow-cyber-card text-sm sm:text-base"
+              className="w-full pl-10 pr-4 py-2 rounded-2xl bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-400 focus:ring-brand-red-400 shadow-cyber-card"
             />
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {isLoading && (
-            <div className="col-span-full text-center text-cyber-slate-400 text-base sm:text-lg py-8 sm:py-10 flex items-center justify-center">
-              <Loader2 className="mr-2 h-5 w-5 sm:h-6 sm:w-6 animate-spin" />
+            <div className="col-span-full text-center text-cyber-slate-400 text-lg py-10 flex items-center justify-center">
+              <Loader2 className="mr-2 h-6 w-6 animate-spin" />
               Loading bookings...
             </div>
           )}
           {!isLoading && hasSearched && displayedBookings.length === 0 ? (
-            <div className="col-span-full text-center text-cyber-slate-400 text-base sm:text-lg py-8 sm:py-10">
+            <div className="col-span-full text-center text-cyber-slate-400 text-lg py-10">
               No bookings found matching your search criteria.
             </div>
           ) : (
@@ -269,62 +267,63 @@ export default function BookingsPage() {
                 className="bg-glass-white-strong backdrop-blur-xl shadow-cyber-card hover:shadow-cyber-hover transition-all duration-300 border border-white/20 group relative overflow-hidden rounded-3xl"
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-brand-red-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl"></div>
-                <CardContent className="p-4 sm:p-6 relative z-10">
-                  <div className="flex justify-between items-start mb-3 sm:mb-4">
-                    <div className="flex-1 min-w-0">
-                      <CardTitle className="text-lg sm:text-xl font-bold text-white leading-tight mb-1 truncate">
+                <CardContent className="p-6 relative z-10">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <CardTitle className="text-xl font-bold text-white leading-tight mb-1">
                         {booking.eventTitle}
                       </CardTitle>
-                      <CardDescription className="text-cyber-slate-300 text-xs sm:text-sm">
-                        Booking ID: <span className="font-mono text-brand-red-300 break-all">{booking._id}</span>
+                      <CardDescription className="text-cyber-slate-300 text-sm">
+                        Booking ID: <span className="font-mono text-brand-red-300">{booking._id}</span> {/* Use _id */}
                       </CardDescription>
                     </div>
                     <Badge
-                      className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-semibold flex-shrink-0 ml-2 ${
+                      className={`px-3 py-1 rounded-full text-sm font-semibold ${
                         booking.eventType === "match"
                           ? "bg-brand-red-500/30 text-brand-red-300 border-brand-red-500/50"
                           : "bg-cyber-blue-500/30 text-cyber-blue-300 border-cyber-blue-500/50"
                       }`}
                     >
                       {booking.eventType === "match" ? (
-                        <Trophy className="w-2 h-2 sm:w-3 sm:h-3 mr-1" />
+                        <Trophy className="w-3 h-3 mr-1" />
                       ) : (
-                        <Film className="w-2 h-2 sm:w-3 sm:h-3 mr-1" />
+                        <Film className="w-3 h-3 mr-1" />
                       )}
                       {booking.eventType}
                     </Badge>
                   </div>
 
-                  <Separator className="my-3 sm:my-4 bg-white/20" />
+                  <Separator className="my-4 bg-white/20" />
 
-                  <div className="grid grid-cols-2 gap-2 sm:gap-3 text-xs sm:text-sm text-cyber-slate-400 mb-3 sm:mb-4">
-                    <div className="flex items-center gap-1 sm:gap-2">
-                      <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-brand-red-400 flex-shrink-0" />
-                      <span className="truncate">{new Date(booking.bookingDate).toLocaleDateString()}</span>
+                  <div className="grid grid-cols-2 gap-3 text-sm text-cyber-slate-400 mb-4">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-brand-red-400" />
+                      {/* Display booking date, not event date here */}
+                      {new Date(booking.bookingDate).toLocaleDateString()}
                     </div>
-                    <div className="flex items-center gap-1 sm:gap-2">
-                      <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-brand-red-400 flex-shrink-0" />
-                      <span className="truncate">{booking.bookingTime}</span>
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-brand-red-400" />
+                      {/* Display booking time, not event time here */}
+                      {booking.bookingTime}
                     </div>
-                    <div className="flex items-center gap-1 sm:gap-2 col-span-2">
-                      <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-brand-red-400 flex-shrink-0" />
-                      <span className="truncate">N/A</span>
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-brand-red-400" />
+                      {/* Hall name is not available in initial fetch, will be "N/A" */}
+                      N/A
                     </div>
-                    <div className="flex items-center gap-1 sm:gap-2 col-span-2">
-                      <Ticket className="w-3 h-3 sm:w-4 sm:h-4 text-brand-red-400 flex-shrink-0" />
-                      <span className="truncate">
-                        {booking.seats.join(", ")} ({booking.seatType})
-                      </span>
+                    <div className="flex items-center gap-2">
+                      <Ticket className="w-4 h-4 text-brand-red-400" />
+                      {booking.seats.join(", ")} ({booking.seatType})
                     </div>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-4 sm:mt-6 gap-3 sm:gap-0">
-                    <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
+                  <div className="flex justify-between items-center mt-6">
+                    <span className="text-2xl font-bold bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
                       ₦{booking.totalAmount.toLocaleString()}
                     </span>
-                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <div className="flex gap-2">
                       <Badge
-                        className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-semibold flex-1 sm:flex-none text-center ${
+                        className={`px-3 py-1 rounded-full text-sm font-semibold ${
                           booking.status === "confirmed"
                             ? "bg-cyber-green-500/30 text-cyber-green-300 border-cyber-green-500/50"
                             : "bg-cyber-yellow-500/30 text-cyber-yellow-300 border-cyber-yellow-500/50"
@@ -336,9 +335,9 @@ export default function BookingsPage() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleViewReceipt(booking)}
-                        className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl flex-shrink-0"
+                        className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl"
                       >
-                        <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
+                        <Eye className="w-4 h-4" />
                       </Button>
                     </div>
                   </div>

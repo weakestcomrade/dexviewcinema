@@ -1,32 +1,20 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import { notFound, useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
+import { useParams } from "next/navigation"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import {
-  Calendar,
-  Clock,
-  MapPin,
-  Users,
-  ArrowLeft,
-  Download,
-  Printer,
-  Share2,
-  CheckCircle,
-  Ticket,
-  Home,
-  Loader2,
-  XCircle,
-} from "lucide-react"
-import Link from "next/link"
+import { Download, XCircle, CalendarIcon, Clock, MapPin, Ticket, Home, Share, Printer } from "lucide-react"
 import Image from "next/image"
 import { useToast } from "@/components/ui/use-toast"
+import Link from "next/link"
+import { Loader2 } from "lucide-react"
 import html2canvas from "html2canvas"
 import jsPDF from "jspdf"
 
 interface Booking {
   _id: string
+  bookingCode?: string
   customerName: string
   customerEmail: string
   customerPhone: string
@@ -42,175 +30,170 @@ interface Booking {
   bookingDate: string
   bookingTime: string
   paymentMethod: string
-  bookingCode?: string
   createdAt: string
   updatedAt: string
 }
 
-interface EventDetails {
-  _id: string
-  title: string
-  event_type: "movie" | "match"
-  event_date: string
-  event_time: string
-  hall_id: string
-  description?: string
-  duration?: string
-}
-
-interface HallDetails {
+interface Hall {
   _id: string
   name: string
   capacity: number
   type: "vip" | "standard"
 }
 
-interface FullBookingDetails extends Booking {
-  eventDetails?: EventDetails
-  hallDetails?: HallDetails
-}
-
-// iOS detection function
-const isIOS = () => {
-  if (typeof window === "undefined") return false
-  return /iPad|iPhone|iPod/.test(navigator.userAgent)
-}
-
-export default function ReceiptPage({ params }: { params: { id: string } }) {
-  const [booking, setBooking] = useState<FullBookingDetails | null>(null)
+export default function ReceiptPage() {
+  const { id } = useParams()
+  const [booking, setBooking] = useState<Booking | null>(null)
+  const [hall, setHall] = useState<Hall | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isDownloading, setIsDownloading] = useState(false)
   const { toast } = useToast()
-  const router = useRouter()
 
-  const bookingId = params.id
-
-  const fetchBookingDetails = useCallback(async () => {
-    try {
-      setLoading(true)
-      setError(null)
-
-      const bookingRes = await fetch(`/api/bookings/${bookingId}`)
-      if (!bookingRes.ok) {
-        if (bookingRes.status === 404) {
-          notFound()
-        }
-        throw new Error(`Failed to fetch booking: ${bookingRes.statusText}`)
-      }
-      const bookingData: Booking = await bookingRes.json()
-
-      const eventRes = await fetch(`/api/events/${bookingData.eventId}`)
-      if (!eventRes.ok) {
-        throw new Error(`Failed to fetch event: ${eventRes.statusText}`)
-      }
-      const eventData: EventDetails = await eventRes.json()
-
-      const hallRes = await fetch(`/api/halls/${eventData.hall_id}`)
-      if (!hallRes.ok) {
-        throw new Error(`Failed to fetch hall: ${hallRes.statusText}`)
-      }
-      const hallData: HallDetails = await hallRes.json()
-
-      setBooking({
-        ...bookingData,
-        eventDetails: eventData,
-        hallDetails: hallData,
-      })
-    } catch (err) {
-      console.error("Error fetching booking details:", err)
-      setError((err as Error).message)
-    } finally {
-      setLoading(false)
-    }
-  }, [bookingId])
+  // Detect iOS devices
+  const isIOS = () => {
+    if (typeof window === "undefined") return false
+    return (
+      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+    )
+  }
 
   useEffect(() => {
-    fetchBookingDetails()
-  }, [fetchBookingDetails])
+    const fetchBookingAndHall = async () => {
+      if (!id) return
+      try {
+        setLoading(true)
+        setError(null)
 
-  const downloadReceipt = async () => {
-    if (!booking) return
+        const bookingRes = await fetch(`/api/bookings/${id}`)
+        if (!bookingRes.ok) {
+          throw new Error(`Failed to fetch booking: ${bookingRes.statusText}`)
+        }
+        const bookingData: Booking = await bookingRes.json()
+        setBooking(bookingData)
 
-    setIsDownloading(true)
-    try {
-      const receiptElement = document.getElementById("receipt-content")
-      if (!receiptElement) {
-        throw new Error("Receipt content not found")
+        if (bookingData.eventId) {
+          const eventRes = await fetch(`/api/events/${bookingData.eventId}`)
+          if (!eventRes.ok) {
+            throw new Error(`Failed to fetch event for hall: ${eventRes.statusText}`)
+          }
+          const eventData = await eventRes.json()
+
+          const hallRes = await fetch(`/api/halls/${eventData.hall_id}`)
+          if (!hallRes.ok) {
+            throw new Error(`Failed to fetch hall: ${hallRes.statusText}`)
+          }
+          const hallData: Hall = await hallRes.json()
+          setHall(hallData)
+        }
+      } catch (err) {
+        console.error("Error fetching data:", err)
+        setError((err as Error).message)
+        toast({
+          title: "Error loading receipt",
+          description: (err as Error).message,
+          variant: "destructive",
+        })
+      } finally {
+        setLoading(false)
       }
+    }
 
-      // Configure html2canvas for better compatibility
-      const canvas = await html2canvas(receiptElement, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: "#ffffff",
-        logging: false,
-        imageTimeout: 15000,
-        removeContainer: true,
+    fetchBookingAndHall()
+  }, [id, toast])
+
+  const handleDownload = async () => {
+    try {
+      setIsDownloading(true)
+      const element = document.getElementById("receipt-print-area") as HTMLElement | null
+      if (!element) return
+
+      // Show loading toast
+      toast({
+        title: "Generating PDF...",
+        description: "Please wait while we prepare your receipt.",
       })
 
-      if (isIOS()) {
-        // For iOS devices, open PDF in new tab
-        const imgData = canvas.toDataURL("image/png")
-        const pdf = new jsPDF("p", "mm", "a4")
-        const imgWidth = 210
-        const pageHeight = 295
-        const imgHeight = (canvas.height * imgWidth) / canvas.width
-        let heightLeft = imgHeight
-        let position = 0
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        allowTaint: true,
+        foreignObjectRendering: true,
+        logging: false,
+      })
 
+      const imgData = canvas.toDataURL("image/png")
+      const pdf = new jsPDF("p", "mm", "a4")
+      const pdfWidth = pdf.internal.pageSize.getWidth()
+      const pdfHeight = pdf.internal.pageSize.getHeight()
+
+      const imgWidth = pdfWidth
+      const imgHeight = (canvas.height * imgWidth) / canvas.width
+
+      let heightLeft = imgHeight
+      let position = 0
+
+      pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight)
+      heightLeft -= pdfHeight
+
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight
+        pdf.addPage()
         pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight)
-        heightLeft -= pageHeight
+        heightLeft -= pdfHeight
+      }
 
-        while (heightLeft >= 0) {
-          position = heightLeft - imgHeight
-          pdf.addPage()
-          pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight)
-          heightLeft -= pageHeight
-        }
+      const fileName = `dex-view-cinema-${booking?.bookingCode || booking?._id || "receipt"}.pdf`
 
-        // Open PDF in new tab for iOS
+      // Handle iOS devices differently
+      if (isIOS()) {
+        // For iOS, open PDF in new window
         const pdfBlob = pdf.output("blob")
         const pdfUrl = URL.createObjectURL(pdfBlob)
-        window.open(pdfUrl, "_blank")
 
-        toast({
-          title: "Receipt Opened",
-          description: "Receipt opened in new tab. Use Safari's share button to save or share.",
-        })
-      } else {
-        // For other devices, download normally
-        const imgData = canvas.toDataURL("image/png")
-        const pdf = new jsPDF("p", "mm", "a4")
-        const imgWidth = 210
-        const pageHeight = 295
-        const imgHeight = (canvas.height * imgWidth) / canvas.width
-        let heightLeft = imgHeight
-        let position = 0
+        // Try to open in new window
+        const newWindow = window.open(pdfUrl, "_blank")
 
-        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight)
-        heightLeft -= pageHeight
+        if (newWindow) {
+          toast({
+            title: "PDF Ready!",
+            description: "Your receipt has opened in a new tab. Use the share button to save or send it.",
+          })
+        } else {
+          // Fallback: create download link
+          const link = document.createElement("a")
+          link.href = pdfUrl
+          link.download = fileName
+          link.style.display = "none"
+          document.body.appendChild(link)
 
-        while (heightLeft >= 0) {
-          position = heightLeft - imgHeight
-          pdf.addPage()
-          pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight)
-          heightLeft -= pageHeight
+          // Try to trigger download
+          link.click()
+          document.body.removeChild(link)
+
+          toast({
+            title: "Download Started",
+            description: "If the download didn't start, please check your browser's download settings.",
+          })
         }
 
-        pdf.save(`receipt-${booking.bookingCode || booking._id}.pdf`)
-
+        // Clean up URL after a delay
+        setTimeout(() => URL.revokeObjectURL(pdfUrl), 10000)
+      } else {
+        // For other devices, use normal download
+        pdf.save(fileName)
         toast({
-          title: "Receipt Downloaded",
-          description: "Your receipt has been saved to your device.",
+          title: "Download Complete!",
+          description: "Your receipt has been downloaded successfully.",
         })
       }
-    } catch (error) {
-      console.error("Error generating PDF:", error)
+    } catch (err) {
+      console.error("Failed to generate PDF:", err)
       toast({
         title: "Download Failed",
-        description: "Could not generate PDF. Please try the print option instead.",
+        description: "There was an error generating your receipt. Please try again or use the print option.",
         variant: "destructive",
       })
     } finally {
@@ -218,43 +201,48 @@ export default function ReceiptPage({ params }: { params: { id: string } }) {
     }
   }
 
-  const printReceipt = () => {
+  const handlePrint = () => {
     window.print()
   }
 
-  const shareReceipt = async () => {
+  const handleShare = async () => {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `Booking Receipt - ${booking?.eventTitle}`,
+          title: `Dex View Cinema Receipt - ${booking?.bookingCode || booking?._id}`,
           text: `My booking receipt for ${booking?.eventTitle}`,
           url: window.location.href,
         })
-      } catch (error) {
-        console.error("Error sharing:", error)
-        // Fallback to copying URL
-        navigator.clipboard.writeText(window.location.href)
-        toast({
-          title: "Link Copied",
-          description: "Receipt link copied to clipboard.",
-        })
+      } catch (err) {
+        console.log("Error sharing:", err)
       }
     } else {
-      // Fallback for browsers that don't support Web Share API
-      navigator.clipboard.writeText(window.location.href)
-      toast({
-        title: "Link Copied",
-        description: "Receipt link copied to clipboard.",
-      })
+      // Fallback: copy URL to clipboard
+      try {
+        await navigator.clipboard.writeText(window.location.href)
+        toast({
+          title: "Link Copied!",
+          description: "Receipt link has been copied to your clipboard.",
+        })
+      } catch (err) {
+        toast({
+          title: "Share",
+          description: "Copy this URL to share your receipt: " + window.location.href,
+        })
+      }
     }
   }
 
+  const seatsFormatted = booking?.seats
+    .map((seatId) => (seatId.includes("-") ? seatId.split("-")[1] : seatId))
+    .join(", ")
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 flex items-center justify-center">
-        <div className="text-center text-white">
-          <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4" />
-          <p className="text-lg">Loading your receipt...</p>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 text-white px-4">
+        <div className="text-center">
+          <Loader2 className="mx-auto h-8 w-8 animate-spin mb-4" />
+          <p className="text-lg">Loading receipt...</p>
         </div>
       </div>
     )
@@ -262,229 +250,102 @@ export default function ReceiptPage({ params }: { params: { id: string } }) {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 flex items-center justify-center p-4">
-        <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card max-w-md w-full">
-          <CardContent className="p-6 text-center">
-            <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-white mb-2">Error Loading Receipt</h1>
-            <p className="text-cyber-slate-300 mb-6">{error}</p>
-            <div className="space-y-3">
-              <Link href="/" className="block">
-                <Button className="w-full bg-gradient-to-r from-brand-red-500 to-brand-red-600 hover:from-brand-red-600 hover:to-brand-red-700 text-white">
-                  <Home className="w-4 h-4 mr-2" />
-                  Back to Home
-                </Button>
-              </Link>
-              <Button variant="outline" onClick={() => router.back()} className="w-full">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Go Back
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 text-white p-4">
+        <XCircle className="w-12 h-12 sm:w-16 sm:h-16 text-brand-red-500 mb-4" />
+        <h1 className="text-xl sm:text-2xl font-bold mb-2 text-center">Error Loading Receipt</h1>
+        <p className="text-base sm:text-lg text-cyber-slate-300 text-center mb-6 max-w-md">{error}</p>
+        <Button
+          onClick={() => window.history.back()}
+          className="bg-brand-red-500 hover:bg-brand-red-600 text-white rounded-2xl px-6 py-3"
+        >
+          Go Back
+        </Button>
       </div>
     )
   }
 
   if (!booking) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 flex items-center justify-center">
-        <div className="text-center text-white">
-          <p className="text-lg">Booking not found</p>
-        </div>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 text-white p-4">
+        <XCircle className="w-12 h-12 sm:w-16 sm:h-16 text-brand-red-500 mb-4" />
+        <h1 className="text-xl sm:text-2xl font-bold mb-2 text-center">Booking Not Found</h1>
+        <p className="text-base sm:text-lg text-cyber-slate-300 text-center mb-6 max-w-md">
+          The requested booking could not be found.
+        </p>
+        <Button
+          onClick={() => window.history.back()}
+          className="bg-brand-red-500 hover:bg-brand-red-600 text-white rounded-2xl px-6 py-3"
+        >
+          Go Back
+        </Button>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 relative overflow-hidden">
-      {/* Background elements */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-brand-red-500/20 to-cyber-purple-500/20 rounded-full blur-3xl animate-float"></div>
-        <div className="absolute top-1/2 -left-40 w-80 h-80 bg-gradient-to-br from-cyber-blue-500/15 to-brand-red-500/15 rounded-full blur-3xl animate-float delay-1000"></div>
-      </div>
-
-      {/* Header */}
-      <header className="relative backdrop-blur-xl bg-glass-white border-b border-white/10 shadow-cyber-card z-50">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
-          <div className="flex items-center h-16 sm:h-20">
-            <Link href="/">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="mr-3 sm:mr-4 text-cyber-slate-300 hover:bg-glass-white group text-sm"
-              >
-                <ArrowLeft className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 group-hover:-translate-x-1 transition-transform" />
-                <span className="hidden sm:inline">Back to Home</span>
-                <span className="sm:hidden">Back</span>
-              </Button>
-            </Link>
-            <div>
-              <h1 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-white via-brand-red-300 to-white bg-clip-text text-transparent">
-                Booking Receipt
-              </h1>
-              <p className="text-xs sm:text-sm text-brand-red-400 font-medium">Your booking confirmation</p>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="relative max-w-4xl mx-auto px-3 sm:px-4 lg:px-8 py-6 sm:py-8">
-        {/* Success Message */}
-        <div className="text-center mb-6 sm:mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-cyber-green-500/20 to-cyber-green-600/20 rounded-full border border-cyber-green-500/30 mb-4">
-            <CheckCircle className="w-8 h-8 sm:w-10 sm:h-10 text-cyber-green-400" />
-          </div>
-          <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-white via-cyber-green-200 to-white bg-clip-text text-transparent mb-2">
-            Booking Confirmed!
-          </h2>
-          <p className="text-cyber-slate-300 text-sm sm:text-base">
-            Your tickets have been successfully booked. Save this receipt for your records.
-          </p>
-        </div>
-
-        {/* Action Buttons - Mobile First */}
-        <div className="mb-6 sm:mb-8 space-y-3 sm:space-y-4">
-          {/* Primary Actions */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Button
-              onClick={downloadReceipt}
-              disabled={isDownloading}
-              className="bg-gradient-to-r from-cyber-green-500 via-cyber-green-600 to-cyber-green-700 hover:from-cyber-green-600 hover:via-cyber-green-700 hover:to-cyber-green-800 text-white shadow-glow-green rounded-2xl group h-12 text-sm sm:text-base"
-            >
-              {isDownloading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <Download className="w-4 h-4 mr-2 group-hover:translate-y-1 transition-transform" />
-                  {isIOS() ? "Open PDF" : "Download PDF"}
-                </>
-              )}
-            </Button>
-            <Button
-              onClick={printReceipt}
-              variant="outline"
-              className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl h-12 text-sm sm:text-base"
-            >
-              <Printer className="w-4 h-4 mr-2" />
-              Print Receipt
-            </Button>
-          </div>
-
-          {/* Secondary Actions */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <Button
-              onClick={shareReceipt}
-              variant="outline"
-              className="border-cyber-blue-500/50 text-cyber-blue-300 hover:bg-cyber-blue-500/20 bg-transparent backdrop-blur-sm rounded-2xl h-10 text-sm"
-            >
-              <Share2 className="w-4 h-4 mr-2" />
-              Share
-            </Button>
-            <Link href="/bookings" className="block">
-              <Button
-                variant="outline"
-                className="w-full border-cyber-purple-500/50 text-cyber-purple-300 hover:bg-cyber-purple-500/20 bg-transparent backdrop-blur-sm rounded-2xl h-10 text-sm"
-              >
-                <Ticket className="w-4 h-4 mr-2" />
-                My Bookings
-              </Button>
-            </Link>
-            <Link href="/" className="block">
-              <Button
-                variant="outline"
-                className="w-full border-brand-red-500/50 text-brand-red-300 hover:bg-brand-red-500/20 bg-transparent backdrop-blur-sm rounded-2xl h-10 text-sm"
-              >
-                <Home className="w-4 h-4 mr-2" />
-                Home
-              </Button>
-            </Link>
-          </div>
-        </div>
-
-        {/* Receipt Card */}
-        <Card className="bg-white text-black shadow-2xl border-0 rounded-3xl overflow-hidden max-w-2xl mx-auto">
-          <div id="receipt-content" className="p-4 sm:p-6 lg:p-8">
-            {/* Header */}
-            <div className="text-center mb-6 sm:mb-8">
+    <div className="min-h-screen bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 flex items-center justify-center p-2 sm:p-4 lg:p-8">
+      <Card className="w-full max-w-4xl bg-glass-dark-strong backdrop-blur-xl border border-white/20 text-white shadow-cyber-hover rounded-2xl sm:rounded-4xl print:shadow-none print:border-none print:bg-white print:text-black">
+        <CardHeader className="text-center pb-4 sm:pb-6 print:hidden px-4 sm:px-6">
+          <CardTitle className="text-white text-2xl sm:text-3xl font-bold bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent mb-2">
+            Booking Receipt
+          </CardTitle>
+          <CardDescription className="text-cyber-slate-300 text-base sm:text-lg">
+            Your booking details are confirmed!
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-3 sm:p-6 lg:p-8">
+          <div
+            className="receipt-content bg-white text-black p-4 sm:p-6 lg:p-8 rounded-lg shadow-md print:shadow-none print:p-0 print:rounded-none"
+            id="receipt-print-area"
+          >
+            <div className="text-center mb-6">
               <Image
                 src="/dexcinema-logo.jpeg"
                 alt="Dex View Cinema Logo"
                 width={120}
                 height={120}
-                className="w-20 h-20 sm:w-24 sm:h-24 lg:w-32 lg:h-32 mx-auto mb-3 sm:mb-4 rounded-2xl"
+                className="mx-auto mb-4 w-20 h-20 sm:w-24 sm:h-24 lg:w-32 lg:h-32"
                 crossOrigin="anonymous"
               />
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-brand-red-600 mb-2">Dex View Cinema</h1>
-              <p className="text-gray-600 text-sm sm:text-base">Premium Entertainment Experience</p>
-              <div className="border-b-2 border-brand-red-600 mt-3 sm:mt-4"></div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-brand-red-600 mb-2">Dex View Cinema</h1>
+              <p className="text-sm sm:text-base text-gray-600">Premium Entertainment Experience</p>
+              <div className="border-b-2 border-brand-red-600 mt-4"></div>
             </div>
 
-            {/* Booking Code */}
-            {booking.bookingCode && (
-              <div className="text-center mb-6 sm:mb-8">
-                <div className="inline-block bg-gradient-to-r from-brand-red-50 to-brand-red-100 px-4 sm:px-6 py-2 sm:py-3 rounded-2xl border-2 border-brand-red-200">
-                  <p className="text-xs sm:text-sm text-gray-600 mb-1">Booking Code</p>
-                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-brand-red-600 font-mono tracking-wider">
-                    {booking.bookingCode}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Customer and Booking Info */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 mb-6 sm:mb-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 mb-6">
               <div>
-                <h3 className="font-bold text-base sm:text-lg mb-3 text-brand-red-600 flex items-center">
-                  <Users className="w-4 h-4 sm:w-5 sm:h-5 mr-2 flex-shrink-0" />
-                  Customer Information
-                </h3>
+                <h3 className="font-bold text-base sm:text-lg mb-3 text-brand-red-600">Customer Information</h3>
                 <div className="space-y-2 text-sm sm:text-base">
-                  <p className="flex items-start">
-                    <strong className="min-w-0 flex-shrink-0 mr-2">Name:</strong>
-                    <span className="break-words">{booking.customerName}</span>
+                  <p className="break-words">
+                    <strong>Name:</strong> {booking.customerName}
                   </p>
-                  <p className="flex items-start">
-                    <strong className="min-w-0 flex-shrink-0 mr-2">Email:</strong>
-                    <span className="break-all">{booking.customerEmail}</span>
+                  <p className="break-all">
+                    <strong>Email:</strong> {booking.customerEmail}
                   </p>
-                  <p className="flex items-start">
-                    <strong className="min-w-0 flex-shrink-0 mr-2">Phone:</strong>
-                    <span className="break-words">{booking.customerPhone}</span>
+                  <p>
+                    <strong>Phone:</strong> {booking.customerPhone}
                   </p>
                 </div>
               </div>
               <div>
-                <h3 className="font-bold text-base sm:text-lg mb-3 text-brand-red-600 flex items-center">
-                  <Ticket className="w-4 h-4 sm:w-5 sm:h-5 mr-2 flex-shrink-0" />
-                  Booking Details
-                </h3>
+                <h3 className="font-bold text-base sm:text-lg mb-3 text-brand-red-600">Booking Details</h3>
                 <div className="space-y-2 text-sm sm:text-base">
-                  <p className="flex items-start">
-                    <strong className="min-w-0 flex-shrink-0 mr-2">Booking ID:</strong>
-                    <span className="font-mono text-xs sm:text-sm break-all">{booking._id}</span>
+                  <p className="break-all">
+                    <strong>Booking Code:</strong> {booking.bookingCode || booking._id}
                   </p>
-                  <p className="flex items-start">
-                    <strong className="min-w-0 flex-shrink-0 mr-2">Date:</strong>
-                    <span>{booking.bookingDate}</span>
+                  <p>
+                    <strong>Date:</strong> {booking.bookingDate}
                   </p>
-                  <p className="flex items-start">
-                    <strong className="min-w-0 flex-shrink-0 mr-2">Time:</strong>
-                    <span>{booking.bookingTime}</span>
+                  <p>
+                    <strong>Time:</strong> {booking.bookingTime}
                   </p>
-                  <p className="flex items-start">
-                    <strong className="min-w-0 flex-shrink-0 mr-2">Payment:</strong>
-                    <span>{booking.paymentMethod}</span>
+                  <p>
+                    <strong>Payment:</strong> {booking.paymentMethod}
                   </p>
-                  <p className="flex items-start">
-                    <strong className="min-w-0 flex-shrink-0 mr-2">Status:</strong>
+                  <p>
+                    <strong>Status:</strong>{" "}
                     <span
-                      className={`font-semibold ${
-                        booking.status === "confirmed" ? "text-green-600" : "text-yellow-600"
-                      }`}
+                      className={`font-semibold ${booking.status === "confirmed" ? "text-green-600" : "text-yellow-600"}`}
                     >
                       {booking.status.toUpperCase()}
                     </span>
@@ -493,94 +354,131 @@ export default function ReceiptPage({ params }: { params: { id: string } }) {
               </div>
             </div>
 
-            {/* Event Information */}
-            <div className="mb-6 sm:mb-8">
-              <h3 className="font-bold text-base sm:text-lg mb-3 text-brand-red-600 flex items-center">
-                <Calendar className="w-4 h-4 sm:w-5 sm:h-5 mr-2 flex-shrink-0" />
-                Event Information
-              </h3>
-              <div className="bg-gray-50 p-3 sm:p-4 rounded-2xl space-y-2 text-sm sm:text-base">
-                <p className="flex items-start">
-                  <Ticket className="w-4 h-4 sm:w-5 sm:h-5 text-brand-red-500 mr-2 mt-0.5 flex-shrink-0" />
-                  <strong className="mr-2">Event:</strong>
+            <div className="mb-6">
+              <h3 className="font-bold text-base sm:text-lg mb-3 text-brand-red-600">Event Information</h3>
+              <div className="space-y-3 text-sm sm:text-base">
+                <p className="flex items-start gap-2">
+                  <Ticket className="w-4 h-4 sm:w-5 sm:h-5 text-brand-red-500 mt-0.5 flex-shrink-0" />
                   <span className="break-words">
-                    {booking.eventTitle} ({booking.eventType === "match" ? "Sports Match" : "Movie"})
+                    <strong>Event:</strong> {booking.eventTitle} (
+                    {booking.eventType === "match" ? "Sports Match" : "Movie"})
                   </span>
                 </p>
-                <p className="flex items-start">
-                  <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-brand-red-500 mr-2 mt-0.5 flex-shrink-0" />
-                  <strong className="mr-2">Venue:</strong>
-                  <span>{booking.hallDetails?.name || "N/A"}</span>
-                </p>
-                <p className="flex items-start">
-                  <Ticket className="w-4 h-4 sm:w-5 sm:h-5 text-brand-red-500 mr-2 mt-0.5 flex-shrink-0" />
-                  <strong className="mr-2">Seats:</strong>
-                  <span className="break-words">
-                    {booking.seats
-                      .map((seatId) => {
-                        if (seatId.includes("-")) {
-                          return seatId.split("-")[1]
-                        }
-                        return seatId
-                      })
-                      .join(", ")}{" "}
-                    ({booking.seatType})
-                  </span>
-                </p>
-                <p className="flex items-start">
-                  <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-brand-red-500 mr-2 mt-0.5 flex-shrink-0" />
-                  <strong className="mr-2">Event Date:</strong>
+                <p className="flex items-start gap-2">
+                  <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-brand-red-500 mt-0.5 flex-shrink-0" />
                   <span>
-                    {booking.eventDetails?.event_date
-                      ? new Date(booking.eventDetails.event_date).toLocaleDateString()
-                      : "N/A"}
+                    <strong>Venue:</strong> {hall?.name || "N/A"}
                   </span>
                 </p>
-                <p className="flex items-start">
-                  <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-brand-red-500 mr-2 mt-0.5 flex-shrink-0" />
-                  <strong className="mr-2">Event Time:</strong>
-                  <span>{booking.eventDetails?.event_time || "N/A"}</span>
+                <p className="flex items-start gap-2">
+                  <Ticket className="w-4 h-4 sm:w-5 sm:h-5 text-brand-red-500 mt-0.5 flex-shrink-0" />
+                  <span className="break-words">
+                    <strong>Seats:</strong> {seatsFormatted} ({booking.seatType})
+                  </span>
+                </p>
+                <p className="flex items-start gap-2">
+                  <CalendarIcon className="w-4 h-4 sm:w-5 sm:h-5 text-brand-red-500 mt-0.5 flex-shrink-0" />
+                  <span>
+                    <strong>Event Date:</strong> {new Date(booking.bookingDate).toLocaleDateString()}
+                  </span>
+                </p>
+                <p className="flex items-start gap-2">
+                  <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-brand-red-500 mt-0.5 flex-shrink-0" />
+                  <span>
+                    <strong>Event Time:</strong> {booking.bookingTime}
+                  </span>
                 </p>
               </div>
             </div>
 
-            {/* Payment Summary */}
-            <div className="border-t-2 border-gray-300 pt-4 sm:pt-6 mb-6 sm:mb-8">
+            <div className="border-t-2 border-gray-300 pt-4 mb-6">
               <h3 className="font-bold text-base sm:text-lg mb-3 text-brand-red-600">Payment Summary</h3>
-              <div className="space-y-2 sm:space-y-3 text-sm sm:text-base">
+              <div className="space-y-2 text-sm sm:text-base">
                 <div className="flex justify-between">
                   <span>Base Amount:</span>
-                  <span>₦{booking.amount.toLocaleString()}</span>
+                  <span className="font-semibold">₦{booking.amount.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Processing Fee:</span>
-                  <span>₦{booking.processingFee.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between font-bold text-base sm:text-lg border-t border-gray-300 pt-2 sm:pt-3">
+                <div className="flex justify-between font-bold text-base sm:text-lg border-t border-gray-300 pt-2">
                   <span>Total Amount:</span>
                   <span>₦{booking.totalAmount.toLocaleString()}</span>
                 </div>
               </div>
             </div>
 
-            {/* Footer */}
-            <div className="text-center text-xs sm:text-sm text-gray-500 border-t border-gray-300 pt-4 space-y-2">
-              <p>Thank you for choosing Dex View Cinema!</p>
-              <p>For support, email us at support@dexviewcinema.com or call 08139614950</p>
+            <div className="text-center text-xs sm:text-sm text-gray-500 border-t border-gray-300 pt-4">
+              <p className="mb-1">Thank you for choosing Dex View Cinema!</p>
+              <p className="mb-2">For support, email us at support@dexviewcinema.com or call 08139614950</p>
               <p>Developed by SydaTech - www.sydatech.com.ng</p>
             </div>
           </div>
-        </Card>
-      </div>
 
-      {/* Print Styles */}
+          {/* Mobile-first button layout */}
+          <div className="mt-6 sm:mt-8 print:hidden">
+            {/* Primary actions - full width on mobile */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+              <Button
+                onClick={handleDownload}
+                disabled={isDownloading}
+                className="bg-gradient-to-r from-cyber-green-500 via-cyber-green-600 to-cyber-green-700 hover:from-cyber-green-600 hover:via-cyber-green-700 hover:to-cyber-green-800 text-white rounded-2xl shadow-glow-green disabled:opacity-50 h-12 text-sm sm:text-base font-semibold"
+                aria-label="Download Receipt"
+              >
+                {isDownloading ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4 mr-2" />
+                )}
+                {isDownloading ? "Generating..." : isIOS() ? "Save PDF" : "Download PDF"}
+              </Button>
+
+              <Button
+                onClick={handlePrint}
+                variant="outline"
+                className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl shadow-cyber-card h-12 text-sm sm:text-base font-semibold"
+              >
+                <Printer className="w-4 h-4 mr-2" />
+                Print Receipt
+              </Button>
+            </div>
+
+            {/* Secondary actions - responsive grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <Button
+                onClick={handleShare}
+                variant="outline"
+                className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl shadow-cyber-card h-11 text-sm font-medium"
+              >
+                <Share className="w-4 h-4 mr-2" />
+                Share
+              </Button>
+
+              <Link href="/bookings" className="block">
+                <Button
+                  variant="outline"
+                  className="w-full border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl shadow-cyber-card h-11 text-sm font-medium"
+                >
+                  My Bookings
+                </Button>
+              </Link>
+
+              <Link href="/" className="block">
+                <Button
+                  variant="outline"
+                  className="w-full border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl shadow-cyber-card h-11 text-sm font-medium"
+                >
+                  <Home className="w-4 h-4 mr-2" />
+                  Home
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
       <style jsx global>{`
         @media print {
           body * {
             visibility: hidden;
           }
-          #receipt-content,
-          #receipt-content * {
+          #receipt-print-area, #receipt-print-area * {
             visibility: visible;
             color: #000 !important;
             background-color: #fff !important;
@@ -588,16 +486,32 @@ export default function ReceiptPage({ params }: { params: { id: string } }) {
             border-color: #ccc !important;
             background-image: none !important;
           }
-          #receipt-content {
+          #receipt-print-area {
             position: absolute;
             left: 0;
             top: 0;
             width: 100%;
             padding: 20px;
           }
-          #receipt-content img {
+          #receipt-print-area img {
             display: block !important;
             visibility: visible !important;
+          }
+          .print\\:hidden {
+            display: none !important;
+          }
+        }
+        
+        /* Mobile-specific improvements */
+        @media (max-width: 640px) {
+          .receipt-content {
+            font-size: 14px;
+          }
+          .receipt-content h1 {
+            font-size: 24px;
+          }
+          .receipt-content h3 {
+            font-size: 16px;
           }
         }
       `}</style>
