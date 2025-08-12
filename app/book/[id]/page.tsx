@@ -391,73 +391,83 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       </div>
 
       <header className="relative backdrop-blur-xl bg-glass-white border-b border-white/10 shadow-cyber-card z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center h-20">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
+          <div className="flex items-center h-16 sm:h-20">
             <Link href="/">
-              <Button variant="ghost" size="sm" className="mr-4 text-cyber-slate-300 hover:bg-glass-white group">
-                <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
-                Back to Home
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mr-3 sm:mr-4 text-cyber-slate-300 hover:bg-glass-white group text-sm"
+              >
+                <ArrowLeft className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 group-hover:-translate-x-1 transition-transform" />
+                <span className="hidden sm:inline">Back to Home</span>
+                <span className="sm:hidden">Back</span>
               </Button>
             </Link>
             <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-white via-brand-red-300 to-white bg-clip-text text-transparent">
+              <h1 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-white via-brand-red-300 to-white bg-clip-text text-transparent">
                 Book Your Experience
               </h1>
-              <p className="text-sm text-brand-red-400 font-medium">Select your seats and complete booking</p>
+              <p className="text-xs sm:text-sm text-brand-red-400 font-medium">
+                Select your seats and complete booking
+              </p>
             </div>
           </div>
         </div>
       </header>
 
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 md:gap-8">
-          <div className="xl:col-span-2 space-y-6">
+      <div className="relative max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-6 sm:py-8">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
+          <div className="xl:col-span-2 space-y-4 sm:space-y-6">
+            {/* Event details card */}
             <Card className="bg-glass-white-strong backdrop-blur-xl shadow-cyber-hover transition-all duration-500 border border-white/20 group">
               <div className="absolute inset-0 bg-gradient-to-br from-brand-red-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-lg"></div>
-              <CardContent className="p-6 relative z-10">
-                <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
-                  <div className="relative w-full sm:w-48 md:w-56 lg:w-64 flex-shrink-0">
+              <CardContent className="p-4 sm:p-6 relative z-10">
+                <div className="flex flex-col gap-4">
+                  <div className="relative w-full h-48 sm:h-56 lg:h-64 flex-shrink-0">
                     <img
                       src={event.image_url || "/placeholder.svg?height=240&width=380&query=event%20poster"}
                       alt={event.title}
-                      className="w-full h-48 sm:h-32 md:h-36 lg:h-40 object-cover rounded-3xl shadow-cyber-card group-hover:scale-105 transition-transform duration-500"
+                      className="w-full h-full object-cover rounded-3xl shadow-cyber-card group-hover:scale-105 transition-transform duration-500"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent rounded-3xl"></div>
                   </div>
                   <div className="flex-1">
                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-3 gap-3">
-                      <h2 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-white via-brand-red-300 to-white bg-clip-text text-transparent">
+                      <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-white via-brand-red-300 to-white bg-clip-text text-transparent">
                         {event.title}
                       </h2>
-                      <Badge className="bg-gradient-to-r from-brand-red-500 to-brand-red-600 text-white shadow-glow-red px-4 py-2 rounded-4xl font-semibold self-start">
+                      <Badge className="bg-gradient-to-r from-brand-red-500 to-brand-red-600 text-white shadow-glow-red px-3 sm:px-4 py-2 rounded-4xl font-semibold self-start">
                         {event.category}
                       </Badge>
                     </div>
-                    <p className="text-cyber-slate-300 mb-4 sm:mb-6 text-base sm:text-lg leading-relaxed">
+                    <p className="text-cyber-slate-300 mb-4 text-sm sm:text-base lg:text-lg leading-relaxed">
                       {event.description}
                     </p>
-                    <div className="grid grid-cols-2 gap-4 sm:gap-6 text-sm">
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-brand-red-400 flex-shrink-0" />
-                        <span className="text-cyber-slate-300 font-medium text-sm sm:text-base">
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:gap-6 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 text-brand-red-400 flex-shrink-0" />
+                        <span className="text-cyber-slate-300 font-medium text-xs sm:text-sm lg:text-base truncate">
                           {new Date(event.event_date).toLocaleDateString()}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-brand-red-400 flex-shrink-0" />
-                        <span className="text-cyber-slate-300 font-medium text-sm sm:text-base">
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 text-brand-red-400 flex-shrink-0" />
+                        <span className="text-cyber-slate-300 font-medium text-xs sm:text-sm lg:text-base truncate">
                           {event.event_time}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-brand-red-400 flex-shrink-0" />
-                        <span className="text-cyber-slate-300 font-medium text-sm sm:text-base">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 text-brand-red-400 flex-shrink-0" />
+                        <span className="text-cyber-slate-300 font-medium text-xs sm:text-sm lg:text-base truncate">
                           {getHallDisplayName(event.hall_id, halls)}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <Users className="w-4 h-4 sm:w-5 sm:h-5 text-brand-red-400 flex-shrink-0" />
-                        <span className="text-cyber-slate-300 font-medium text-sm sm:text-base">{event.duration}</span>
+                      <div className="flex items-center gap-2">
+                        <Users className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 text-brand-red-400 flex-shrink-0" />
+                        <span className="text-cyber-slate-300 font-medium text-xs sm:text-sm lg:text-base truncate">
+                          {event.duration}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -465,45 +475,50 @@ export default function BookingPage({ params }: { params: { id: string } }) {
               </CardContent>
             </Card>
 
+            {/* Pricing card - responsive grid */}
             <Card className="bg-glass-white-strong backdrop-blur-xl shadow-cyber-card border border-white/20">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center gap-3 text-2xl font-bold">
-                  <Sparkles className="w-6 h-6 text-brand-red-400 animate-pulse" />
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="text-white flex items-center gap-2 sm:gap-3 text-lg sm:text-xl lg:text-2xl font-bold">
+                  <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-brand-red-400 animate-pulse" />
                   Pricing & Seat Types
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-6">
+              <CardContent className="p-4 sm:p-6">
                 {event.event_type === "match" ? (
                   getHallType(event.hall_id, halls) === "vip" &&
                   event.pricing?.vipSofaSeats &&
                   event.pricing?.vipRegularSeats ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="bg-glass-white p-4 rounded-3xl border border-brand-red-500/30">
-                        <div className="flex items-center gap-3 mb-3">
-                          <Trophy className="w-6 h-6 text-brand-red-400" />
-                          <h3 className="text-lg font-bold text-white">VIP Sofa Seats</h3>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                      <div className="bg-glass-white p-3 sm:p-4 rounded-3xl border border-brand-red-500/30">
+                        <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+                          <Trophy className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-brand-red-400" />
+                          <h3 className="text-base sm:text-lg font-bold text-white">VIP Sofa Seats</h3>
                         </div>
-                        <p className="text-cyber-slate-300 mb-2">Premium comfort with sofa-style seating</p>
-                        <p className="text-2xl font-bold text-brand-red-300">
+                        <p className="text-cyber-slate-300 mb-2 text-sm sm:text-base">
+                          Premium comfort with sofa-style seating
+                        </p>
+                        <p className="text-lg sm:text-xl lg:text-2xl font-bold text-brand-red-300">
                           ₦{event.pricing.vipSofaSeats.price.toLocaleString()} per seat
                         </p>
-                        <p className="text-sm text-cyber-slate-400">
+                        <p className="text-xs sm:text-sm text-cyber-slate-400">
                           Available:{" "}
                           {event.pricing.vipSofaSeats.count -
                             (event.bookedSeats?.filter((s) => s.startsWith("S")).length || 0)}
                           /{event.pricing.vipSofaSeats.count}
                         </p>
                       </div>
-                      <div className="bg-glass-white p-4 rounded-3xl border border-cyber-blue-500/30">
-                        <div className="flex items-center gap-3 mb-3">
-                          <Star className="w-6 h-6 text-cyber-blue-400" />
-                          <h3 className="text-lg font-bold text-white">VIP Regular Seats</h3>
+                      <div className="bg-glass-white p-3 sm:p-4 rounded-3xl border border-cyber-blue-500/30">
+                        <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+                          <Star className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-cyber-blue-400" />
+                          <h3 className="text-base sm:text-lg font-bold text-white">VIP Regular Seats</h3>
                         </div>
-                        <p className="text-cyber-slate-300 mb-2">Premium seating with excellent view</p>
-                        <p className="text-2xl font-bold text-cyber-blue-300">
+                        <p className="text-cyber-slate-300 mb-2 text-sm sm:text-base">
+                          Premium seating with excellent view
+                        </p>
+                        <p className="text-lg sm:text-xl lg:text-2xl font-bold text-cyber-blue-300">
                           ₦{event.pricing.vipRegularSeats.price.toLocaleString()} per seat
                         </p>
-                        <p className="text-sm text-cyber-slate-400">
+                        <p className="text-xs sm:text-sm text-cyber-slate-400">
                           Available:{" "}
                           {event.pricing.vipRegularSeats.count -
                             (event.bookedSeats?.filter((s) => s.startsWith("A") || s.startsWith("B")).length || 0)}
@@ -513,17 +528,19 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                     </div>
                   ) : (
                     event.pricing?.standardMatchSeats && (
-                      <div className="grid grid-cols-1 gap-6">
-                        <div className="bg-glass-white p-4 rounded-3xl border border-cyber-green-500/30">
-                          <div className="flex items-center gap-3 mb-3">
-                            <Users className="w-6 h-6 text-cyber-green-400" />
-                            <h3 className="text-lg font-bold text-white">Standard Match Seats</h3>
+                      <div className="grid grid-cols-1 gap-4 sm:gap-6">
+                        <div className="bg-glass-white p-3 sm:p-4 rounded-3xl border border-cyber-green-500/30">
+                          <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+                            <Users className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-cyber-green-400" />
+                            <h3 className="text-base sm:text-lg font-bold text-white">Standard Match Seats</h3>
                           </div>
-                          <p className="text-cyber-slate-300 mb-2">Individual standard match seat</p>
-                          <p className="text-2xl font-bold text-cyber-green-300">
+                          <p className="text-cyber-slate-300 mb-2 text-sm sm:text-base">
+                            Individual standard match seat
+                          </p>
+                          <p className="text-lg sm:text-xl lg:text-2xl font-bold text-cyber-green-300">
                             ₦{event.pricing.standardMatchSeats.price.toLocaleString()}
                           </p>
-                          <p className="text-sm text-cyber-slate-400">
+                          <p className="text-xs sm:text-sm text-cyber-slate-400">
                             Available:{" "}
                             {event.pricing.standardMatchSeats.count -
                               (event.bookedSeats?.filter((s) => s.startsWith(event.hall_id.toUpperCase())).length || 0)}
@@ -534,49 +551,51 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                     )
                   )
                 ) : getHallType(event.hall_id, halls) === "vip" ? (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="bg-glass-white p-4 rounded-3xl border border-cyber-green-500/30">
-                      <div className="flex items-center gap-3 mb-3">
-                        <Users className="w-6 h-6 text-cyber-green-400" />
-                        <h3 className="text-lg font-bold text-white">VIP Single</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                    <div className="bg-glass-white p-3 sm:p-4 rounded-3xl border border-cyber-green-500/30">
+                      <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+                        <Users className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-cyber-green-400" />
+                        <h3 className="text-base sm:text-lg font-bold text-white">VIP Single</h3>
                       </div>
-                      <p className="text-cyber-slate-300 mb-2">Individual premium seat</p>
-                      <p className="text-2xl font-bold text-cyber-green-300">
+                      <p className="text-cyber-slate-300 mb-2 text-sm sm:text-base">Individual premium seat</p>
+                      <p className="text-lg sm:text-xl lg:text-2xl font-bold text-cyber-green-300">
                         ₦{event.pricing?.vipSingle?.price?.toLocaleString()}
                       </p>
-                      <p className="text-sm text-cyber-slate-400">
+                      <p className="text-xs sm:text-sm text-cyber-slate-400">
                         Available:{" "}
                         {event.pricing?.vipSingle?.count -
                           (event.bookedSeats?.filter((s) => s.startsWith("S")).length || 0)}
                         /{event.pricing?.vipSingle?.count}
                       </p>
                     </div>
-                    <div className="bg-glass-white p-4 rounded-3xl border border-cyber-purple-500/30">
-                      <div className="flex items-center gap-3 mb-3">
-                        <Users className="w-6 h-6 text-cyber-purple-400" />
-                        <h3 className="text-lg font-bold text-white">VIP Couple</h3>
+                    <div className="bg-glass-white p-3 sm:p-4 rounded-3xl border border-cyber-purple-500/30">
+                      <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+                        <Users className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-cyber-purple-400" />
+                        <h3 className="text-base sm:text-lg font-bold text-white">VIP Couple</h3>
                       </div>
-                      <p className="text-cyber-slate-300 mb-2">Intimate seating for two</p>
-                      <p className="text-2xl font-bold text-cyber-purple-300">
+                      <p className="text-cyber-slate-300 mb-2 text-sm sm:text-base">Intimate seating for two</p>
+                      <p className="text-lg sm:text-xl lg:text-2xl font-bold text-cyber-purple-300">
                         ₦{event.pricing?.vipCouple?.price?.toLocaleString()}
                       </p>
-                      <p className="text-sm text-cyber-slate-400">
+                      <p className="text-xs sm:text-sm text-cyber-slate-400">
                         Available:{" "}
                         {event.pricing?.vipCouple?.count -
                           (event.bookedSeats?.filter((s) => s.startsWith("C")).length || 0)}
                         /{event.pricing?.vipCouple?.count}
                       </p>
                     </div>
-                    <div className="bg-glass-white p-4 rounded-3xl border border-brand-red-500/30">
-                      <div className="flex items-center gap-3 mb-3">
-                        <Users className="w-6 h-6 text-brand-red-400" />
-                        <h3 className="text-lg font-bold text-white">VIP Family</h3>
+                    <div className="bg-glass-white p-3 sm:p-4 rounded-3xl border border-brand-red-500/30">
+                      <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+                        <Users className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-brand-red-400" />
+                        <h3 className="text-base sm:text-lg font-bold text-white">VIP Family</h3>
                       </div>
-                      <p className="text-cyber-slate-300 mb-2">Perfect for families (4+ members)</p>
-                      <p className="text-2xl font-bold text-brand-red-300">
+                      <p className="text-cyber-slate-300 mb-2 text-sm sm:text-base">
+                        Perfect for families (4+ members)
+                      </p>
+                      <p className="text-lg sm:text-xl lg:text-2xl font-bold text-brand-red-300">
                         ₦{event.pricing?.vipFamily?.price?.toLocaleString()}
                       </p>
-                      <p className="text-sm text-cyber-slate-400">
+                      <p className="text-xs sm:text-sm text-cyber-slate-400">
                         Available:{" "}
                         {event.pricing?.vipFamily?.count -
                           (event.bookedSeats?.filter((s) => s.startsWith("F")).length || 0)}
@@ -585,17 +604,17 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                     </div>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 gap-6">
-                    <div className="bg-glass-white p-4 rounded-3xl border border-cyber-green-500/30">
-                      <div className="flex items-center gap-3 mb-3">
-                        <Users className="w-6 h-6 text-cyber-green-400" />
-                        <h3 className="text-lg font-bold text-white">Standard Single</h3>
+                  <div className="grid grid-cols-1 gap-4 sm:gap-6">
+                    <div className="bg-glass-white p-3 sm:p-4 rounded-3xl border border-cyber-green-500/30">
+                      <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+                        <Users className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-cyber-green-400" />
+                        <h3 className="text-base sm:text-lg font-bold text-white">Standard Single</h3>
                       </div>
-                      <p className="text-cyber-slate-300 mb-2">Individual standard seat</p>
-                      <p className="text-2xl font-bold text-cyber-green-300">
+                      <p className="text-cyber-slate-300 mb-2 text-sm sm:text-base">Individual standard seat</p>
+                      <p className="text-lg sm:text-xl lg:text-2xl font-bold text-cyber-green-300">
                         ₦{event.pricing?.standardSingle?.price?.toLocaleString()}
                       </p>
-                      <p className="text-sm text-cyber-slate-400">
+                      <p className="text-xs sm:text-sm text-cyber-slate-400">
                         Available:{" "}
                         {event.pricing?.standardSingle?.count -
                           (event.bookedSeats?.filter((s) => s.startsWith(event.hall_id.toUpperCase())).length || 0)}
@@ -607,307 +626,24 @@ export default function BookingPage({ params }: { params: { id: string } }) {
               </CardContent>
             </Card>
 
-            {/* Seat Selection - unchanged logic except price calculation above */}
+            {/* Customer Information Card */}
             <Card className="bg-glass-white-strong backdrop-blur-xl shadow-cyber-card border border-white/20">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center gap-3 text-2xl font-bold">
-                  <Sparkles className="w-6 h-6 text-brand-red-400 animate-pulse" />
-                  Select Your Seats
-                </CardTitle>
-                <CardDescription className="text-cyber-slate-300 text-lg">
-                  Choose your preferred seats from the {getHallDisplayName(event.hall_id, halls)}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-6">
-                <div className="mb-10">
-                  <div className="bg-gradient-to-r from-brand-red-100/20 via-brand-red-50/20 to-brand-red-100/20 text-white text-center py-6 rounded-5xl mb-8 border-2 border-brand-red-500/30 shadow-cyber-card backdrop-blur-sm">
-                    <span className="text-lg font-bold flex items-center justify-center gap-3">
-                      <Sparkles className="w-6 h-6 text-brand-red-400 animate-spin-slow" />
-                      {event.event_type === "match" ? "🏟️ FOOTBALL FIELD VIEW 🏟️" : "🎬 PREMIUM SCREEN VIEW 🎬"}
-                      <Sparkles className="w-6 h-6 text-brand-red-400 animate-spin-slow" />
-                    </span>
-                  </div>
-                </div>
-
-                {/* Seats grid code omitted here for brevity - same as previous version */}
-                {/* VIP/Standard seat rendering from your existing code remains unchanged */}
-                {/* ... Render seats exactly as in your existing file ... */}
-                {event.event_type === "match" ? (
-                  getHallType(event.hall_id, halls) === "vip" ? (
-                    <div className="space-y-8">
-                      {/* VIP Sofa Seats */}
-                      <div>
-                        <h4 className="text-lg font-bold text-brand-red-300 mb-4 flex items-center gap-2">
-                          <Trophy className="w-5 h-5" />
-                          VIP Sofa Seats - Premium Comfort
-                        </h4>
-                        <div className="space-y-4">
-                          {["S1", "S2"].map((row) => (
-                            <div key={row} className="flex items-center gap-4">
-                              <div className="w-8 text-center font-bold text-brand-red-400 text-lg flex-shrink-0">
-                                {row}
-                              </div>
-                              <div className="flex gap-4 flex-wrap justify-center sm:justify-start">
-                                {seats
-                                  .filter((seat) => seat.row === row && seat.type === "sofa")
-                                  .map((seat) => (
-                                    <button
-                                      key={seat.id}
-                                      onClick={() => handleSeatClick(seat.id, seat.type, seat.isBooked)}
-                                      disabled={seat.isBooked}
-                                      className={`
-                                       w-16 h-16 sm:w-20 sm:h-16 rounded-3xl border-3 text-sm font-bold transition-all duration-300 transform hover:scale-110 shadow-cyber-card flex items-center justify-center
-                                       ${
-                                         seat.isBooked
-                                           ? "bg-brand-red-100/20 text-brand-red-400/60 border-brand-red-300/30 cursor-not-allowed opacity-60"
-                                           : selectedSeats.includes(seat.id)
-                                             ? "bg-gradient-to-br from-brand-red-500 to-brand-red-600 text-white border-brand-red-400 shadow-glow-red scale-110"
-                                             : "bg-glass-white-strong text-cyber-slate-300 border-white/30 hover:border-brand-red-400/50 hover:bg-brand-red-500/20 shadow-cyber-card"
-                                       }
-                                     `}
-                                    >
-                                      🛋️
-                                    </button>
-                                  ))}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* VIP Regular Seats */}
-                      <div>
-                        <h4 className="text-lg font-bold text-cyber-blue-300 mb-4 flex items-center gap-2">
-                          <Star className="w-5 h-5" />
-                          VIP Regular Seats
-                        </h4>
-                        <div className="space-y-4">
-                          {["A", "B"].map((row) => (
-                            <div key={row} className="flex items-center gap-4">
-                              <div className="w-8 text-center font-bold text-cyber-blue-400 text-lg flex-shrink-0">
-                                {row}
-                              </div>
-                              <div className="flex gap-4 flex-wrap justify-center sm:justify-start">
-                                {seats
-                                  .filter((seat) => seat.row === row && seat.type === "regular")
-                                  .map((seat) => (
-                                    <button
-                                      key={seat.id}
-                                      onClick={() => handleSeatClick(seat.id, seat.type, seat.isBooked)}
-                                      disabled={seat.isBooked}
-                                      className={`
-                                       w-16 h-16 rounded-3xl border-3 text-lg font-bold transition-all duration-300 transform hover:scale-110 shadow-cyber-card
-                                       ${
-                                         seat.isBooked
-                                           ? "bg-brand-red-100/20 text-brand-red-400/60 border-brand-red-300/30 cursor-not-allowed opacity-60"
-                                           : selectedSeats.includes(seat.id)
-                                             ? "bg-gradient-to-br from-cyber-blue-500 to-cyber-blue-600 text-white border-cyber-blue-400 shadow-glow-blue scale-110"
-                                             : "bg-glass-white-strong text-cyber-slate-300 border-white/30 hover:border-cyber-blue-400/50 hover:bg-cyber-blue-500/20 shadow-cyber-card"
-                                       }
-                                     `}
-                                    >
-                                      {seat.number}
-                                    </button>
-                                  ))}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    // Standard Match Hall (Hall A or Hall B)
-                    <div className="space-y-8">
-                      <div>
-                        <h4 className="text-lg font-bold text-cyber-green-300 mb-4">Standard Match Seats</h4>
-                        <div
-                          className={`grid gap-3 ${
-                            getHallTotalSeats(event.hall_id, halls) === 48
-                              ? "grid-cols-6 sm:grid-cols-8"
-                              : "grid-cols-6 sm:grid-cols-10"
-                          }`}
-                        >
-                          {seats
-                            .filter((seat) => seat.type === "standardMatch")
-                            .map((seat) => (
-                              <button
-                                key={seat.id}
-                                onClick={() => handleSeatClick(seat.id, seat.type, seat.isBooked)}
-                                disabled={seat.isBooked}
-                                className={`
-                               w-12 h-12 sm:w-14 sm:h-14 rounded-2xl border-2 text-xs font-bold transition-all duration-300 transform hover:scale-110 shadow-cyber-card flex items-center justify-center
-                               ${
-                                 seat.isBooked
-                                   ? "bg-brand-red-100/20 text-brand-red-400/60 border-brand-red-300/30 cursor-not-allowed opacity-60"
-                                   : selectedSeats.includes(seat.id)
-                                     ? "bg-gradient-to-br from-cyber-green-500 to-cyber-green-600 text-white border-cyber-green-400 shadow-glow-green scale-110"
-                                     : "bg-glass-white-strong text-cyber-slate-300 border-white/30 hover:border-cyber-green-400/50 hover:bg-cyber-green-500/20 shadow-cyber-card"
-                               }
-                             `}
-                              >
-                                {seat.id.split("-")[1]}
-                              </button>
-                            ))}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                ) : getHallType(event.hall_id, halls) === "vip" ? (
-                  <div className="space-y-8">
-                    {/* VIP Single Seats */}
-                    <div>
-                      <h4 className="text-lg font-bold text-cyber-green-300 mb-4">VIP Single Seats</h4>
-                      <div className="grid grid-cols-5 sm:grid-cols-10 gap-3">
-                        {seats
-                          .filter((seat) => seat.type === "vipSingle")
-                          .map((seat) => (
-                            <button
-                              key={seat.id}
-                              onClick={() => handleSeatClick(seat.id, seat.type, seat.isBooked)}
-                              disabled={seat.isBooked}
-                              className={`
-                               w-12 h-12 sm:w-14 sm:h-14 rounded-2xl border-2 text-xs font-bold transition-all duration-300 transform hover:scale-110 shadow-cyber-card
-                               ${
-                                 seat.isBooked
-                                   ? "bg-brand-red-100/20 text-brand-red-400/60 border-brand-red-300/30 cursor-not-allowed opacity-60"
-                                   : selectedSeats.includes(seat.id)
-                                     ? "bg-gradient-to-br from-cyber-green-500 to-cyber-green-600 text-white border-cyber-green-400 shadow-glow-green scale-110"
-                                     : "bg-glass-white-strong text-cyber-slate-300 border-white/30 hover:border-cyber-green-400/50 hover:bg-cyber-green-500/20 shadow-cyber-card"
-                               }
-                             `}
-                            >
-                              {seat.id}
-                            </button>
-                          ))}
-                      </div>
-                    </div>
-
-                    {/* VIP Couple Seats */}
-                    <div>
-                      <h4 className="text-lg font-bold text-cyber-purple-300 mb-4">VIP Couple Seats</h4>
-                      <div className="grid grid-cols-3 sm:grid-cols-7 gap-4">
-                        {seats
-                          .filter((seat) => seat.type === "vipCouple")
-                          .map((seat) => (
-                            <button
-                              key={seat.id}
-                              onClick={() => handleSeatClick(seat.id, seat.type, seat.isBooked)}
-                              disabled={seat.isBooked}
-                              className={`
-                               w-16 h-12 sm:w-20 sm:h-14 rounded-3xl border-2 text-xs font-bold transition-all duration-300 transform hover:scale-110 shadow-cyber-card flex items-center justify-center
-                               ${
-                                 seat.isBooked
-                                   ? "bg-brand-red-100/20 text-brand-red-400/60 border-brand-red-300/30 cursor-not-allowed opacity-60"
-                                   : selectedSeats.includes(seat.id)
-                                     ? "bg-gradient-to-br from-cyber-purple-500 to-cyber-purple-600 text-white border-cyber-purple-400 shadow-glow-purple scale-110"
-                                     : "bg-glass-white-strong text-cyber-slate-300 border-white/30 hover:border-cyber-purple-400/50 hover:bg-cyber-purple-500/20 shadow-cyber-card"
-                               }
-                             `}
-                            >
-                              💕{seat.id.replace("C", "")}
-                            </button>
-                          ))}
-                      </div>
-                    </div>
-
-                    {/* VIP Family Seats */}
-                    <div>
-                      <h4 className="text-lg font-bold text-brand-red-300 mb-4">VIP Family Seats (4+ members)</h4>
-                      <div className="grid grid-cols-2 sm:grid-cols-7 gap-4">
-                        {seats
-                          .filter((seat) => seat.type === "vipFamily")
-                          .map((seat) => (
-                            <button
-                              key={seat.id}
-                              onClick={() => handleSeatClick(seat.id, seat.type, seat.isBooked)}
-                              disabled={seat.isBooked}
-                              className={`
-                               w-20 h-16 sm:w-24 sm:h-16 rounded-3xl border-2 text-xs font-bold transition-all duration-300 transform hover:scale-110 shadow-cyber-card flex items-center justify-center
-                               ${
-                                 seat.isBooked
-                                   ? "bg-brand-red-100/20 text-brand-red-400/60 border-brand-red-300/30 cursor-not-allowed opacity-60"
-                                   : selectedSeats.includes(seat.id)
-                                     ? "bg-gradient-to-br from-brand-red-500 to-brand-red-600 text-white border-brand-red-400 shadow-glow-red scale-110"
-                                     : "bg-glass-white-strong text-cyber-slate-300 border-white/30 hover:border-brand-red-400/50 hover:bg-brand-red-500/20 shadow-cyber-card"
-                               }
-                             `}
-                            >
-                              👨‍👩‍👧‍👦{seat.id.replace("F", "")}
-                            </button>
-                          ))}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  // Standard Movie Halls (Hall A, Hall B)
-                  <div className="space-y-8">
-                    <div>
-                      <h4 className="text-lg font-bold text-cyber-green-300 mb-4">Standard Seats</h4>
-                      <div
-                        className={`grid gap-3 ${
-                          getHallTotalSeats(event.hall_id, halls) === 48
-                            ? "grid-cols-6 sm:grid-cols-8"
-                            : "grid-cols-6 sm:grid-cols-10"
-                        }`}
-                      >
-                        {seats
-                          .filter((seat) => seat.type === "standardSingle")
-                          .map((seat) => (
-                            <button
-                              key={seat.id}
-                              onClick={() => handleSeatClick(seat.id, seat.type, seat.isBooked)}
-                              disabled={seat.isBooked}
-                              className={`
-                               w-12 h-12 sm:w-14 sm:h-14 rounded-2xl border-2 text-xs font-bold transition-all duration-300 transform hover:scale-110 shadow-cyber-card flex items-center justify-center
-                               ${
-                                 seat.isBooked
-                                   ? "bg-brand-red-100/20 text-brand-red-400/60 border-brand-red-300/30 cursor-not-allowed opacity-60"
-                                   : selectedSeats.includes(seat.id)
-                                     ? "bg-gradient-to-br from-cyber-green-500 to-cyber-green-600 text-white border-cyber-green-400 shadow-glow-green scale-110"
-                                     : "bg-glass-white-strong text-cyber-slate-300 border-white/30 hover:border-cyber-green-400/50 hover:bg-cyber-green-500/20 shadow-cyber-card"
-                               }
-                             `}
-                            >
-                              {seat.id.split("-")[1]}
-                            </button>
-                          ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Legend */}
-                <div className="flex flex-col sm:flex-row justify-center gap-4 sm:gap-10 mt-8 sm:mt-10 text-base sm:text-lg">
-                  <div className="flex items-center justify-center gap-3">
-                    <div className="w-5 h-5 sm:w-6 sm:h-6 bg-glass-white-strong border-2 sm:border-3 border-white/30 rounded-xl sm:rounded-2xl shadow-cyber-card"></div>
-                    <span className="text-cyber-slate-300 font-semibold">Available</span>
-                  </div>
-                  <div className="flex items-center justify-center gap-3">
-                    <div className="w-5 h-5 sm:w-6 sm:h-6 bg-gradient-to-br from-brand-red-500 to-brand-red-600 border-2 sm:border-3 border-brand-red-400 rounded-xl sm:rounded-2xl shadow-glow-red"></div>
-                    <span className="text-cyber-slate-300 font-semibold">Selected</span>
-                  </div>
-                  <div className="flex items-center justify-center gap-3">
-                    <div className="w-5 h-5 sm:w-6 sm:h-6 bg-brand-red-100/20 border-2 sm:border-3 border-brand-red-300/30 rounded-xl sm:rounded-2xl shadow-cyber-card"></div>
-                    <span className="text-cyber-slate-300 font-semibold">Occupied</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-glass-white-strong backdrop-blur-xl shadow-cyber-card border border-white/20">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center gap-3 text-2xl font-bold">
-                  <Shield className="w-6 h-6 text-brand-red-400" />
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="text-white flex items-center gap-2 sm:gap-3 text-lg sm:text-xl lg:text-2xl font-bold">
+                  <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-brand-red-400" />
                   Customer Information
                 </CardTitle>
-                <CardDescription className="text-cyber-slate-300 text-lg">
+                <CardDescription className="text-cyber-slate-300 text-sm sm:text-base lg:text-lg">
                   Please provide your contact details for booking confirmation
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6 p-6">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-                  <div className="space-y-3">
-                    <Label htmlFor="name" className="text-cyber-slate-200 font-semibold text-base sm:text-lg">
+              <CardContent className="space-y-4 sm:space-y-6 p-4 sm:p-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 lg:gap-6">
+                  <div className="space-y-2 sm:space-y-3">
+                    <Label
+                      htmlFor="name"
+                      className="text-cyber-slate-200 font-semibold text-sm sm:text-base lg:text-lg"
+                    >
                       Full Name
                     </Label>
                     <Input
@@ -915,11 +651,14 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                       value={customerInfo.name}
                       onChange={(e) => setCustomerInfo({ ...customerInfo, name: e.target.value })}
                       placeholder="Enter your full name"
-                      className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 h-12 sm:h-14 text-base sm:text-lg rounded-2xl shadow-cyber-card focus:border-brand-red-400 focus:ring-brand-red-400"
+                      className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 h-10 sm:h-12 lg:h-14 text-sm sm:text-base rounded-2xl shadow-cyber-card focus:border-brand-red-400 focus:ring-brand-red-400"
                     />
                   </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="email" className="text-cyber-slate-200 font-semibold text-base sm:text-lg">
+                  <div className="grid gap-2 sm:gap-3">
+                    <Label
+                      htmlFor="email"
+                      className="text-cyber-slate-200 font-semibold text-sm sm:text-base lg:text-lg"
+                    >
                       Email Address
                     </Label>
                     <Input
@@ -928,12 +667,12 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                       value={customerInfo.email}
                       onChange={(e) => setCustomerInfo({ ...customerInfo, email: e.target.value })}
                       placeholder="Enter your email"
-                      className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 h-12 sm:h-14 text-base sm:text-lg rounded-2xl shadow-cyber-card focus:border-brand-red-400 focus:ring-brand-400"
+                      className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 h-10 sm:h-12 lg:h-14 text-sm sm:text-base rounded-2xl shadow-cyber-card focus:border-brand-red-400 focus:ring-brand-red-400"
                     />
                   </div>
                 </div>
-                <div className="space-y-3">
-                  <Label htmlFor="phone" className="text-cyber-slate-200 font-semibold text-base sm:text-lg">
+                <div className="space-y-2 sm:space-y-3">
+                  <Label htmlFor="phone" className="text-cyber-slate-200 font-semibold text-sm sm:text-base lg:text-lg">
                     Phone Number
                   </Label>
                   <Input
@@ -941,67 +680,68 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                     value={customerInfo.phone}
                     onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value })}
                     placeholder="Enter your phone number"
-                    className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 h-12 sm:h-14 text-base sm:text-lg rounded-2xl shadow-cyber-card focus:border-brand-red-400 focus:ring-brand-red-400"
+                    className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 h-10 sm:h-12 lg:h-14 text-sm sm:text-base rounded-2xl shadow-cyber-card focus:border-brand-red-400 focus:ring-brand-red-400"
                   />
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Booking Summary */}
-          <div className="space-y-6">
+          {/* Booking Summary - Responsive sidebar */}
+          <div className="space-y-4 sm:space-y-6">
             <Card className="sticky top-4 bg-glass-white-strong backdrop-blur-xl shadow-cyber-card border border-white/20">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center gap-3 text-lg sm:text-xl font-bold">
-                  <CreditCard className="w-5 h-5 sm:w-6 sm:h-6 text-brand-red-400" />
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="text-white flex items-center gap-2 sm:gap-3 text-base sm:text-lg lg:text-xl font-bold">
+                  <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-brand-red-400" />
                   Booking Summary
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4 sm:space-y-6">
+              <CardContent className="space-y-3 sm:space-y-4 lg:space-y-6 p-4 sm:p-6">
                 <div>
-                  <h4 className="font-bold mb-3 sm:mb-4 text-cyber-slate-200 text-base sm:text-lg">Selected Seats</h4>
+                  <h4 className="font-bold mb-2 sm:mb-3 lg:mb-4 text-cyber-slate-200 text-sm sm:text-base lg:text-lg">
+                    Selected Seats
+                  </h4>
                   {selectedSeats.length > 0 ? (
-                    <div className="space-y-3">
-                      <div className="flex flex-wrap gap-2 sm:gap-3">
+                    <div className="space-y-2 sm:space-y-3">
+                      <div className="flex flex-wrap gap-1 sm:gap-2 lg:gap-3">
                         {selectedSeats.map((seat) => (
                           <Badge
                             key={seat}
                             variant="outline"
-                            className="bg-gradient-to-r from-brand-red-50/20 to-brand-red-100/20 text-brand-red-300 border-brand-red-300/50 px-3 sm:px-4 py-1 sm:py-2 text-sm sm:text-lg font-semibold rounded-xl sm:rounded-2xl"
+                            className="bg-gradient-to-r from-brand-red-50/20 to-brand-red-100/20 text-brand-red-300 border-brand-red-300/50 px-2 sm:px-3 lg:px-4 py-1 sm:py-2 text-xs sm:text-sm lg:text-base font-semibold rounded-xl sm:rounded-2xl"
                           >
                             {seat}
                           </Badge>
                         ))}
                       </div>
-                      <div className="bg-glass-white p-3 rounded-2xl">
-                        <p className="text-cyber-slate-300 font-semibold">
+                      <div className="bg-glass-white p-2 sm:p-3 rounded-2xl">
+                        <p className="text-cyber-slate-300 font-semibold text-xs sm:text-sm">
                           Seat Type: <span className="text-brand-red-300">{getSeatTypeName(selectedSeatType)}</span>
                         </p>
-                        <p className="text-cyber-slate-300 font-semibold">
+                        <p className="text-cyber-slate-300 font-semibold text-xs sm:text-sm">
                           Quantity: <span className="text-brand-red-300">{selectedSeats.length}</span>
                         </p>
                       </div>
                     </div>
                   ) : (
-                    <p className="text-cyber-slate-400 text-base sm:text-lg">No seats selected</p>
+                    <p className="text-cyber-slate-400 text-sm sm:text-base lg:text-lg">No seats selected</p>
                   )}
                 </div>
 
                 <Separator className="bg-white/20" />
 
-                <div className="space-y-3 sm:space-y-4">
-                  <div className="flex justify-between text-base sm:text-lg">
+                <div className="space-y-2 sm:space-y-3 lg:space-y-4">
+                  <div className="flex justify-between text-sm sm:text-base lg:text-lg">
                     <span className="text-cyber-slate-300">
                       {selectedSeatType && `${getSeatTypeName(selectedSeatType)} (${selectedSeats.length})`}
                     </span>
                     <span className="text-white font-bold">₦{totalAmount.toLocaleString()}</span>
                   </div>
-                  {/* Processing fee removed intentionally */}
                 </div>
 
                 <Separator className="bg-white/20" />
 
-                <div className="flex justify-between font-bold text-xl sm:text-2xl">
+                <div className="flex justify-between font-bold text-lg sm:text-xl lg:text-2xl">
                   <span className="bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
                     Total Amount
                   </span>
@@ -1011,11 +751,11 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 </div>
 
                 <Button
-                  className="w-full bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 text-white shadow-glow-red rounded-3xl transform hover:scale-105 transition-all duration-300 group font-bold text-base sm:text-lg py-4 sm:py-6 h-auto"
+                  className="w-full bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 text-white shadow-glow-red rounded-3xl transform hover:scale-105 transition-all duration-300 group font-bold text-sm sm:text-base lg:text-lg py-3 sm:py-4 lg:py-6 h-auto"
                   onClick={handleBooking}
                   disabled={selectedSeats.length === 0}
                 >
-                  <CreditCard className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3 group-hover:rotate-12 transition-transform" />
+                  <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 mr-2 sm:mr-3 group-hover:rotate-12 transition-transform" />
                   Proceed to Secure Payment
                   <div className="absolute inset-0 bg-gradient-to-r from-brand-red-400/20 to-brand-red-600/20 rounded-3xl blur-xl group-hover:blur-2xl transition-all duration-500"></div>
                 </Button>
@@ -1027,10 +767,10 @@ export default function BookingPage({ params }: { params: { id: string } }) {
             </Card>
 
             <Card className="bg-glass-white-strong backdrop-blur-xl shadow-cyber-card border border-white/20">
-              <CardHeader>
-                <CardTitle className="text-lg text-cyber-slate-200 font-bold">Event Details</CardTitle>
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="text-base sm:text-lg text-cyber-slate-200 font-bold">Event Details</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4 text-base">
+              <CardContent className="space-y-3 sm:space-y-4 text-sm sm:text-base p-4 sm:p-6">
                 <div className="flex justify-between">
                   <span className="text-cyber-slate-400">Date</span>
                   <span className="text-cyber-slate-200 font-semibold">
