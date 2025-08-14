@@ -3,7 +3,6 @@
 import type React from "react"
 
 import { useState } from "react"
-import { signIn, getSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -28,21 +27,23 @@ export default function AdminLogin() {
     setError("")
 
     try {
-      const result = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
+      const response = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
       })
 
-      if (result?.error) {
-        setError("Invalid email or password")
+      const data = await response.json()
+
+      if (!response.ok) {
+        setError(data.error || "Invalid email or password")
       } else {
-        // Check if user is authenticated and redirect
-        const session = await getSession()
-        if (session) {
-          router.push("/admin")
-          router.refresh()
-        }
+        // Store admin session in localStorage
+        localStorage.setItem("adminSession", JSON.stringify(data.admin))
+        router.push("/admin")
+        router.refresh()
       }
     } catch (error) {
       setError("An error occurred. Please try again.")
