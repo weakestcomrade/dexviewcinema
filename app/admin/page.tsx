@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { useSession, signOut } from "next-auth/react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -20,6 +22,14 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
   CalendarIcon,
   Clock,
   Edit,
@@ -31,19 +41,18 @@ import {
   Trophy,
   Users,
   TrendingUp,
-  Shield,
   Activity,
   Sparkles,
   BarChart3,
   Monitor,
   MapPin,
-  Star,
   Printer,
   Filter,
   Search,
   ImageIcon,
-  ShoppingCart,
   Building,
+  LogOut,
+  User,
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -409,7 +418,10 @@ const getSeatTypeName = (type: string) => {
 }
 
 export default function AdminDashboard() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
   const { toast } = useToast()
+
   const [events, setEvents] = useState<Event[]>([])
   const [actualBookings, setActualBookings] = useState<Booking[]>([]) // State for actual bookings
   const [halls, setHalls] = useState<Hall[]>([]) // New state for halls
@@ -445,6 +457,10 @@ export default function AdminDashboard() {
   const [revenueTimeFrame, setRevenueTimeFrame] = useState<RevenueTimeFrame>("all")
   const [customRevenueStartDate, setCustomRevenueStartDate] = useState<string>("")
   const [customRevenueEndDate, setCustomRevenueEndDate] = useState<string>("")
+
+  const handleLogout = async () => {
+    await signOut({ callbackUrl: "/admin/login" })
+  }
 
   const fetchHalls = useCallback(async () => {
     try {
@@ -1214,7 +1230,7 @@ export default function AdminDashboard() {
       input.style.color = ""
       input.style.boxShadow = ""
       input.style.borderRadius = ""
-      input.style.display = "none" // Hide it again
+      input.style.display = "" // Hide it again
       input.innerHTML = "" // Clear the content
 
       textElements.forEach((el) => {
@@ -1453,9 +1469,14 @@ export default function AdminDashboard() {
           <div className="flex flex-col sm:flex-row justify-between items-center h-auto sm:h-20 py-4 sm:py-0 gap-4 sm:gap-0">
             <div className="flex items-center space-x-4 w-full sm:w-auto justify-center sm:justify-start">
               <div className="relative group">
-                <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-brand-red-500 via-brand-red-600 to-brand-red-700 rounded-4xl flex items-center justify-center shadow-glow-red transform group-hover:scale-110 transition-all duration-300">
-                  <Settings className="w-6 h-6 sm:w-8 sm:h-8 text-white group-hover:rotate-180 transition-transform duration-500" />
-                </div>
+                <Image
+                  src="/dexcinema-logo.jpeg"
+                  alt="Dex View Cinema Logo"
+                  width={56}
+                  height={56}
+                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-4xl shadow-glow-red transform group-hover:scale-110 transition-all duration-300"
+                  priority
+                />
                 <div className="absolute -top-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 bg-white rounded-full flex items-center justify-center shadow-lg">
                   <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-brand-red-500 rounded-full animate-pulse"></div>
                 </div>
@@ -1466,7 +1487,7 @@ export default function AdminDashboard() {
                   Admin Dashboard
                 </h1>
                 <p className="text-xs sm:text-sm font-medium bg-gradient-to-r from-brand-red-400 to-brand-red-300 bg-clip-text text-transparent">
-                  Dex View Cinema Management System
+                  Cinema Management System
                 </p>
               </div>
             </div>
@@ -1475,1642 +1496,44 @@ export default function AdminDashboard() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="border-brand-red-500/50 text-brand-red-300 hover:bg-brand-red-500/20 bg-glass-white backdrop-blur-sm shadow-cyber-card hover:shadow-cyber-hover transition-all duration-300 group rounded-2xl w-full sm:w-auto h-10 sm:h-9"
+                  className="border-cyber-blue-500/50 text-cyber-blue-300 hover:bg-cyber-blue-500/20 bg-glass-white backdrop-blur-sm shadow-cyber-card hover:shadow-cyber-hover transition-all duration-300 group rounded-2xl w-full sm:w-auto h-10 sm:h-9"
                 >
-                  <Shield className="w-4 h-4 mr-2 group-hover:rotate-12 transition-transform" />
-                  Back to Site
+                  <Film className="w-4 h-4 mr-2 group-hover:rotate-12 transition-transform" />
+                  View Cinema
                 </Button>
               </Link>
-              <Dialog open={isCreateEventOpen} onOpenChange={setIsCreateEventOpen}>
-                <DialogTrigger asChild>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
                   <Button
+                    variant="outline"
                     size="sm"
-                    className="bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 shadow-glow-red text-white group rounded-2xl w-full sm:w-auto h-10 sm:h-9"
+                    className="border-brand-red-500/50 text-brand-red-300 hover:bg-brand-red-500/20 bg-glass-white backdrop-blur-sm shadow-cyber-card hover:shadow-cyber-hover transition-all duration-300 group rounded-2xl w-full sm:w-auto h-10 sm:h-9"
                   >
-                    <Plus className="w-4 h-4 mr-2 group-hover:rotate-180 transition-transform duration-300" />
-                    Create Event
+                    <User className="w-4 h-4 mr-2" />
+                    {session?.user?.name || session?.user?.email}
                   </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto bg-glass-dark-strong backdrop-blur-xl border border-white/20 text-white shadow-cyber-hover rounded-4xl">
-                  <DialogHeader>
-                    <DialogTitle className="text-white text-xl font-bold bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
-                      Create New Event
-                    </DialogTitle>
-                    <DialogDescription className="text-cyber-slate-300">
-                      Add a new movie or sports event with detailed seating arrangements and pricing.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-6 py-4">
-                    {/* Basic Event Information */}
-                    <div className="grid gap-4">
-                      <h3 className="text-lg font-semibold text-brand-red-300 border-b border-white/20 pb-2">
-                        Event Information
-                      </h3>
-                      <div className="grid gap-3">
-                        <Label htmlFor="title" className="text-cyber-slate-200 font-semibold">
-                          Event Title
-                        </Label>
-                        <Input
-                          id="title"
-                          value={newEvent.title}
-                          onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
-                          placeholder="e.g., El Clasico or Avengers: Endgame"
-                          className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
-                        />
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="grid gap-3">
-                          <Label htmlFor="type" className="text-cyber-slate-200 font-semibold">
-                            Event Type
-                          </Label>
-                          <Select
-                            value={newEvent.event_type}
-                            onValueChange={(value: EventType) => handleEventTypeChange(value)}
-                          >
-                            <SelectTrigger className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className="bg-glass-dark-strong border-white/20 backdrop-blur-xl rounded-2xl">
-                              <SelectItem value="movie">Movie</SelectItem>
-                              <SelectItem value="match">Sports Match</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="grid gap-3">
-                          <Label htmlFor="category" className="text-cyber-slate-200 font-semibold">
-                            Event Category
-                          </Label>
-                          <Select
-                            value={newEvent.category}
-                            onValueChange={(value: EventCategory) => handleCategoryChange(value)}
-                          >
-                            <SelectTrigger className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className="bg-glass-dark-strong border-white/20 backdrop-blur-xl rounded-2xl">
-                              {newEvent.event_type === "match" ? (
-                                <>
-                                  <SelectItem value="Premium Match">Premium Match</SelectItem>
-                                  <SelectItem value="Big Match">Big Match</SelectItem>
-                                  <SelectItem value="Champions League">Champions League</SelectItem>
-                                  <SelectItem value="Derby Match">Derby Match</SelectItem>
-                                </>
-                              ) : (
-                                <>
-                                  <SelectItem value="Blockbuster">Blockbuster</SelectItem>
-                                  <SelectItem value="Drama">Drama</SelectItem>
-                                  <SelectItem value="Action">Action</SelectItem>
-                                </>
-                              )}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="grid gap-3">
-                          <Label htmlFor="date" className="text-cyber-slate-200 font-semibold">
-                            Date
-                          </Label>
-                          <Input
-                            id="date"
-                            type="date"
-                            value={newEvent.event_date}
-                            onChange={(e) => setNewEvent({ ...newEvent, event_date: e.target.value })}
-                            className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl"
-                          />
-                        </div>
-                        <div className="grid gap-3">
-                          <Label htmlFor="time" className="text-cyber-slate-200 font-semibold">
-                            Time
-                          </Label>
-                          <Input
-                            id="time"
-                            type="time"
-                            value={newEvent.event_time}
-                            onChange={(e) => setNewEvent({ ...newEvent, event_time: e.target.value })}
-                            className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl"
-                          />
-                        </div>
-                        <div className="grid gap-3">
-                          <Label htmlFor="duration" className="text-cyber-slate-200 font-semibold">
-                            Duration
-                          </Label>
-                          <Input
-                            id="duration"
-                            value={newEvent.duration}
-                            onChange={(e) => setNewEvent({ ...newEvent, duration: e.target.value })}
-                            placeholder="e.g., 120 minutes"
-                            className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
-                          />
-                        </div>
-                      </div>
-                      <div className="grid gap-3">
-                        <Label htmlFor="hall" className="text-cyber-slate-200 font-semibold">
-                          Hall/Venue
-                        </Label>
-                        <Select
-                          value={newEvent.hall_id}
-                          onValueChange={(value) => {
-                            const newTotalSeats = getHallTotalSeats(halls, value)
-                            let updatedPricing = { ...newEvent.pricing }
-
-                            if (newEvent.event_type === "movie") {
-                              if (getHallType(halls, value) === "vip") {
-                                updatedPricing = defaultVipMoviePricing
-                              } else if (value === "hallA") {
-                                updatedPricing = defaultStandardMoviePricingHallA
-                              } else if (value === "hallB") {
-                                updatedPricing = defaultStandardMoviePricingHallB
-                              }
-                            } else if (newEvent.event_type === "match") {
-                              if (getHallType(halls, value) === "vip") {
-                                updatedPricing = defaultVipMatchPricing
-                              } else if (value === "hallA") {
-                                updatedPricing = defaultStandardMatchPricingHallA
-                              } else if (value === "hallB") {
-                                updatedPricing = defaultStandardMatchPricingHallB
-                              }
-                            }
-
-                            setNewEvent({
-                              ...newEvent,
-                              hall_id: value,
-                              total_seats: newTotalSeats,
-                              pricing: updatedPricing,
-                            })
-                          }}
-                        >
-                          <SelectTrigger className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl">
-                            <SelectValue placeholder="Select a hall" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-glass-dark-strong border-white/20 backdrop-blur-xl rounded-2xl">
-                            {halls.map((hall) => (
-                              <SelectItem key={hall._id} value={hall._id}>
-                                {hall.name} ({hall.capacity} seats)
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="grid gap-3">
-                        <Label htmlFor="description" className="text-cyber-slate-200 font-semibold">
-                          Description
-                        </Label>
-                        <Textarea
-                          id="description"
-                          value={newEvent.description}
-                          onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
-                          placeholder="Brief description of the event..."
-                          className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
-                        />
-                      </div>
-                      <div className="grid gap-3">
-                        <Label htmlFor="image_url" className="text-cyber-slate-200 font-semibold">
-                          Image URL
-                        </Label>
-                        <Input
-                          id="image_url"
-                          type="url"
-                          value={newEvent.image_url}
-                          onChange={(e) => setNewEvent({ ...newEvent, image_url: e.target.value })}
-                          placeholder="e.g., https://example.com/event-poster.jpg"
-                          className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
-                        />
-                      </div>
-                      <div className="grid gap-3">
-                        <Label htmlFor="status" className="text-cyber-slate-200 font-semibold">
-                          Status
-                        </Label>
-                        <Select
-                          value={newEvent.status}
-                          onValueChange={(value: "active" | "draft" | "cancelled") =>
-                            setNewEvent({ ...newEvent, status: value })
-                          }
-                        >
-                          <SelectTrigger className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-glass-dark-strong border-white/20 backdrop-blur-xl rounded-2xl">
-                            <SelectItem value="active">Active</SelectItem>
-                            <SelectItem value="draft">Draft</SelectItem>
-                            <SelectItem value="cancelled">Cancelled</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    {/* Pricing Structure */}
-                    <div className="grid gap-4">
-                      <h3 className="text-lg font-semibold text-brand-red-300 border-b border-white/20 pb-2">
-                        Seating & Pricing Structure
-                      </h3>
-
-                      {newEvent.event_type === "match" ? (
-                        getHallType(halls, newEvent.hall_id) === "vip" ? (
-                          <>
-                            <div className="bg-glass-white-strong p-4 rounded-3xl border border-white/10">
-                              <h4 className="text-cyber-slate-200 font-semibold mb-3 flex items-center gap-2">
-                                <Trophy className="w-4 h-4 text-brand-red-400" />
-                                VIP Sofa Seats (Premium Comfort)
-                              </h4>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="grid gap-2">
-                                  <Label className="text-cyber-slate-300">Price per seat (₦)</Label>
-                                  <Input
-                                    type="number"
-                                    value={newEvent.pricing.vipSofaSeats?.price || 0}
-                                    onChange={(e) =>
-                                      setNewEvent({
-                                        ...newEvent,
-                                        pricing: {
-                                          ...newEvent.pricing,
-                                          vipSofaSeats: {
-                                            ...newEvent.pricing.vipSofaSeats!,
-                                            price: Number(e.target.value),
-                                          },
-                                        },
-                                      })
-                                    }
-                                    className="bg-glass-dark border-white/20 text-white rounded-xl"
-                                  />
-                                </div>
-                                <div className="grid gap-2">
-                                  <Label className="text-cyber-slate-300">Total seats</Label>
-                                  <Input
-                                    type="number"
-                                    value={newEvent.pricing.vipSofaSeats?.count || 0}
-                                    onChange={(e) =>
-                                      setNewEvent({
-                                        ...newEvent,
-                                        pricing: {
-                                          ...newEvent.pricing,
-                                          vipSofaSeats: {
-                                            ...newEvent.pricing.vipSofaSeats!,
-                                            count: Number(e.target.value),
-                                          },
-                                        },
-                                      })
-                                    }
-                                    className="bg-glass-dark border-white/20 text-white rounded-xl"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="bg-glass-white-strong p-4 rounded-3xl border border-white/10">
-                              <h4 className="text-cyber-slate-200 font-semibold mb-3 flex items-center gap-2">
-                                <Star className="w-4 h-4 text-brand-red-400" />
-                                VIP Regular Seats
-                              </h4>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="grid gap-2">
-                                  <Label className="text-cyber-slate-300">Price per seat (₦)</Label>
-                                  <Input
-                                    type="number"
-                                    value={newEvent.pricing.vipRegularSeats?.price || 0}
-                                    onChange={(e) =>
-                                      setNewEvent({
-                                        ...newEvent,
-                                        pricing: {
-                                          ...newEvent.pricing,
-                                          vipRegularSeats: {
-                                            ...newEvent.pricing.vipRegularSeats!,
-                                            price: Number(e.target.value),
-                                          },
-                                        },
-                                      })
-                                    }
-                                    className="bg-glass-dark border-white/20 text-white rounded-xl"
-                                  />
-                                </div>
-                                <div className="grid gap-2">
-                                  <Label className="text-cyber-slate-300">Total seats</Label>
-                                  <Input
-                                    type="number"
-                                    value={newEvent.pricing.vipRegularSeats?.count || 0}
-                                    onChange={(e) =>
-                                      setNewEvent({
-                                        ...newEvent,
-                                        pricing: {
-                                          ...newEvent.pricing,
-                                          vipRegularSeats: {
-                                            ...newEvent.pricing.vipRegularSeats!,
-                                            count: Number(e.target.value),
-                                          },
-                                        },
-                                      })
-                                    }
-                                    className="bg-glass-dark border-white/20 text-white rounded-xl"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </>
-                        ) : (
-                          // Standard Match pricing (Hall A or Hall B)
-                          <div className="bg-glass-white-strong p-4 rounded-3xl border border-white/10">
-                            <h4 className="text-cyber-slate-200 font-semibold mb-3 flex items-center gap-2">
-                              <Users className="w-4 h-4 text-brand-red-400" />
-                              Standard Match Tickets
-                            </h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="grid gap-2">
-                                <Label className="text-cyber-slate-300">Price per ticket (₦)</Label>
-                                <Input
-                                  type="number"
-                                  value={newEvent.pricing.standardMatchSeats?.price || 0}
-                                  onChange={(e) =>
-                                    setNewEvent({
-                                      ...newEvent,
-                                      pricing: {
-                                        ...newEvent.pricing,
-                                        standardMatchSeats: {
-                                          ...newEvent.pricing.standardMatchSeats!,
-                                          price: Number(e.target.value),
-                                        },
-                                      },
-                                    })
-                                  }
-                                  className="bg-glass-dark border-white/20 text-white rounded-xl"
-                                />
-                              </div>
-                              <div className="grid gap-2">
-                                <Label className="text-cyber-slate-300">Total tickets</Label>
-                                <Input
-                                  type="number"
-                                  value={newEvent.pricing.standardMatchSeats?.count || 0}
-                                  onChange={(e) =>
-                                    setNewEvent({
-                                      ...newEvent,
-                                      pricing: {
-                                        ...newEvent.pricing,
-                                        standardMatchSeats: {
-                                          ...newEvent.pricing.standardMatchSeats!,
-                                          count: Number(e.target.value),
-                                        },
-                                      },
-                                    })
-                                  }
-                                  className="bg-glass-dark border-white/20 text-white rounded-xl"
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        )
-                      ) : getHallType(halls, newEvent.hall_id) === "vip" ? (
-                        // VIP Movie pricing
-                        <>
-                          <div className="bg-glass-white-strong p-4 rounded-3xl border border-white/10">
-                            <h4 className="text-cyber-slate-200 font-semibold mb-3 flex items-center gap-2">
-                              <Users className="w-4 h-4 text-brand-red-400" />
-                              VIP Single Tickets
-                            </h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="grid gap-2">
-                                <Label className="text-cyber-slate-300">Price per ticket (₦)</Label>
-                                <Input
-                                  type="number"
-                                  value={newEvent.pricing.vipSingle?.price || 0}
-                                  onChange={(e) =>
-                                    setNewEvent({
-                                      ...newEvent,
-                                      pricing: {
-                                        ...newEvent.pricing,
-                                        vipSingle: { ...newEvent.pricing.vipSingle!, price: Number(e.target.value) },
-                                      },
-                                    })
-                                  }
-                                  className="bg-glass-dark border-white/20 text-white rounded-xl"
-                                />
-                              </div>
-                              <div className="grid gap-2">
-                                <Label className="text-cyber-slate-300">Available tickets</Label>
-                                <Input
-                                  type="number"
-                                  value={newEvent.pricing.vipSingle?.count || 0}
-                                  onChange={(e) =>
-                                    setNewEvent({
-                                      ...newEvent,
-                                      pricing: {
-                                        ...newEvent.pricing,
-                                        vipSingle: { ...newEvent.pricing.vipSingle!, count: Number(e.target.value) },
-                                      },
-                                    })
-                                  }
-                                  className="bg-glass-dark border-white/20 text-white rounded-xl"
-                                />
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="bg-glass-white-strong p-4 rounded-3xl border border-white/10">
-                            <h4 className="text-cyber-slate-200 font-semibold mb-3 flex items-center gap-2">
-                              <Users className="w-4 h-4 text-brand-red-400" />
-                              VIP Couple Tickets
-                            </h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="grid gap-2">
-                                <Label className="text-cyber-slate-300">Price per couple ticket (₦)</Label>
-                                <Input
-                                  type="number"
-                                  value={newEvent.pricing.vipCouple?.price || 0}
-                                  onChange={(e) =>
-                                    setNewEvent({
-                                      ...newEvent,
-                                      pricing: {
-                                        ...newEvent.pricing,
-                                        vipCouple: { ...newEvent.pricing.vipCouple!, price: Number(e.target.value) },
-                                      },
-                                    })
-                                  }
-                                  className="bg-glass-dark border-white/20 text-white rounded-xl"
-                                />
-                              </div>
-                              <div className="grid gap-2">
-                                <Label className="text-cyber-slate-300">Available tickets</Label>
-                                <Input
-                                  type="number"
-                                  value={newEvent.pricing.vipCouple?.count || 0}
-                                  onChange={(e) =>
-                                    setNewEvent({
-                                      ...newEvent,
-                                      pricing: {
-                                        ...newEvent.pricing,
-                                        vipCouple: { ...newEvent.pricing.vipCouple!, count: Number(e.target.value) },
-                                      },
-                                    })
-                                  }
-                                  className="bg-glass-dark border-white/20 text-white rounded-xl"
-                                />
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="bg-glass-white-strong p-4 rounded-3xl border border-white/10">
-                            <h4 className="text-cyber-slate-200 font-semibold mb-3 flex items-center gap-2">
-                              <Users className="w-4 h-4 text-brand-red-400" />
-                              VIP Family Tickets (4+ members)
-                            </h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="grid gap-2">
-                                <Label className="text-cyber-slate-300">Price per family ticket (₦)</Label>
-                                <Input
-                                  type="number"
-                                  value={newEvent.pricing.vipFamily?.price || 0}
-                                  onChange={(e) =>
-                                    setNewEvent({
-                                      ...newEvent,
-                                      pricing: {
-                                        ...newEvent.pricing,
-                                        vipFamily: { ...newEvent.pricing.vipFamily!, price: Number(e.target.value) },
-                                      },
-                                    })
-                                  }
-                                  className="bg-glass-dark border-white/20 text-white rounded-xl"
-                                />
-                              </div>
-                              <div className="grid gap-2">
-                                <Label className="text-cyber-slate-300">Available tickets</Label>
-                                <Input
-                                  type="number"
-                                  value={newEvent.pricing.vipFamily?.count || 0}
-                                  onChange={(e) =>
-                                    setNewEvent({
-                                      ...newEvent,
-                                      pricing: {
-                                        ...newEvent.pricing,
-                                        vipFamily: { ...newEvent.pricing.vipFamily!, count: Number(e.target.value) },
-                                      },
-                                    })
-                                  }
-                                  className="bg-glass-dark border-white/20 text-white rounded-xl"
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        </>
-                      ) : (
-                        // Standard Movie pricing (for hallA, hallB)
-                        <>
-                          <div className="bg-glass-white-strong p-4 rounded-3xl border border-white/10">
-                            <h4 className="text-cyber-slate-200 font-semibold mb-3 flex items-center gap-2">
-                              <Users className="w-4 h-4 text-brand-red-400" />
-                              Standard Single Tickets
-                            </h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="grid gap-2">
-                                <Label className="text-cyber-slate-300">Price per ticket (₦)</Label>
-                                <Input
-                                  type="number"
-                                  value={newEvent.pricing.standardSingle?.price || 0}
-                                  onChange={(e) =>
-                                    setNewEvent({
-                                      ...newEvent,
-                                      pricing: {
-                                        ...newEvent.pricing,
-                                        standardSingle: {
-                                          ...newEvent.pricing.standardSingle!,
-                                          price: Number(e.target.value),
-                                        },
-                                      },
-                                    })
-                                  }
-                                  className="bg-glass-dark border-white/20 text-white rounded-xl"
-                                />
-                              </div>
-                              <div className="grid gap-2">
-                                <Label className="text-cyber-slate-300">Total tickets</Label>
-                                <Input
-                                  type="number"
-                                  value={newEvent.pricing.standardSingle?.count || 0}
-                                  onChange={(e) =>
-                                    setNewEvent({
-                                      ...newEvent,
-                                      pricing: {
-                                        ...newEvent.pricing,
-                                        standardSingle: {
-                                          ...newEvent.pricing.standardSingle!,
-                                          count: Number(e.target.value),
-                                        },
-                                      },
-                                    })
-                                  }
-                                  className="bg-glass-dark border-white/20 text-white rounded-xl"
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setIsCreateEventOpen(false)
-                        setNewEvent(initialNewEventState) // Reset form on cancel
-                      }}
-                      className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={handleCreateEvent}
-                      className="bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 text-white rounded-2xl"
-                    >
-                      Create Event
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-
-              {/* Edit Event Dialog */}
-              <Dialog open={isEditEventOpen} onOpenChange={setIsEditEventOpen}>
-                <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto bg-glass-dark-strong backdrop-blur-xl border border-white/20 text-white shadow-cyber-hover rounded-4xl">
-                  <DialogHeader>
-                    <DialogTitle className="text-white text-xl font-bold bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
-                      Edit Event
-                    </DialogTitle>
-                    <DialogDescription className="text-cyber-slate-300">
-                      Modify details for the selected event.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-6 py-4">
-                    {/* Basic Event Information */}
-                    <div className="grid gap-4">
-                      <h3 className="text-lg font-semibold text-brand-red-300 border-b border-white/20 pb-2">
-                        Event Information
-                      </h3>
-                      <div className="grid gap-3">
-                        <Label htmlFor="title" className="text-cyber-slate-200 font-semibold">
-                          Event Title
-                        </Label>
-                        <Input
-                          id="title"
-                          value={newEvent.title}
-                          onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
-                          placeholder="e.g., El Clasico or Avengers: Endgame"
-                          className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
-                        />
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="grid gap-3">
-                          <Label htmlFor="type" className="text-cyber-slate-200 font-semibold">
-                            Event Type
-                          </Label>
-                          <Select
-                            value={newEvent.event_type}
-                            onValueChange={(value: EventType) => handleEventTypeChange(value)}
-                          >
-                            <SelectTrigger className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className="bg-glass-dark-strong border-white/20 backdrop-blur-xl rounded-2xl">
-                              <SelectItem value="movie">Movie</SelectItem>
-                              <SelectItem value="match">Sports Match</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="grid gap-3">
-                          <Label htmlFor="category" className="text-cyber-slate-200 font-semibold">
-                            Event Category
-                          </Label>
-                          <Select
-                            value={newEvent.category}
-                            onValueChange={(value: EventCategory) => handleCategoryChange(value)}
-                          >
-                            <SelectTrigger className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className="bg-glass-dark-strong border-white/20 backdrop-blur-xl rounded-2xl">
-                              {newEvent.event_type === "match" ? (
-                                <>
-                                  <SelectItem value="Premium Match">Premium Match</SelectItem>
-                                  <SelectItem value="Big Match">Big Match</SelectItem>
-                                  <SelectItem value="Champions League">Champions League</SelectItem>
-                                  <SelectItem value="Derby Match">Derby Match</SelectItem>
-                                </>
-                              ) : (
-                                <>
-                                  <SelectItem value="Blockbuster">Blockbuster</SelectItem>
-                                  <SelectItem value="Drama">Drama</SelectItem>
-                                  <SelectItem value="Action">Action</SelectItem>
-                                </>
-                              )}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="grid gap-3">
-                          <Label htmlFor="date" className="text-cyber-slate-200 font-semibold">
-                            Date
-                          </Label>
-                          <Input
-                            id="date"
-                            type="date"
-                            value={newEvent.event_date}
-                            onChange={(e) => setNewEvent({ ...newEvent, event_date: e.target.value })}
-                            className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl"
-                          />
-                        </div>
-                        <div className="grid gap-3">
-                          <Label htmlFor="time" className="text-cyber-slate-200 font-semibold">
-                            Time
-                          </Label>
-                          <Input
-                            id="time"
-                            type="time"
-                            value={newEvent.event_time}
-                            onChange={(e) => setNewEvent({ ...newEvent, event_time: e.target.value })}
-                            className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl"
-                          />
-                        </div>
-                        <div className="grid gap-3">
-                          <Label htmlFor="duration" className="text-cyber-slate-200 font-semibold">
-                            Duration
-                          </Label>
-                          <Input
-                            id="duration"
-                            value={newEvent.duration}
-                            onChange={(e) => setNewEvent({ ...newEvent, duration: e.target.value })}
-                            placeholder="e.g., 120 minutes"
-                            className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
-                          />
-                        </div>
-                      </div>
-                      <div className="grid gap-3">
-                        <Label htmlFor="hall" className="text-cyber-slate-200 font-semibold">
-                          Hall/Venue
-                        </Label>
-                        <Select
-                          value={newEvent.hall_id}
-                          onValueChange={(value) => {
-                            const newTotalSeats = getHallTotalSeats(halls, value)
-                            let updatedPricing = { ...newEvent.pricing }
-
-                            if (newEvent.event_type === "movie") {
-                              if (getHallType(halls, value) === "vip") {
-                                updatedPricing = defaultVipMoviePricing
-                              } else if (value === "hallA") {
-                                updatedPricing = defaultStandardMoviePricingHallA
-                              } else if (value === "hallB") {
-                                updatedPricing = defaultStandardMoviePricingHallB
-                              }
-                            } else if (newEvent.event_type === "match") {
-                              if (getHallType(halls, value) === "vip") {
-                                updatedPricing = defaultVipMatchPricing
-                              } else if (value === "hallA") {
-                                updatedPricing = defaultStandardMatchPricingHallA
-                              } else if (value === "hallB") {
-                                updatedPricing = defaultStandardMatchPricingHallB
-                              }
-                            }
-                            setNewEvent({
-                              ...newEvent,
-                              hall_id: value,
-                              total_seats: newTotalSeats,
-                              pricing: updatedPricing,
-                            })
-                          }}
-                        >
-                          <SelectTrigger className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl">
-                            <SelectValue placeholder="Select a hall" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-glass-dark-strong border-white/20 backdrop-blur-xl rounded-2xl">
-                            {halls.map((hall) => (
-                              <SelectItem key={hall._id} value={hall._id}>
-                                {hall.name} ({hall.capacity} seats)
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="grid gap-3">
-                        <Label htmlFor="description" className="text-cyber-slate-200 font-semibold">
-                          Description
-                        </Label>
-                        <Textarea
-                          id="description"
-                          value={newEvent.description}
-                          onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
-                          placeholder="Brief description of the event..."
-                          className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
-                        />
-                      </div>
-                      <div className="grid gap-3">
-                        <Label htmlFor="image_url" className="text-cyber-slate-200 font-semibold">
-                          Image URL
-                        </Label>
-                        <Input
-                          id="image_url"
-                          type="url"
-                          value={newEvent.image_url}
-                          onChange={(e) => setNewEvent({ ...newEvent, image_url: e.target.value })}
-                          placeholder="e.g., https://example.com/event-poster.jpg"
-                          className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
-                        />
-                      </div>
-                      <div className="grid gap-3">
-                        <Label htmlFor="status" className="text-cyber-slate-200 font-semibold">
-                          Status
-                        </Label>
-                        <Select
-                          value={newEvent.status}
-                          onValueChange={(value: "active" | "draft" | "cancelled") =>
-                            setNewEvent({ ...newEvent, status: value })
-                          }
-                        >
-                          <SelectTrigger className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-glass-dark-strong border-white/20 backdrop-blur-xl rounded-2xl">
-                            <SelectItem value="active">Active</SelectItem>
-                            <SelectItem value="draft">Draft</SelectItem>
-                            <SelectItem value="cancelled">Cancelled</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    {/* Pricing Structure */}
-                    <div className="grid gap-4">
-                      <h3 className="text-lg font-semibold text-brand-red-300 border-b border-white/20 pb-2">
-                        Seating & Pricing Structure
-                      </h3>
-
-                      {newEvent.event_type === "match" ? (
-                        getHallType(halls, newEvent.hall_id) === "vip" ? (
-                          <>
-                            <div className="bg-glass-white-strong p-4 rounded-3xl border border-white/10">
-                              <h4 className="text-cyber-slate-200 font-semibold mb-3 flex items-center gap-2">
-                                <Trophy className="w-4 h-4 text-brand-red-400" />
-                                VIP Sofa Seats (Premium Comfort)
-                              </h4>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="grid gap-2">
-                                  <Label className="text-cyber-slate-300">Price per seat (₦)</Label>
-                                  <Input
-                                    type="number"
-                                    value={newEvent.pricing.vipSofaSeats?.price || 0}
-                                    onChange={(e) =>
-                                      setNewEvent({
-                                        ...newEvent,
-                                        pricing: {
-                                          ...newEvent.pricing,
-                                          vipSofaSeats: {
-                                            ...newEvent.pricing.vipSofaSeats!,
-                                            price: Number(e.target.value),
-                                          },
-                                        },
-                                      })
-                                    }
-                                    className="bg-glass-dark border-white/20 text-white rounded-xl"
-                                  />
-                                </div>
-                                <div className="grid gap-2">
-                                  <Label className="text-cyber-slate-300">Total seats</Label>
-                                  <Input
-                                    type="number"
-                                    value={newEvent.pricing.vipSofaSeats?.count || 0}
-                                    onChange={(e) =>
-                                      setNewEvent({
-                                        ...newEvent,
-                                        pricing: {
-                                          ...newEvent.pricing,
-                                          vipSofaSeats: {
-                                            ...newEvent.pricing.vipSofaSeats!,
-                                            count: Number(e.target.value),
-                                          },
-                                        },
-                                      })
-                                    }
-                                    className="bg-glass-dark border-white/20 text-white rounded-xl"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="bg-glass-white-strong p-4 rounded-3xl border border-white/10">
-                              <h4 className="text-cyber-slate-200 font-semibold mb-3 flex items-center gap-2">
-                                <Star className="w-4 h-4 text-brand-red-400" />
-                                VIP Regular Seats
-                              </h4>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="grid gap-2">
-                                  <Label className="text-cyber-slate-300">Price per seat (₦)</Label>
-                                  <Input
-                                    type="number"
-                                    value={newEvent.pricing.vipRegularSeats?.price || 0}
-                                    onChange={(e) =>
-                                      setNewEvent({
-                                        ...newEvent,
-                                        pricing: {
-                                          ...newEvent.pricing,
-                                          vipRegularSeats: {
-                                            ...newEvent.pricing.vipRegularSeats!,
-                                            price: Number(e.target.value),
-                                          },
-                                        },
-                                      })
-                                    }
-                                    className="bg-glass-dark border-white/20 text-white rounded-xl"
-                                  />
-                                </div>
-                                <div className="grid gap-2">
-                                  <Label className="text-cyber-slate-300">Total seats</Label>
-                                  <Input
-                                    type="number"
-                                    value={newEvent.pricing.vipRegularSeats?.count || 0}
-                                    onChange={(e) =>
-                                      setNewEvent({
-                                        ...newEvent,
-                                        pricing: {
-                                          ...newEvent.pricing,
-                                          vipRegularSeats: {
-                                            ...newEvent.pricing.vipRegularSeats!,
-                                            count: Number(e.target.value),
-                                          },
-                                        },
-                                      })
-                                    }
-                                    className="bg-glass-dark border-white/20 text-white rounded-xl"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </>
-                        ) : (
-                          // Standard Match pricing (Hall A or Hall B)
-                          <div className="bg-glass-white-strong p-4 rounded-3xl border border-white/10">
-                            <h4 className="text-cyber-slate-200 font-semibold mb-3 flex items-center gap-2">
-                              <Users className="w-4 h-4 text-brand-red-400" />
-                              Standard Match Tickets
-                            </h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="grid gap-2">
-                                <Label className="text-cyber-slate-300">Price per ticket (₦)</Label>
-                                <Input
-                                  type="number"
-                                  value={newEvent.pricing.standardMatchSeats?.price || 0}
-                                  onChange={(e) =>
-                                    setNewEvent({
-                                      ...newEvent,
-                                      pricing: {
-                                        ...newEvent.pricing,
-                                        standardMatchSeats: {
-                                          ...newEvent.pricing.standardMatchSeats!,
-                                          price: Number(e.target.value),
-                                        },
-                                      },
-                                    })
-                                  }
-                                  className="bg-glass-dark border-white/20 text-white rounded-xl"
-                                />
-                              </div>
-                              <div className="grid gap-2">
-                                <Label className="text-cyber-slate-300">Total tickets</Label>
-                                <Input
-                                  type="number"
-                                  value={newEvent.pricing.standardMatchSeats?.count || 0}
-                                  onChange={(e) =>
-                                    setNewEvent({
-                                      ...newEvent,
-                                      pricing: {
-                                        ...newEvent.pricing,
-                                        standardMatchSeats: {
-                                          ...newEvent.pricing.standardMatchSeats!,
-                                          count: Number(e.target.value),
-                                        },
-                                      },
-                                    })
-                                  }
-                                  className="bg-glass-dark border-white/20 text-white rounded-xl"
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        )
-                      ) : getHallType(halls, newEvent.hall_id) === "vip" ? (
-                        // VIP Movie pricing
-                        <>
-                          <div className="bg-glass-white-strong p-4 rounded-3xl border border-white/10">
-                            <h4 className="text-cyber-slate-200 font-semibold mb-3 flex items-center gap-2">
-                              <Users className="w-4 h-4 text-brand-red-400" />
-                              VIP Single Tickets
-                            </h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="grid gap-2">
-                                <Label className="text-cyber-slate-300">Price per ticket (₦)</Label>
-                                <Input
-                                  type="number"
-                                  value={newEvent.pricing.vipSingle?.price || 0}
-                                  onChange={(e) =>
-                                    setNewEvent({
-                                      ...newEvent,
-                                      pricing: {
-                                        ...newEvent.pricing,
-                                        vipSingle: { ...newEvent.pricing.vipSingle!, price: Number(e.target.value) },
-                                      },
-                                    })
-                                  }
-                                  className="bg-glass-dark border-white/20 text-white rounded-xl"
-                                />
-                              </div>
-                              <div className="grid gap-2">
-                                <Label className="text-cyber-slate-300">Available tickets</Label>
-                                <Input
-                                  type="number"
-                                  value={newEvent.pricing.vipSingle?.count || 0}
-                                  onChange={(e) =>
-                                    setNewEvent({
-                                      ...newEvent,
-                                      pricing: {
-                                        ...newEvent.pricing,
-                                        vipSingle: { ...newEvent.pricing.vipSingle!, count: Number(e.target.value) },
-                                      },
-                                    })
-                                  }
-                                  className="bg-glass-dark border-white/20 text-white rounded-xl"
-                                />
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="bg-glass-white-strong p-4 rounded-3xl border border-white/10">
-                            <h4 className="text-cyber-slate-200 font-semibold mb-3 flex items-center gap-2">
-                              <Users className="w-4 h-4 text-brand-red-400" />
-                              VIP Couple Tickets
-                            </h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="grid gap-2">
-                                <Label className="text-cyber-slate-300">Price per couple ticket (₦)</Label>
-                                <Input
-                                  type="number"
-                                  value={newEvent.pricing.vipCouple?.price || 0}
-                                  onChange={(e) =>
-                                    setNewEvent({
-                                      ...newEvent,
-                                      pricing: {
-                                        ...newEvent.pricing,
-                                        vipCouple: { ...newEvent.pricing.vipCouple!, price: Number(e.target.value) },
-                                      },
-                                    })
-                                  }
-                                  className="bg-glass-dark border-white/20 text-white rounded-xl"
-                                />
-                              </div>
-                              <div className="grid gap-2">
-                                <Label className="text-cyber-slate-300">Available tickets</Label>
-                                <Input
-                                  type="number"
-                                  value={newEvent.pricing.vipCouple?.count || 0}
-                                  onChange={(e) =>
-                                    setNewEvent({
-                                      ...newEvent,
-                                      pricing: {
-                                        ...newEvent.pricing,
-                                        vipCouple: { ...newEvent.pricing.vipCouple!, count: Number(e.target.value) },
-                                      },
-                                    })
-                                  }
-                                  className="bg-glass-dark border-white/20 text-white rounded-xl"
-                                />
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="bg-glass-white-strong p-4 rounded-3xl border border-white/10">
-                            <h4 className="text-cyber-slate-200 font-semibold mb-3 flex items-center gap-2">
-                              <Users className="w-4 h-4 text-brand-red-400" />
-                              VIP Family Tickets (4+ members)
-                            </h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="grid gap-2">
-                                <Label className="text-cyber-slate-300">Price per family ticket (₦)</Label>
-                                <Input
-                                  type="number"
-                                  value={newEvent.pricing.vipFamily?.price || 0}
-                                  onChange={(e) =>
-                                    setNewEvent({
-                                      ...newEvent,
-                                      pricing: {
-                                        ...newEvent.pricing,
-                                        vipFamily: { ...newEvent.pricing.vipFamily!, price: Number(e.target.value) },
-                                      },
-                                    })
-                                  }
-                                  className="bg-glass-dark border-white/20 text-white rounded-xl"
-                                />
-                              </div>
-                              <div className="grid gap-2">
-                                <Label className="text-cyber-slate-300">Available tickets</Label>
-                                <Input
-                                  type="number"
-                                  value={newEvent.pricing.vipFamily?.count || 0}
-                                  onChange={(e) =>
-                                    setNewEvent({
-                                      ...newEvent,
-                                      pricing: {
-                                        ...newEvent.pricing,
-                                        vipFamily: { ...newEvent.pricing.vipFamily!, count: Number(e.target.value) },
-                                      },
-                                    })
-                                  }
-                                  className="bg-glass-dark border-white/20 text-white rounded-xl"
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        </>
-                      ) : (
-                        // Standard Movie pricing (for hallA, hallB)
-                        <>
-                          <div className="bg-glass-white-strong p-4 rounded-3xl border border-white/10">
-                            <h4 className="text-cyber-slate-200 font-semibold mb-3 flex items-center gap-2">
-                              <Users className="w-4 h-4 text-brand-red-400" />
-                              Standard Single Tickets
-                            </h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="grid gap-2">
-                                <Label className="text-cyber-slate-300">Price per ticket (₦)</Label>
-                                <Input
-                                  type="number"
-                                  value={newEvent.pricing.standardSingle?.price || 0}
-                                  onChange={(e) =>
-                                    setNewEvent({
-                                      ...newEvent,
-                                      pricing: {
-                                        ...newEvent.pricing,
-                                        standardSingle: {
-                                          ...newEvent.pricing.standardSingle!,
-                                          price: Number(e.target.value),
-                                        },
-                                      },
-                                    })
-                                  }
-                                  className="bg-glass-dark border-white/20 text-white rounded-xl"
-                                />
-                              </div>
-                              <div className="grid gap-2">
-                                <Label className="text-cyber-slate-300">Total tickets</Label>
-                                <Input
-                                  type="number"
-                                  value={newEvent.pricing.standardSingle?.count || 0}
-                                  onChange={(e) =>
-                                    setNewEvent({
-                                      ...newEvent,
-                                      pricing: {
-                                        ...newEvent.pricing,
-                                        standardSingle: {
-                                          ...newEvent.pricing.standardSingle!,
-                                          count: Number(e.target.value),
-                                        },
-                                      },
-                                    })
-                                  }
-                                  className="bg-glass-dark border-white/20 text-white rounded-xl"
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setIsEditEventOpen(false)
-                        setNewEvent(initialNewEventState) // Reset form on cancel
-                      }}
-                      className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={handleUpdateEvent}
-                      className="bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-600 hover:via-brand-700 hover:to-brand-800 text-white rounded-2xl"
-                    >
-                      Save Changes
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-              {/* New Create Booking Dialog Trigger */}
-              <Dialog open={isCreateBookingOpen} onOpenChange={setIsCreateBookingOpen}>
-                <DialogTrigger asChild>
-                  <Button
-                    size="sm"
-                    className="bg-gradient-to-r from-cyber-blue-500 via-cyber-blue-600 to-cyber-blue-700 hover:from-cyber-blue-600 hover:via-cyber-blue-700 hover:to-cyber-blue-800 shadow-glow-blue text-white group rounded-2xl w-full sm:w-auto h-10 sm:h-9"
-                    onClick={() => {
-                      setNewBooking(initialNewBookingState) // Reset form when opening
-                      setSelectedEventForBooking(null) // Reset selected event
-                      setSelectedSeatsForAdminBooking([]) // Clear selected seats
-                      setCurrentEventSeats([]) // Clear seat map
-                    }}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56 bg-glass-white-strong backdrop-blur-xl border-white/20">
+                  <DropdownMenuLabel className="text-white">Admin Account</DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-white/20" />
+                  <DropdownMenuItem className="text-cyber-slate-300 hover:text-white hover:bg-white/10">
+                    <User className="w-4 h-4 mr-2" />
+                    Profile Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-cyber-slate-300 hover:text-white hover:bg-white/10">
+                    <Settings className="w-4 h-4 mr-2" />
+                    System Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-white/20" />
+                  <DropdownMenuItem
+                    onClick={handleLogout}
+                    className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
                   >
-                    <ShoppingCart className="w-4 h-4 mr-2 group-hover:rotate-12 transition-transform duration-300" />
-                    Create Booking
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto bg-glass-dark-strong backdrop-blur-xl border border-white/20 text-white shadow-cyber-hover rounded-4xl">
-                  <DialogHeader>
-                    <DialogTitle className="text-white text-xl font-bold bg-gradient-to-r from-white to-cyber-blue-200 bg-clip-text text-transparent">
-                      Create New Booking (Cash)
-                    </DialogTitle>
-                    <DialogDescription className="text-cyber-slate-300">
-                      Manually create a booking for walk-in customers paying with cash.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-6 py-4">
-                    {/* Customer Information */}
-                    <div className="grid gap-4">
-                      <h3 className="text-lg font-semibold text-cyber-blue-300 border-b border-white/20 pb-2">
-                        Customer Information
-                      </h3>
-                      <div className="grid gap-3">
-                        <Label htmlFor="customerName" className="text-cyber-slate-200 font-semibold">
-                          Customer Name
-                        </Label>
-                        <Input
-                          id="customerName"
-                          value={newBooking.customerName}
-                          onChange={(e) => setNewBooking({ ...newBooking, customerName: e.target.value })}
-                          placeholder="John Doe"
-                          className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
-                        />
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="grid gap-3">
-                          <Label htmlFor="customerEmail" className="text-cyber-slate-200 font-semibold">
-                            Customer Email
-                          </Label>
-                          <Input
-                            id="customerEmail"
-                            type="email"
-                            value={newBooking.customerEmail}
-                            onChange={(e) => setNewBooking({ ...newBooking, customerEmail: e.target.value })}
-                            placeholder="john.doe@example.com"
-                            className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
-                          />
-                        </div>
-                        <div className="grid gap-3">
-                          <Label htmlFor="customerPhone" className="text-cyber-slate-200 font-semibold">
-                            Customer Phone
-                          </Label>
-                          <Input
-                            id="customerPhone"
-                            type="tel"
-                            value={newBooking.customerPhone}
-                            onChange={(e) => setNewBooking({ ...newBooking, customerPhone: e.target.value })}
-                            placeholder="+2348012345678"
-                            className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Event & Seat Information */}
-                    <div className="grid gap-4">
-                      <h3 className="text-lg font-semibold text-cyber-blue-300 border-b border-white/20 pb-2">
-                        Event & Seat Details
-                      </h3>
-                      <div className="grid gap-3">
-                        <Label htmlFor="bookingEvent" className="text-cyber-slate-200 font-semibold">
-                          Select Event
-                        </Label>
-                        <Select value={newBooking.eventId} onValueChange={handleNewBookingEventChange}>
-                          <SelectTrigger className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl">
-                            <SelectValue placeholder="Select an event" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-glass-dark-strong border-white/20 backdrop-blur-xl rounded-2xl">
-                            {events.map((event) => (
-                              <SelectItem key={event._id} value={event._id}>
-                                {event.title} ({getHallDisplayName(halls, event.hall_id)}) -{" "}
-                                {new Date(event.event_date).toLocaleDateString()} @ {event.event_time}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {selectedEventForBooking && (
-                        <>
-                          {/* Seat Map Section */}
-                          <div className="space-y-6">
-                            <Card className="bg-glass-white-strong backdrop-blur-xl shadow-cyber-card border border-white/20">
-                              <CardHeader>
-                                <CardTitle className="text-white flex items-center gap-3 text-2xl font-bold">
-                                  Seat Map - {getHallDisplayName(halls, selectedEventForBooking.hall_id)}
-                                </CardTitle>
-                                <CardDescription className="text-cyber-slate-300 text-lg">
-                                  Select seats for this booking
-                                </CardDescription>
-                              </CardHeader>
-                              <CardContent className="p-6">
-                                {/* Screen/Field */}
-                                <div className="mb-10">
-                                  <div className="bg-gradient-to-r from-brand-red-100/20 via-brand-red-50/20 to-brand-red-100/20 text-white text-center py-6 rounded-5xl mb-8 border-2 border-brand-red-500/30 shadow-cyber-card backdrop-blur-sm">
-                                    <span className="text-lg font-bold flex items-center justify-center gap-3">
-                                      <Sparkles className="w-6 h-6 text-brand-red-400 animate-spin-slow" />
-                                      {selectedEventForBooking.event_type === "match"
-                                        ? "🏟️ FOOTBALL FIELD VIEW 🏟️"
-                                        : "🎬 PREMIUM SCREEN VIEW 🎬"}
-                                      <Sparkles className="w-6 h-6 text-brand-red-400 animate-spin-slow" />
-                                    </span>
-                                  </div>
-                                </div>
-
-                                {/* Seat Map */}
-                                {selectedEventForBooking.event_type === "match" ? (
-                                  getHallType(halls, selectedEventForBooking.hall_id) === "vip" ? (
-                                    <div className="space-y-8">
-                                      {/* VIP Sofa Seats */}
-                                      <div>
-                                        <h4 className="text-lg font-bold text-brand-red-300 mb-4 flex items-center gap-2">
-                                          <Trophy className="w-5 h-5" />
-                                          VIP Sofa Seats - Premium Comfort
-                                        </h4>
-                                        <div className="space-y-4">
-                                          {["S1", "S2"].map((row) => (
-                                            <div key={row} className="flex items-center gap-4">
-                                              <div className="w-8 text-center font-bold text-brand-red-400 text-lg flex-shrink-0">
-                                                {row}
-                                              </div>
-                                              <div className="flex gap-4 flex-wrap justify-center sm:justify-start">
-                                                {currentEventSeats
-                                                  .filter((seat) => seat.row === row && seat.type === "sofa")
-                                                  .map((seat) => (
-                                                    <button
-                                                      key={seat.id}
-                                                      onClick={() =>
-                                                        handleAdminSeatClick(
-                                                          seat.id,
-                                                          seat.type,
-                                                          seat.isBooked,
-                                                          seat.price,
-                                                        )
-                                                      }
-                                                      disabled={seat.isBooked}
-                                                      className={`
-                                                        w-16 h-16 sm:w-20 sm:h-16 rounded-3xl border-3 text-sm font-bold transition-all duration-300 transform hover:scale-110 shadow-cyber-card flex items-center justify-center
-                                                        ${
-                                                          seat.isBooked
-                                                            ? "bg-brand-red-100/20 text-brand-red-400/60 border-brand-red-300/30 cursor-not-allowed opacity-60"
-                                                            : selectedSeatsForAdminBooking.includes(seat.id)
-                                                              ? "bg-gradient-to-br from-brand-red-500 to-brand-red-600 text-white border-brand-red-400 shadow-glow-red scale-110"
-                                                              : "bg-glass-white-strong text-cyber-slate-300 border-white/30 hover:border-brand-red-400/50 hover:bg-brand-red-500/20 shadow-cyber-card"
-                                                        }
-                                                      `}
-                                                    >
-                                                      🛋️
-                                                    </button>
-                                                  ))}
-                                              </div>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-
-                                      {/* VIP Regular Seats */}
-                                      <div>
-                                        <h4 className="text-lg font-bold text-cyber-blue-300 mb-4 flex items-center gap-2">
-                                          <Star className="w-5 h-5" />
-                                          VIP Regular Seats
-                                        </h4>
-                                        <div className="space-y-4">
-                                          {["A", "B"].map((row) => (
-                                            <div key={row} className="flex items-center gap-4">
-                                              <div className="w-8 text-center font-bold text-cyber-blue-400 text-lg flex-shrink-0">
-                                                {row}
-                                              </div>
-                                              <div className="flex gap-4 flex-wrap justify-center sm:justify-start">
-                                                {currentEventSeats
-                                                  .filter((seat) => seat.row === row && seat.type === "regular")
-                                                  .map((seat) => (
-                                                    <button
-                                                      key={seat.id}
-                                                      onClick={() =>
-                                                        handleAdminSeatClick(
-                                                          seat.id,
-                                                          seat.type,
-                                                          seat.isBooked,
-                                                          seat.price,
-                                                        )
-                                                      }
-                                                      disabled={seat.isBooked}
-                                                      className={`
-                                                        w-16 h-16 rounded-3xl border-3 text-lg font-bold transition-all duration-300 transform hover:scale-110 shadow-cyber-card
-                                                        ${
-                                                          seat.isBooked
-                                                            ? "bg-brand-red-100/20 text-brand-red-400/60 border-brand-red-300/30 cursor-not-allowed opacity-60"
-                                                            : selectedSeatsForAdminBooking.includes(seat.id)
-                                                              ? "bg-gradient-to-br from-cyber-blue-500 to-cyber-blue-600 text-white border-cyber-blue-400 shadow-glow-blue scale-110"
-                                                              : "bg-glass-white-strong text-cyber-slate-300 border-white/30 hover:border-cyber-blue-400/50 hover:bg-cyber-blue-500/20 shadow-cyber-card"
-                                                        }
-                                                      `}
-                                                    >
-                                                      {seat.number}
-                                                    </button>
-                                                  ))}
-                                              </div>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    // Standard Match Hall (Hall A or Hall B)
-                                    <div className="space-y-8">
-                                      <div>
-                                        <h4 className="text-lg font-bold text-cyber-green-300 mb-4">
-                                          Standard Match Seats
-                                        </h4>
-                                        <div
-                                          className={`grid gap-3 ${
-                                            selectedEventForBooking.hall_id === "hallA"
-                                              ? "grid-cols-6 sm:grid-cols-8"
-                                              : "grid-cols-6 sm:grid-cols-10"
-                                          }`}
-                                        >
-                                          {currentEventSeats
-                                            .filter((seat) => seat.type === "standardMatch")
-                                            .map((seat) => (
-                                              <button
-                                                key={seat.id}
-                                                onClick={() =>
-                                                  handleAdminSeatClick(seat.id, seat.type, seat.isBooked, seat.price)
-                                                }
-                                                disabled={seat.isBooked}
-                                                className={`
-                                                  w-12 h-12 sm:w-14 sm:h-14 rounded-2xl border-2 text-xs font-bold transition-all duration-300 transform hover:scale-110 shadow-cyber-card
-                                                  ${
-                                                    seat.isBooked
-                                                      ? "bg-brand-red-100/20 text-brand-red-400/60 border-brand-red-300/30 cursor-not-allowed opacity-60"
-                                                      : selectedSeatsForAdminBooking.includes(seat.id)
-                                                        ? "bg-gradient-to-br from-cyber-green-500 to-cyber-green-600 text-white border-cyber-green-400 shadow-glow-green scale-110"
-                                                        : "bg-glass-white-strong text-cyber-slate-300 border-white/30 hover:border-cyber-green-400/50 hover:bg-cyber-green-500/20 shadow-cyber-card"
-                                                  }
-                                                `}
-                                              >
-                                                {seat.id.split("-")[1]}
-                                              </button>
-                                            ))}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )
-                                ) : getHallType(halls, selectedEventForBooking.hall_id) === "vip" ? (
-                                  <div className="space-y-8">
-                                    {/* VIP Single Seats */}
-                                    <div>
-                                      <h4 className="text-lg font-bold text-cyber-green-300 mb-4">VIP Single Seats</h4>
-                                      <div className="grid grid-cols-5 sm:grid-cols-10 gap-3">
-                                        {currentEventSeats
-                                          .filter((seat) => seat.type === "vipSingle")
-                                          .map((seat) => (
-                                            <button
-                                              key={seat.id}
-                                              onClick={() =>
-                                                handleAdminSeatClick(seat.id, seat.type, seat.isBooked, seat.price)
-                                              }
-                                              disabled={seat.isBooked}
-                                              className={`
-                                                w-12 h-12 sm:w-14 sm:h-14 rounded-2xl border-2 text-xs font-bold transition-all duration-300 transform hover:scale-110 shadow-cyber-card
-                                                ${
-                                                  seat.isBooked
-                                                    ? "bg-brand-red-100/20 text-brand-red-400/60 border-brand-red-300/30 cursor-not-allowed opacity-60"
-                                                    : selectedSeatsForAdminBooking.includes(seat.id)
-                                                      ? "bg-gradient-to-br from-cyber-green-500 to-cyber-green-600 text-white border-cyber-green-400 shadow-glow-green scale-110"
-                                                      : "bg-glass-white-strong text-cyber-slate-300 border-white/30 hover:border-cyber-green-400/50 hover:bg-cyber-green-500/20 shadow-cyber-card"
-                                                }
-                                              `}
-                                            >
-                                              {seat.id}
-                                            </button>
-                                          ))}
-                                      </div>
-                                    </div>
-
-                                    {/* VIP Couple Seats */}
-                                    <div>
-                                      <h4 className="text-lg font-bold text-cyber-purple-300 mb-4">VIP Couple Seats</h4>
-                                      <div className="grid grid-cols-3 sm:grid-cols-7 gap-4">
-                                        {currentEventSeats
-                                          .filter((seat) => seat.type === "vipCouple")
-                                          .map((seat) => (
-                                            <button
-                                              key={seat.id}
-                                              onClick={() =>
-                                                handleAdminSeatClick(seat.id, seat.type, seat.isBooked, seat.price)
-                                              }
-                                              disabled={seat.isBooked}
-                                              className={`
-                                                w-16 h-12 sm:w-20 sm:h-14 rounded-3xl border-2 text-xs font-bold transition-all duration-300 transform hover:scale-110 shadow-cyber-card
-                                                ${
-                                                  seat.isBooked
-                                                    ? "bg-brand-red-100/20 text-brand-red-400/60 border-brand-red-300/30 cursor-not-allowed opacity-60"
-                                                    : selectedSeatsForAdminBooking.includes(seat.id)
-                                                      ? "bg-gradient-to-br from-cyber-purple-500 to-cyber-purple-600 text-white border-cyber-purple-400 shadow-glow-purple scale-110"
-                                                      : "bg-glass-white-strong text-cyber-slate-300 border-white/30 hover:border-cyber-purple-400/50 hover:bg-cyber-purple-500/20 shadow-cyber-card"
-                                                }
-                                              `}
-                                            >
-                                              💕{seat.id.replace("C", "")}
-                                            </button>
-                                          ))}
-                                      </div>
-                                    </div>
-
-                                    {/* VIP Family Seats */}
-                                    <div>
-                                      <h4 className="text-lg font-bold text-brand-red-300 mb-4">
-                                        VIP Family Seats (4+ members)
-                                      </h4>
-                                      <div className="grid grid-cols-2 sm:grid-cols-7 gap-4">
-                                        {currentEventSeats
-                                          .filter((seat) => seat.type === "vipFamily")
-                                          .map((seat) => (
-                                            <button
-                                              key={seat.id}
-                                              onClick={() =>
-                                                handleAdminSeatClick(seat.id, seat.type, seat.isBooked, seat.price)
-                                              }
-                                              disabled={seat.isBooked}
-                                              className={`
-                                                w-20 h-16 sm:w-24 sm:h-16 rounded-3xl border-2 text-xs font-bold transition-all duration-300 transform hover:scale-110 shadow-cyber-card
-                                                ${
-                                                  seat.isBooked
-                                                    ? "bg-brand-red-100/20 text-brand-red-400/60 border-brand-red-300/30 cursor-not-allowed opacity-60"
-                                                    : selectedSeatsForAdminBooking.includes(seat.id)
-                                                      ? "bg-gradient-to-br from-brand-red-500 to-brand-red-600 text-white border-brand-red-400 shadow-glow-red scale-110"
-                                                      : "bg-glass-white-strong text-cyber-slate-300 border-white/30 hover:border-brand-red-400/50 hover:bg-brand-red-500/20 shadow-cyber-card"
-                                                }
-                                              `}
-                                            >
-                                              👨‍👩‍👧‍👦{seat.id.replace("F", "")}
-                                            </button>
-                                          ))}
-                                      </div>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  // Standard Movie Halls (Hall A, Hall B)
-                                  <div className="space-y-8">
-                                    <div>
-                                      <h4 className="text-lg font-bold text-cyber-green-300 mb-4">Standard Seats</h4>
-                                      <div
-                                        className={`grid gap-3 ${
-                                          selectedEventForBooking.hall_id === "hallA"
-                                            ? "grid-cols-6 sm:grid-cols-8"
-                                            : "grid-cols-6 sm:grid-cols-10"
-                                        }`}
-                                      >
-                                        {currentEventSeats
-                                          .filter((seat) => seat.type === "standardSingle")
-                                          .map((seat) => (
-                                            <button
-                                              key={seat.id}
-                                              onClick={() =>
-                                                handleAdminSeatClick(seat.id, seat.type, seat.isBooked, seat.price)
-                                              }
-                                              disabled={seat.isBooked}
-                                              className={`
-                                                w-12 h-12 sm:w-14 sm:h-14 rounded-2xl border-2 text-xs font-bold transition-all duration-300 transform hover:scale-110 shadow-cyber-card
-                                                ${
-                                                  seat.isBooked
-                                                    ? "bg-brand-red-100/20 text-brand-red-400/60 border-brand-red-300/30 cursor-not-allowed opacity-60"
-                                                    : selectedSeatsForAdminBooking.includes(seat.id)
-                                                      ? "bg-gradient-to-br from-cyber-green-500 to-cyber-green-600 text-white border-cyber-green-400 shadow-glow-green scale-110"
-                                                      : "bg-glass-white-strong text-cyber-slate-300 border-white/30 hover:border-cyber-green-400/50 hover:bg-cyber-green-500/20 shadow-cyber-card"
-                                                }
-                                              `}
-                                            >
-                                              {seat.id.split("-")[1]}
-                                            </button>
-                                          ))}
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* Legend */}
-                                <div className="flex flex-col sm:flex-row justify-center gap-4 sm:gap-10 mt-8 sm:mt-10 text-base sm:text-lg">
-                                  <div className="flex items-center justify-center gap-3">
-                                    <div className="w-5 h-5 sm:w-6 sm:h-6 bg-glass-white-strong border-2 sm:border-3 border-white/30 rounded-xl sm:rounded-2xl shadow-cyber-card"></div>
-                                    <span className="text-cyber-slate-300 font-semibold">Available</span>
-                                  </div>
-                                  <div className="flex items-center justify-center gap-3">
-                                    <div className="w-5 h-5 sm:w-6 sm:h-6 bg-gradient-to-br from-brand-red-500 to-brand-red-600 border-2 sm:border-3 border-brand-red-400 rounded-xl sm:rounded-2xl shadow-glow-red"></div>
-                                    <span className="text-cyber-slate-300 font-semibold">Selected</span>
-                                  </div>
-                                  <div className="flex items-center justify-center gap-3">
-                                    <div className="w-5 h-5 sm:w-6 sm:h-6 bg-brand-red-100/20 border-2 sm:border-3 border-brand-red-300/30 rounded-xl sm:rounded-2xl shadow-cyber-card"></div>
-                                    <span className="text-cyber-slate-300 font-semibold">Occupied</span>
-                                  </div>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          </div>
-                        </>
-                      )}
-                    </div>
-
-                    {/* Payment Summary */}
-                    <div className="grid gap-4">
-                      <h3 className="text-lg font-semibold text-cyber-blue-300 border-b border-white/20 pb-2">
-                        Payment Summary
-                      </h3>
-                      <div className="flex justify-between items-center text-cyber-slate-200">
-                        <span>Base Amount:</span>
-                        <span className="font-bold">₦{newBooking.amount.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-cyber-slate-200">
-                        <span>Processing Fee:</span>
-                        <span className="font-bold">₦{newBooking.processingFee.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-white text-xl font-bold border-t border-white/20 pt-4 mt-2">
-                        <span>Total Amount:</span>
-                        <span>₦{newBooking.totalAmount.toLocaleString()}</span>
-                      </div>
-                      <div className="grid gap-3">
-                        <Label htmlFor="paymentMethod" className="text-cyber-slate-200 font-semibold">
-                          Payment Method
-                        </Label>
-                        <Input
-                          id="paymentMethod"
-                          value={newBooking.paymentMethod}
-                          readOnly
-                          className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setIsCreateBookingOpen(false)
-                        setNewBooking(initialNewBookingState) // Reset form on cancel
-                        setSelectedEventForBooking(null) // Reset selected event
-                        setSelectedSeatsForAdminBooking([]) // Clear selected seats
-                        setCurrentEventSeats([]) // Clear seat map
-                      }}
-                      className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={handleCreateBooking}
-                      className="bg-gradient-to-r from-cyber-blue-500 via-cyber-blue-600 to-cyber-blue-700 hover:from-cyber-blue-600 hover:via-cyber-blue-700 hover:to-cyber-blue-800 text-white rounded-2xl"
-                    >
-                      Create Booking
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
@@ -3597,49 +2020,50 @@ export default function AdminDashboard() {
                     <Button
                       size="sm"
                       className="bg-gradient-to-r from-cyber-purple-500 via-cyber-purple-600 to-cyber-purple-700 hover:from-cyber-purple-600 hover:via-cyber-purple-700 hover:to-cyber-purple-800 shadow-glow-purple text-white group rounded-2xl"
-                      onClick={() => setCurrentHall(initialNewHallState)} // Reset form for new hall
+                      onClick={() => setCurrentHall(initialNewHallState)}
                     >
-                      <Plus className="w-4 h-4 mr-2 group-hover:rotate-180 transition-transform duration-300" />
-                      Create Hall
+                      <Plus className="w-4 h-4 mr-2" />
+                      {currentHall._id ? "Edit Hall" : "Create Hall"}
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="sm:max-w-[500px] bg-glass-dark-strong backdrop-blur-xl border border-white/20 text-white shadow-cyber-hover rounded-4xl">
+                  <DialogContent className="bg-glass-dark-strong backdrop-blur-xl border border-white/20 shadow-cyber-card">
                     <DialogHeader>
-                      <DialogTitle className="text-white text-xl font-bold bg-gradient-to-r from-white to-cyber-purple-200 bg-clip-text text-transparent">
-                        {currentHall._id ? "Edit Hall" : "Create New Hall"}
+                      <DialogTitle className="text-white">
+                        {currentHall._id ? "Edit Hall Details" : "Create New Hall"}
                       </DialogTitle>
                       <DialogDescription className="text-cyber-slate-300">
-                        {currentHall._id ? "Modify details for this hall." : "Add a new cinema hall or venue."}
+                        Manage hall details such as name, capacity, and type.
                       </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
-                      <div className="grid gap-3">
-                        <Label htmlFor="hall-name" className="text-cyber-slate-200 font-semibold">
+                      <div className="grid gap-2">
+                        <Label htmlFor="hall-name" className="text-cyber-slate-200">
                           Hall Name
                         </Label>
                         <Input
+                          type="text"
                           id="hall-name"
                           value={currentHall.name}
                           onChange={(e) => setCurrentHall({ ...currentHall, name: e.target.value })}
-                          placeholder="e.g., Hall C, Deluxe Hall"
                           className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
                         />
                       </div>
-                      <div className="grid gap-3">
-                        <Label htmlFor="hall-capacity" className="text-cyber-slate-200 font-semibold">
-                          Capacity (Total Seats)
+                      <div className="grid gap-2">
+                        <Label htmlFor="hall-capacity" className="text-cyber-slate-200">
+                          Capacity
                         </Label>
                         <Input
-                          id="hall-capacity"
                           type="number"
+                          id="hall-capacity"
                           value={currentHall.capacity}
-                          onChange={(e) => setCurrentHall({ ...currentHall, capacity: Number(e.target.value) })}
-                          placeholder="e.g., 50"
+                          onChange={(e) =>
+                            setCurrentHall({ ...currentHall, capacity: Number.parseInt(e.target.value, 10) || 0 })
+                          }
                           className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
                         />
                       </div>
-                      <div className="grid gap-3">
-                        <Label htmlFor="hall-type" className="text-cyber-slate-200 font-semibold">
+                      <div className="grid gap-2">
+                        <Label htmlFor="hall-type" className="text-cyber-slate-200">
                           Hall Type
                         </Label>
                         <Select
@@ -3658,17 +2082,19 @@ export default function AdminDashboard() {
                     </div>
                     <DialogFooter>
                       <Button
-                        variant="outline"
+                        type="button"
+                        variant="secondary"
                         onClick={() => setIsCreateEditHallOpen(false)}
                         className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl"
                       >
                         Cancel
                       </Button>
                       <Button
+                        type="submit"
                         onClick={currentHall._id ? handleUpdateHall : handleCreateHall}
-                        className="bg-gradient-to-r from-cyber-purple-500 via-cyber-purple-600 to-cyber-purple-700 hover:from-cyber-purple-600 hover:via-cyber-purple-700 hover:to-cyber-purple-800 text-white rounded-2xl"
+                        className="bg-gradient-to-r from-cyber-purple-500 via-cyber-purple-600 to-cyber-purple-700 hover:from-cyber-purple-600 hover:via-cyber-purple-700 hover:to-cyber-purple-800 shadow-glow-purple text-white group rounded-2xl"
                       >
-                        {currentHall._id ? "Save Changes" : "Create Hall"}
+                        {currentHall._id ? "Update Hall" : "Create Hall"}
                       </Button>
                     </DialogFooter>
                   </DialogContent>
@@ -3678,8 +2104,7 @@ export default function AdminDashboard() {
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
-                      <TableRow className="border-white/20 hover:bg-glass-white">
-                        <TableHead className="text-cyber-slate-200 font-semibold">Hall ID</TableHead>
+                      <TableRow className="border-white/20">
                         <TableHead className="text-cyber-slate-200 font-semibold">Name</TableHead>
                         <TableHead className="text-cyber-slate-200 font-semibold">Capacity</TableHead>
                         <TableHead className="text-cyber-slate-200 font-semibold">Type</TableHead>
@@ -3687,53 +2112,33 @@ export default function AdminDashboard() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {halls.length > 0 ? (
-                        halls.map((hall) => (
-                          <TableRow key={hall._id} className="border-white/20 hover:bg-glass-white transition-colors">
-                            <TableCell className="font-medium text-white font-mono">{hall._id}</TableCell>
-                            <TableCell className="text-cyber-slate-200">{hall.name}</TableCell>
-                            <TableCell className="text-cyber-slate-200">{hall.capacity} seats</TableCell>
-                            <TableCell>
-                              <Badge
+                      {halls.map((hall) => (
+                        <TableRow key={hall._id} className="border-white/20 hover:bg-glass-white transition-colors">
+                          <TableCell className="font-medium text-white">{hall.name}</TableCell>
+                          <TableCell className="text-cyber-slate-200">{hall.capacity}</TableCell>
+                          <TableCell className="text-cyber-slate-200">{hall.type}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
                                 variant="outline"
-                                className={
-                                  hall.type === "vip"
-                                    ? "bg-brand-red-500/30 text-brand-red-300 border-brand-red-500/50 rounded-2xl"
-                                    : "bg-cyber-blue-500/30 text-cyber-blue-300 border-cyber-blue-500/50 rounded-2xl"
-                                }
+                                onClick={() => handleEditHallClick(hall)}
+                                className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl"
                               >
-                                {hall.type.toUpperCase()}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleEditHallClick(hall)}
-                                  className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl"
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleDeleteHall(hall._id, hall.name)}
-                                  className="border-brand-red-500/50 text-brand-red-400 hover:bg-brand-red-500/20 bg-transparent backdrop-blur-sm rounded-2xl"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={5} className="text-center text-cyber-slate-400 py-8">
-                            No halls found. Create one to get started!
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDeleteHall(hall._id, hall.name)}
+                                className="border-brand-red-500/50 text-brand-red-400 hover:bg-brand-red-500/20 bg-transparent backdrop-blur-sm rounded-2xl"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
-                      )}
+                      ))}
                     </TableBody>
                   </Table>
                 </div>
@@ -3741,26 +2146,27 @@ export default function AdminDashboard() {
             </Card>
           </TabsContent>
 
+          {/* Reports Tab Content */}
           <TabsContent value="reports">
             <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card">
               <CardHeader>
                 <CardTitle className="text-white text-xl font-bold">Booking Reports</CardTitle>
                 <CardDescription className="text-cyber-slate-300">
-                  Generate and view reports on customer bookings with various filters.
+                  Generate detailed reports on bookings based on various filters.
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                   <div className="grid gap-2">
                     <Label htmlFor="report-start-date" className="text-cyber-slate-200">
                       Start Date
                     </Label>
                     <Input
-                      id="report-start-date"
                       type="date"
+                      id="report-start-date"
                       value={reportStartDate}
                       onChange={(e) => setReportStartDate(e.target.value)}
-                      className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl"
+                      className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
                     />
                   </div>
                   <div className="grid gap-2">
@@ -3768,11 +2174,11 @@ export default function AdminDashboard() {
                       End Date
                     </Label>
                     <Input
-                      id="report-end-date"
                       type="date"
+                      id="report-end-date"
                       value={reportEndDate}
                       onChange={(e) => setReportEndDate(e.target.value)}
-                      className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl"
+                      className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
                     />
                   </div>
                   <div className="grid gap-2">
@@ -3789,7 +2195,7 @@ export default function AdminDashboard() {
                       <SelectContent className="bg-glass-dark-strong border-white/20 backdrop-blur-xl rounded-2xl">
                         <SelectItem value="all">All Types</SelectItem>
                         <SelectItem value="movie">Movie</SelectItem>
-                        <SelectItem value="match">Sports Match</SelectItem>
+                        <SelectItem value="match">Match</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -3808,12 +2214,11 @@ export default function AdminDashboard() {
                         <SelectItem value="all">All Statuses</SelectItem>
                         <SelectItem value="confirmed">Confirmed</SelectItem>
                         <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="cancelled">Cancelled</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="report-event-filter" className="text-cyber-slate-200">
+                    <Label htmlFor="report-event" className="text-cyber-slate-200">
                       Filter by Event
                     </Label>
                     <Select
@@ -3835,17 +2240,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                <div className="flex justify-end mb-4">
-                  <Button
-                    onClick={handleExportPdf}
-                    className="bg-gradient-to-r from-cyber-green-500 via-cyber-green-600 to-cyber-green-700 hover:from-cyber-green-600 hover:via-cyber-green-700 hover:to-cyber-green-800 text-white rounded-2xl"
-                  >
-                    <Printer className="w-4 h-4 mr-2" />
-                    Export as PDF
-                  </Button>
-                </div>
-
-                <div id="report-table-content" className="overflow-x-auto">
+                <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow className="border-white/20">
@@ -3870,6 +2265,7 @@ export default function AdminDashboard() {
                               <div className="text-cyber-slate-200">
                                 <div className="font-semibold">{booking.customerName}</div>
                                 <div className="text-xs text-cyber-slate-400">{booking.customerEmail}</div>
+                                <div className="text-xs text-cyber-slate-400">{booking.customerPhone}</div>
                               </div>
                             </TableCell>
                             <TableCell>
@@ -3937,21 +2333,33 @@ export default function AdminDashboard() {
                     </TableBody>
                   </Table>
                 </div>
+
+                <div className="mt-6 flex justify-end">
+                  <Button
+                    onClick={handleExportPdf}
+                    className="bg-gradient-to-r from-cyber-green-500 via-cyber-green-600 to-cyber-green-700 hover:from-cyber-green-600 hover:via-cyber-green-700 hover:to-cyber-green-800 shadow-glow-green text-white group rounded-2xl"
+                  >
+                    <Printer className="w-4 h-4 mr-2" />
+                    Export as PDF
+                  </Button>
+                </div>
+                <div id="full-report-content" style={{ display: "none" }}></div>
               </CardContent>
             </Card>
           </TabsContent>
 
+          {/* Analytics Tab Content */}
           <TabsContent value="analytics">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-              <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card">
-                <CardHeader>
-                  <CardTitle className="text-white text-xl font-bold">Revenue Analytics</CardTitle>
-                  <CardDescription className="text-cyber-slate-300">
-                    Revenue breakdown by event category
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="mb-4">
+            <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card">
+              <CardHeader>
+                <CardTitle className="text-white text-xl font-bold">Analytics Dashboard</CardTitle>
+                <CardDescription className="text-cyber-slate-300">
+                  Visualize key performance indicators and gain insights into your cinema operations.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                  <div className="grid gap-2">
                     <Label htmlFor="revenue-timeframe" className="text-cyber-slate-200">
                       Revenue Timeframe
                     </Label>
@@ -3973,313 +2381,783 @@ export default function AdminDashboard() {
                   </div>
 
                   {revenueTimeFrame === "custom" && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <>
                       <div className="grid gap-2">
                         <Label htmlFor="custom-revenue-start-date" className="text-cyber-slate-200">
-                          Start Date
+                          Custom Start Date
                         </Label>
                         <Input
-                          id="custom-revenue-start-date"
                           type="date"
+                          id="custom-revenue-start-date"
                           value={customRevenueStartDate}
                           onChange={(e) => setCustomRevenueStartDate(e.target.value)}
-                          className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl"
+                          className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
                         />
                       </div>
                       <div className="grid gap-2">
                         <Label htmlFor="custom-revenue-end-date" className="text-cyber-slate-200">
-                          End Date
+                          Custom End Date
                         </Label>
                         <Input
-                          id="custom-revenue-end-date"
                           type="date"
+                          id="custom-revenue-end-date"
                           value={customRevenueEndDate}
                           onChange={(e) => setCustomRevenueEndDate(e.target.value)}
-                          className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl"
+                          className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
                         />
                       </div>
-                    </div>
+                    </>
                   )}
+                </div>
 
-                  <div className="space-y-6">
-                    {Object.entries(revenueByCategory).length > 0 ? (
-                      Object.entries(revenueByCategory).map(([category, revenue]) => (
-                        <div key={category} className="flex justify-between items-center">
-                          <span className="text-cyber-slate-200">{category}</span>
-                          <span className="font-bold text-white text-lg">₦{revenue.toLocaleString()}</span>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-cyber-slate-400">No revenue data available.</p>
-                    )}
-                    <div className="border-t border-white/20 pt-6">
-                      <div className="flex justify-between items-center font-bold text-xl">
-                        <span className="bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
-                          Total
-                        </span>
-                        <span className="bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
-                          ₦{totalRevenue.toLocaleString()}
-                        </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+                  <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 hover:border-cyber-green-500/50 transition-all duration-300 group shadow-cyber-card hover:shadow-cyber-hover">
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium text-cyber-slate-200">Total Revenue</CardTitle>
+                      <div className="w-12 h-12 bg-gradient-to-br from-cyber-green-500/20 to-cyber-green-600/20 rounded-4xl flex items-center justify-center border border-cyber-green-500/30 group-hover:scale-110 transition-transform duration-300">
+                        <TrendingUp className="w-6 h-6 text-cyber-green-400 group-hover:rotate-12 transition-transform" />
                       </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold bg-gradient-to-r from-white to-cyber-green-200 bg-clip-text text-transparent">
+                        ₦{totalRevenue.toLocaleString()}
+                      </div>
+                      <p className="text-xs text-cyber-green-400 font-semibold">Based on confirmed bookings</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 hover:border-cyber-blue-500/50 transition-all duration-300 group shadow-cyber-card hover:shadow-cyber-hover">
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium text-cyber-slate-200">Total Bookings</CardTitle>
+                      <div className="w-12 h-12 bg-gradient-to-br from-cyber-blue-500/20 to-cyber-blue-600/20 rounded-4xl flex items-center justify-center border border-cyber-blue-500/30 group-hover:scale-110 transition-transform duration-300">
+                        <Users className="w-6 h-6 text-cyber-blue-400 group-hover:bounce transition-transform" />
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold bg-gradient-to-r from-white to-cyber-blue-200 bg-clip-text text-transparent">
+                        {totalBookings}
+                      </div>
+                      <p className="text-xs text-cyber-blue-400 font-semibold">All time bookings</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 hover:border-brand-red-500/50 transition-all duration-300 group shadow-cyber-card hover:shadow-cyber-hover">
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium text-cyber-slate-200">Active Events</CardTitle>
+                      <div className="w-12 h-12 bg-gradient-to-br from-brand-red-500/20 to-brand-red-600/20 rounded-4xl flex items-center justify-center border border-brand-red-500/30 group-hover:scale-110 transition-transform duration-300">
+                        <Activity className="w-6 h-6 text-brand-red-400 group-hover:pulse transition-transform" />
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
+                        {activeEventsCount}
+                      </div>
+                      <p className="text-xs text-brand-red-400 font-semibold">Currently running or upcoming</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 hover:border-cyber-purple-500/50 transition-all duration-300 group shadow-cyber-card hover:shadow-cyber-hover">
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium text-cyber-slate-200">Occupancy Rate</CardTitle>
+                      <div className="w-12 h-12 bg-gradient-to-br from-cyber-purple-500/20 to-cyber-purple-600/20 rounded-4xl flex items-center justify-center border border-cyber-purple-500/30 group-hover:scale-110 transition-transform duration-300">
+                        <BarChart3 className="w-6 h-6 text-cyber-purple-400 group-hover:rotate-180 transition-transform duration-500" />
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold bg-gradient-to-r from-white to-cyber-purple-200 bg-clip-text text-transparent">
+                        {overallOccupancyRate.toFixed(0)}%
+                      </div>
+                      <p className="text-xs text-cyber-purple-400 font-semibold">Average across all halls</p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card p-4 rounded-lg">
+                    <h3 className="text-lg font-semibold text-white mb-4">Revenue by Category</h3>
+                    <div className="space-y-4">
+                      {Object.entries(revenueByCategory).map(([category, revenue]) => (
+                        <div
+                          key={category}
+                          className="flex justify-between items-center text-lg border-b border-gray-200 pb-2"
+                        >
+                          <span>{category}:</span>
+                          <span className="font-bold">₦{revenue.toLocaleString()}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                </CardContent>
-              </Card>
 
-              <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card">
-                <CardHeader>
-                  <CardTitle className="text-white text-xl font-bold">Hall Performance</CardTitle>
-                  <CardDescription className="text-cyber-slate-300">Occupancy rates by venue type</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    {Object.entries(hallPerformance).length > 0 ? (
-                      Object.entries(hallPerformance).map(([hallName, data]) => {
+                  <div className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card p-4 rounded-lg">
+                    <h3 className="text-lg font-semibold text-white mb-4">Hall Performance</h3>
+                    <div className="space-y-4">
+                      {Object.entries(hallPerformance).map(([hallName, data]) => {
                         const occupancy = data.total > 0 ? (data.booked / data.total) * 100 : 0
                         return (
-                          <div key={hallName}>
-                            <div className="flex justify-between mb-3">
-                              <span className="text-cyber-slate-200">{hallName}</span>
-                              <span className="text-white font-semibold">{occupancy.toFixed(0)}%</span>
+                          <div key={hallName} className="mb-4">
+                            <div className="flex justify-between text-lg mb-2">
+                              <span>{hallName}:</span>
+                              <span className="font-bold">{occupancy.toFixed(0)}% Occupancy</span>
                             </div>
-                            <div className="w-full bg-cyber-slate-700/50 rounded-full h-3 overflow-hidden">
-                              <div
-                                className="bg-gradient-to-r from-brand-red-500 to-brand-red-400 h-3 rounded-full transition-all duration-500"
-                                style={{ width: `${occupancy}%` }}
-                              ></div>
+                            <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+                              <div className="bg-blue-500 h-4 rounded-full" style={{ width: `${occupancy}%` }}></div>
                             </div>
                           </div>
                         )
-                      })
-                    ) : (
-                      <p className="text-cyber-slate-400">No hall performance data available.</p>
-                    )}
+                      })}
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
 
-      {/* Hidden div for full report content for PDF export */}
-      <div id="full-report-content" className="hidden p-8 bg-white text-black print-only">
-        {/* Content will be dynamically generated by handleExportPdf */}
-      </div>
-
-      {/* Receipt Print Dialog */}
-      <Dialog open={isPrintReceiptOpen} onOpenChange={setIsPrintReceiptOpen}>
-        <DialogContent className="sm:max-w-[600px] bg-glass-dark-strong backdrop-blur-xl border border-white/20 text-white shadow-cyber-hover rounded-4xl">
+      {/* Create Event Dialog */}
+      <Dialog open={isCreateEventOpen} onOpenChange={setIsCreateEventOpen}>
+        <DialogTrigger asChild>
+          <Button
+            size="sm"
+            className="fixed bottom-8 right-8 bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 shadow-glow-red text-white group rounded-full"
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            Create Event
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="bg-glass-dark-strong backdrop-blur-xl border border-white/20 shadow-cyber-card">
           <DialogHeader>
-            <DialogTitle className="text-white text-xl font-bold bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
-              Booking Receipt
-            </DialogTitle>
+            <DialogTitle className="text-white">Create New Event</DialogTitle>
             <DialogDescription className="text-cyber-slate-300">
-              Customer booking receipt ready for printing
+              Fill in the details to create a new event.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="event-title" className="text-cyber-slate-200">
+                  Event Title
+                </Label>
+                <Input
+                  type="text"
+                  id="event-title"
+                  value={newEvent.title}
+                  onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
+                  placeholder="Event Title"
+                  className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="event-type" className="text-cyber-slate-200">
+                  Event Type
+                </Label>
+                <Select value={newEvent.event_type} onValueChange={handleEventTypeChange}>
+                  <SelectTrigger className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl">
+                    <SelectValue placeholder="Select event type" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-glass-dark-strong border-white/20 backdrop-blur-xl rounded-2xl">
+                    <SelectItem value="movie">Movie</SelectItem>
+                    <SelectItem value="match">Match</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="event-category" className="text-cyber-slate-200">
+                  Category
+                </Label>
+                <Select value={newEvent.category} onValueChange={handleCategoryChange}>
+                  <SelectTrigger className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-glass-dark-strong border-white/20 backdrop-blur-xl rounded-2xl">
+                    {newEvent.event_type === "movie" ? (
+                      <>
+                        <SelectItem value="Blockbuster">Blockbuster</SelectItem>
+                        <SelectItem value="Drama">Drama</SelectItem>
+                        <SelectItem value="Action">Action</SelectItem>
+                      </>
+                    ) : (
+                      <>
+                        <SelectItem value="Premium Match">Premium Match</SelectItem>
+                        <SelectItem value="Big Match">Big Match</SelectItem>
+                        <SelectItem value="Champions League">Champions League</SelectItem>
+                        <SelectItem value="Derby Match">Derby Match</SelectItem>
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="event-date" className="text-cyber-slate-200">
+                  Date
+                </Label>
+                <Input
+                  type="date"
+                  id="event-date"
+                  value={newEvent.event_date}
+                  onChange={(e) => setNewEvent({ ...newEvent, event_date: e.target.value })}
+                  className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="event-time" className="text-cyber-slate-200">
+                  Time
+                </Label>
+                <Input
+                  type="time"
+                  id="event-time"
+                  value={newEvent.event_time}
+                  onChange={(e) => setNewEvent({ ...newEvent, event_time: e.target.value })}
+                  className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="event-hall" className="text-cyber-slate-200">
+                  Hall
+                </Label>
+                <Select
+                  value={newEvent.hall_id}
+                  onValueChange={(value: string) => {
+                    const selectedHall = halls.find((hall) => hall._id === value)
+                    if (selectedHall) {
+                      setNewEvent({
+                        ...newEvent,
+                        hall_id: value,
+                        total_seats: selectedHall.capacity,
+                        pricing:
+                          selectedHall.type === "vip"
+                            ? newEvent.event_type === "movie"
+                              ? defaultVipMoviePricing
+                              : defaultVipMatchPricing
+                            : newEvent.event_type === "movie"
+                              ? defaultStandardMoviePricingHallA
+                              : defaultStandardMatchPricingHallA,
+                      })
+                    }
+                  }}
+                >
+                  <SelectTrigger className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl">
+                    <SelectValue placeholder="Select hall" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-glass-dark-strong border-white/20 backdrop-blur-xl rounded-2xl">
+                    {halls.map((hall) => (
+                      <SelectItem key={hall._id} value={hall._id}>
+                        {hall.name} ({hall.type})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="event-description" className="text-cyber-slate-200">
+                Description
+              </Label>
+              <Textarea
+                id="event-description"
+                value={newEvent.description}
+                onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
+                placeholder="Event Description"
+                className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="event-duration" className="text-cyber-slate-200">
+                Duration
+              </Label>
+              <Input
+                type="text"
+                id="event-duration"
+                value={newEvent.duration}
+                onChange={(e) => setNewEvent({ ...newEvent, duration: e.target.value })}
+                placeholder="Event Duration"
+                className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="event-image-url" className="text-cyber-slate-200">
+                Image URL
+              </Label>
+              <Input
+                type="text"
+                id="event-image-url"
+                value={newEvent.image_url || ""}
+                onChange={(e) => setNewEvent({ ...newEvent, image_url: e.target.value })}
+                placeholder="Image URL"
+                className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setIsCreateEventOpen(false)}
+              className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              onClick={handleCreateEvent}
+              className="bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 shadow-glow-red text-white group rounded-2xl"
+            >
+              Create Event
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Event Dialog */}
+      <Dialog open={isEditEventOpen} onOpenChange={setIsEditEventOpen}>
+        <DialogContent className="bg-glass-dark-strong backdrop-blur-xl border border-white/20 shadow-cyber-card">
+          <DialogHeader>
+            <DialogTitle className="text-white">Edit Event</DialogTitle>
+            <DialogDescription className="text-cyber-slate-300">
+              Update the details of the selected event.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-event-title" className="text-cyber-slate-200">
+                  Event Title
+                </Label>
+                <Input
+                  type="text"
+                  id="edit-event-title"
+                  value={newEvent.title}
+                  onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
+                  placeholder="Event Title"
+                  className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-event-type" className="text-cyber-slate-200">
+                  Event Type
+                </Label>
+                <Select value={newEvent.event_type} onValueChange={handleEventTypeChange}>
+                  <SelectTrigger className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl">
+                    <SelectValue placeholder="Select event type" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-glass-dark-strong border-white/20 backdrop-blur-xl rounded-2xl">
+                    <SelectItem value="movie">Movie</SelectItem>
+                    <SelectItem value="match">Match</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-event-category" className="text-cyber-slate-200">
+                  Category
+                </Label>
+                <Select value={newEvent.category} onValueChange={handleCategoryChange}>
+                  <SelectTrigger className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-glass-dark-strong border-white/20 backdrop-blur-xl rounded-2xl">
+                    {newEvent.event_type === "movie" ? (
+                      <>
+                        <SelectItem value="Blockbuster">Blockbuster</SelectItem>
+                        <SelectItem value="Drama">Drama</SelectItem>
+                        <SelectItem value="Action">Action</SelectItem>
+                      </>
+                    ) : (
+                      <>
+                        <SelectItem value="Premium Match">Premium Match</SelectItem>
+                        <SelectItem value="Big Match">Big Match</SelectItem>
+                        <SelectItem value="Champions League">Champions League</SelectItem>
+                        <SelectItem value="Derby Match">Derby Match</SelectItem>
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-event-date" className="text-cyber-slate-200">
+                  Date
+                </Label>
+                <Input
+                  type="date"
+                  id="edit-event-date"
+                  value={newEvent.event_date}
+                  onChange={(e) => setNewEvent({ ...newEvent, event_date: e.target.value })}
+                  className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-event-time" className="text-cyber-slate-200">
+                  Time
+                </Label>
+                <Input
+                  type="time"
+                  id="edit-event-time"
+                  value={newEvent.event_time}
+                  onChange={(e) => setNewEvent({ ...newEvent, event_time: e.target.value })}
+                  className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-event-hall" className="text-cyber-slate-200">
+                  Hall
+                </Label>
+                <Select
+                  value={newEvent.hall_id}
+                  onValueChange={(value: string) => {
+                    const selectedHall = halls.find((hall) => hall._id === value)
+                    if (selectedHall) {
+                      setNewEvent({
+                        ...newEvent,
+                        hall_id: value,
+                        total_seats: selectedHall.capacity,
+                        pricing:
+                          selectedHall.type === "vip"
+                            ? newEvent.event_type === "movie"
+                              ? defaultVipMoviePricing
+                              : defaultVipMatchPricing
+                            : newEvent.event_type === "movie"
+                              ? defaultStandardMoviePricingHallA
+                              : defaultStandardMatchPricingHallA,
+                      })
+                    }
+                  }}
+                >
+                  <SelectTrigger className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl">
+                    <SelectValue placeholder="Select hall" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-glass-dark-strong border-white/20 backdrop-blur-xl rounded-2xl">
+                    {halls.map((hall) => (
+                      <SelectItem key={hall._id} value={hall._id}>
+                        {hall.name} ({hall.type})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="edit-event-description" className="text-cyber-slate-200">
+                Description
+              </Label>
+              <Textarea
+                id="edit-event-description"
+                value={newEvent.description}
+                onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
+                placeholder="Event Description"
+                className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="edit-event-duration" className="text-cyber-slate-200">
+                Duration
+              </Label>
+              <Input
+                type="text"
+                id="edit-event-duration"
+                value={newEvent.duration}
+                onChange={(e) => setNewEvent({ ...newEvent, duration: e.target.value })}
+                placeholder="Event Duration"
+                className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="edit-event-image-url" className="text-cyber-slate-200">
+                Image URL
+              </Label>
+              <Input
+                type="text"
+                id="edit-event-image-url"
+                value={newEvent.image_url || ""}
+                onChange={(e) => setNewEvent({ ...newEvent, image_url: e.target.value })}
+                placeholder="Image URL"
+                className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setIsEditEventOpen(false)}
+              className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              onClick={handleUpdateEvent}
+              className="bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 shadow-glow-red text-white group rounded-2xl"
+            >
+              Update Event
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Print Receipt Dialog */}
+      <Dialog open={isPrintReceiptOpen} onOpenChange={setIsPrintReceiptOpen}>
+        <DialogContent className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card">
+          <DialogHeader>
+            <DialogTitle className="text-white">Print Receipt</DialogTitle>
+            <DialogDescription className="text-cyber-slate-300">
+              Review and print the receipt for the selected booking.
             </DialogDescription>
           </DialogHeader>
           {selectedBooking && (
-            <div className="receipt-content bg-white text-black p-8 rounded-lg mx-4" id="receipt">
-              <div className="text-center mb-6">
-                <Image
-                  src="/dexcinema-logo.jpeg"
-                  alt="Dex View Cinema Logo"
-                  width={150}
-                  height={150}
-                  className="mx-auto mb-4"
-                />
-                <h1 className="text-3xl font-bold text-brand-red-600 mb-2">Dex View Cinema</h1>
-                <p className="text-gray-600">Premium Entertainment Experience</p>
-                <div className="border-b-2 border-brand-red-600 mt-4"></div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-8 mb-6">
-                <div>
-                  <h3 className="font-bold text-lg mb-3 text-brand-red-600">Customer Information</h3>
-                  <p>
-                    <strong>Name:</strong> {selectedBooking.customerName}
-                  </p>
-                  <p>
-                    <strong>Email:</strong> {selectedBooking.customerEmail}
-                  </p>
-                  <p>
-                    <strong>Phone:</strong> {selectedBooking.customerPhone}
-                  </p>
-                </div>
-                <div>
-                  <h3 className="font-bold text-lg mb-3 text-brand-red-600">Booking Details</h3>
-                  <p>
-                    <strong>Booking ID:</strong> {selectedBooking._id}
-                  </p>
-                  <p>
-                    <strong>Date:</strong> {selectedBooking.bookingDate}
-                  </p>
-                  <p>
-                    <strong>Time:</strong> {selectedBooking.bookingTime}
-                  </p>
-                  <p>
-                    <strong>Payment:</strong> {selectedBooking.paymentMethod}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mb-6">
-                <h3 className="font-bold text-lg mb-3 text-brand-red-600">Event Information</h3>
-                <p>
-                  <strong>Event:</strong> {selectedBooking.eventTitle}
+            <div className="py-4">
+              <div className="mb-4">
+                <h4 className="text-lg font-semibold text-white">Booking Details</h4>
+                <p className="text-cyber-slate-200">Booking ID: {selectedBooking._id}</p>
+                <p className="text-cyber-slate-200">Event: {selectedBooking.eventTitle}</p>
+                <p className="text-cyber-slate-200">
+                  Date: {new Date(selectedBooking.bookingDate).toLocaleDateString()}
                 </p>
-                <p>
-                  <strong>Type:</strong> {selectedBooking.eventType === "match" ? "Sports Match" : "Movie"}
-                </p>
-                <p>
-                  <strong>Seats:</strong> {selectedBooking.seats.join(", ")}
-                </p>
-                <p>
-                  <strong>Seat Type:</strong> {selectedBooking.seatType}
-                </p>
+                <p className="text-cyber-slate-200">Time: {selectedBooking.bookingTime}</p>
               </div>
-
-              <div className="border-t-2 border-gray-300 pt-4 mb-6">
-                <h3 className="font-bold text-lg mb-3 text-brand-red-600">Payment Summary</h3>
-                <div className="flex justify-between mb-2">
-                  <span>Base Amount:</span>
-                  <span>₦{selectedBooking.amount.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between mb-2">
-                  <span>Processing Fee:</span>
-                  <span>₦{selectedBooking.processingFee}</span>
-                </div>
-                <div className="flex justify-between font-bold text-lg border-t border-gray-300 pt-2">
-                  <span>Total Amount:</span>
-                  <span>₦{selectedBooking.totalAmount.toLocaleString()}</span>
-                </div>
+              <div className="mb-4">
+                <h4 className="text-lg font-semibold text-white">Customer Information</h4>
+                <p className="text-cyber-slate-200">Name: {selectedBooking.customerName}</p>
+                <p className="text-cyber-slate-200">Email: {selectedBooking.customerEmail}</p>
+                <p className="text-cyber-slate-200">Phone: {selectedBooking.customerPhone}</p>
               </div>
-
-              <div className="text-center text-sm text-gray-500 border-t border-gray-300 pt-4">
-                <p>Thank you for choosing Dex View Cinema!</p>
-                <p>For support, visit us at support@dexviewcinema.com or call 08139614950</p>
-                <p className="mt-2">Developed by SydaTech - www.sydatech.com.ng</p>
+              <div className="mb-4">
+                <h4 className="text-lg font-semibold text-white">Payment Details</h4>
+                <p className="text-cyber-slate-200">Amount: ₦{selectedBooking.amount.toLocaleString()}</p>
+                <p className="text-cyber-slate-200">Processing Fee: ₦{selectedBooking.processingFee}</p>
+                <p className="text-cyber-slate-200">Total Amount: ₦{selectedBooking.totalAmount.toLocaleString()}</p>
+                <p className="text-cyber-slate-200">Payment Method: {selectedBooking.paymentMethod}</p>
+              </div>
+              <div className="mb-4">
+                <h4 className="text-lg font-semibold text-white">Seats</h4>
+                {selectedBooking.seats.map((seat) => (
+                  <Badge
+                    key={seat}
+                    variant="outline"
+                    className="text-xs bg-brand-red-500/20 text-brand-red-300 border-brand-red-500/30 rounded-2xl mr-1"
+                  >
+                    {seat}
+                  </Badge>
+                ))}
+                <p className="text-cyber-slate-200">Type: {selectedBooking.seatType}</p>
               </div>
             </div>
           )}
           <DialogFooter>
             <Button
-              variant="outline"
+              type="button"
+              variant="secondary"
               onClick={() => setIsPrintReceiptOpen(false)}
               className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl"
             >
-              Close
+              Cancel
             </Button>
             <Button
+              type="button"
               onClick={printReceipt}
-              className="bg-gradient-to-r from-cyber-green-500 via-cyber-green-600 to-cyber-green-700 hover:from-cyber-green-600 hover:via-cyber-green-700 hover:to-cyber-green-800 text-white rounded-2xl"
+              className="bg-gradient-to-r from-cyber-green-500 via-cyber-green-600 to-cyber-green-700 hover:from-cyber-green-600 hover:via-cyber-green-700 hover:to-cyber-green-800 shadow-glow-green text-white group rounded-2xl"
             >
-              <Printer className="w-4 h-4 mr-2" />
               Print Receipt
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Footer */}
-      <footer className="bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 text-white py-12 relative overflow-hidden border-t border-white/10">
-        <div className="absolute inset-0 bg-gradient-to-r from-brand-red-900/10 via-transparent to-brand-red-900/10"></div>
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-500"></div>
+      {/* Create Booking Dialog */}
+      <Dialog open={isCreateBookingOpen} onOpenChange={setIsCreateBookingOpen}>
+        <DialogContent className="bg-glass-dark-strong backdrop-blur-xl border border-white/20 shadow-cyber-card max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-white">Create New Booking</DialogTitle>
+            <DialogDescription className="text-cyber-slate-300">Create a new booking for a customer.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="booking-event" className="text-cyber-slate-200">
+                  Select Event
+                </Label>
+                <Select value={newBooking.eventId} onValueChange={handleNewBookingEventChange}>
+                  <SelectTrigger className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl">
+                    <SelectValue placeholder="Select an event" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-glass-dark-strong border-white/20 backdrop-blur-xl rounded-2xl">
+                    {events.map((event) => (
+                      <SelectItem key={event._id} value={event._id}>
+                        {event.title} ({getHallDisplayName(halls, event.hall_id)})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="customer-name" className="text-cyber-slate-200">
+                  Customer Name
+                </Label>
+                <Input
+                  type="text"
+                  id="customer-name"
+                  value={newBooking.customerName}
+                  onChange={(e) => setNewBooking({ ...newBooking, customerName: e.target.value })}
+                  placeholder="Customer Name"
+                  className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
+                />
+              </div>
+            </div>
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row justify-between items-center">
-            <p className="text-cyber-slate-300 text-lg mb-4 sm:mb-0">
-              &copy; 2025 Dex View Cinema Admin Dashboard. All rights reserved.
-            </p>
-            <p className="text-cyber-slate-300 text-lg">
-              Developed by{" "}
-              <a
-                href="https://www.sydatech.com.ng"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-brand-red-400 hover:text-brand-red-300 transition-colors font-bold hover:underline"
-              >
-                SydaTech
-              </a>
-            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="customer-email" className="text-cyber-slate-200">
+                  Customer Email
+                </Label>
+                <Input
+                  type="email"
+                  id="customer-email"
+                  value={newBooking.customerEmail}
+                  onChange={(e) => setNewBooking({ ...newBooking, customerEmail: e.target.value })}
+                  placeholder="Customer Email"
+                  className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="customer-phone" className="text-cyber-slate-200">
+                  Customer Phone
+                </Label>
+                <Input
+                  type="tel"
+                  id="customer-phone"
+                  value={newBooking.customerPhone}
+                  onChange={(e) => setNewBooking({ ...newBooking, customerPhone: e.target.value })}
+                  placeholder="Customer Phone"
+                  className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
+                />
+              </div>
+            </div>
+
+            {selectedEventForBooking && (
+              <>
+                <div className="grid gap-2">
+                  <Label className="text-cyber-slate-200">Select Seats</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {currentEventSeats.map((seat) => (
+                      <Button
+                        key={seat.id}
+                        variant={selectedSeatsForAdminBooking.includes(seat.id) ? "default" : "outline"}
+                        size="sm"
+                        disabled={seat.isBooked}
+                        onClick={() => handleAdminSeatClick(seat.id, seat.type, seat.isBooked, seat.price)}
+                        className={`rounded-2xl ${
+                          seat.isBooked
+                            ? "bg-cyber-slate-700/50 text-cyber-slate-400 border-cyber-slate-500/30 cursor-not-allowed"
+                            : selectedSeatsForAdminBooking.includes(seat.id)
+                              ? "bg-brand-red-500/30 text-brand-red-300 border-brand-red-500/50"
+                              : "border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm"
+                        }`}
+                      >
+                        {seat.id}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="booking-amount" className="text-cyber-slate-200">
+                      Amount
+                    </Label>
+                    <Input
+                      type="number"
+                      id="booking-amount"
+                      value={newBooking.amount}
+                      readOnly
+                      className="bg-cyber-slate-800 border-cyber-slate-600 text-cyber-slate-200 placeholder:text-cyber-slate-400 rounded-2xl"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="booking-processing-fee" className="text-cyber-slate-200">
+                      Processing Fee
+                    </Label>
+                    <Input
+                      type="number"
+                      id="booking-processing-fee"
+                      value={newBooking.processingFee}
+                      readOnly
+                      className="bg-cyber-slate-800 border-cyber-slate-600 text-cyber-slate-200 placeholder:text-cyber-slate-400 rounded-2xl"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="booking-total-amount" className="text-cyber-slate-200">
+                    Total Amount
+                  </Label>
+                  <Input
+                    type="number"
+                    id="booking-total-amount"
+                    value={newBooking.totalAmount}
+                    readOnly
+                    className="bg-cyber-slate-800 border-cyber-slate-600 text-cyber-slate-200 placeholder:text-cyber-slate-400 rounded-2xl"
+                  />
+                </div>
+              </>
+            )}
           </div>
-        </div>
-      </footer>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setIsCreateBookingOpen(false)
+                setNewBooking(initialNewBookingState)
+                setSelectedEventForBooking(null)
+                setSelectedSeatsForAdminBooking([])
+                setCurrentEventSeats([])
+              }}
+              className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              onClick={handleCreateBooking}
+              className="bg-gradient-to-r from-cyber-green-500 via-cyber-green-600 to-cyber-green-700 hover:from-cyber-green-600 hover:via-cyber-green-700 hover:to-cyber-green-800 shadow-glow-green text-white group rounded-2xl"
+            >
+              Create Booking
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {/* Print Styles */}
-      <style jsx global>{`
-        @media print {
-          body * {
-            visibility: hidden;
-          }
-          #receipt, #receipt *, #full-report-content, #full-report-content * {
-            visibility: visible;
-            color: #000 !important; /* Ensure text is black */
-            background-color: #fff !important; /* Ensure background is white */
-            box-shadow: none !important; /* Remove shadows */
-            border-color: #ccc !important; /* Light border for elements */
-            background-image: none !important; /* Remove gradients */
-          }
-          #receipt {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-          }
-          #full-report-content {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: auto;
-            display: block !important; /* Ensure it's visible for printing */
-          }
-          /* Specific overrides for elements within the report content */
-          #full-report-content .bg-glass-white-strong,
-          #full-report-content .shadow-cyber-card,
-          #full-report-content .bg-clip-text,
-          #full-report-content .badge {
-            background-color: #fff !important;
-            box-shadow: none !important;
-            border-color: #ccc !important;
-            background-image: none !important;
-            color: #000 !important;
-          }
-          #full-report-content .badge {
-            background-color: #f0f0f0 !important;
-            color: #333 !important;
-          }
-          #full-report-content .text-cyber-slate-200,
-          #full-report-content .text-cyber-slate-300,
-          #full-report-content .text-cyber-slate-400,
-          #full-report-content .text-brand-red-200,
-          #full-report-content .text-brand-red-300,
-          #full-report-content .text-brand-red-400,
-          #full-report-content .text-cyber-green-200,
-          #full-report-content .text-cyber-green-300,
-          #full-report-content .text-cyber-green-400,
-          #full-report-content .text-cyber-blue-200,
-          #full-report-content .text-cyber-blue-300,
-          #full-report-content .text-cyber-blue-400,
-          #full-report-content .text-cyber-purple-200,
-          #full-report-content .text-cyber-purple-300,
-          #full-report-content .text-cyber-purple-400 {
-            color: #000 !important;
-          }
-          #full-report-content .bg-gradient-to-r,
-          #full-report-content .bg-gradient-to-br {
-            background-image: none !important;
-          }
-          #full-report-content .bg-cyber-slate-700\/50 {
-            background-color: #e0e0e0 !important;
-          }
-          #full-report-content .bg-brand-red-500\/30,
-          #full-report-content .bg-cyber-green-500\/30,
-          #full-report-content .bg-cyber-yellow-500\/30 {
-            background-color: #f0f0f0 !important;
-          }
-        }
-      `}</style>
+      <div id="receipt" className="hidden">
+        {selectedBooking && (
+          <div className="p-4">
+            <h2 className="text-xl font-bold">Booking Receipt</h2>
+            <p>Booking ID: {selectedBooking._id}</p>
+            <p>Customer: {selectedBooking.customerName}</p>
+            <p>Event: {selectedBooking.eventTitle}</p>
+            <p>Date: {selectedBooking.bookingDate}</p>
+            <p>Time: {selectedBooking.bookingTime}</p>
+            <p>Amount: {selectedBooking.amount}</p>
+            <p>Processing Fee: {selectedBooking.processingFee}</p>
+            <p>Total Amount: {selectedBooking.totalAmount}</p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
