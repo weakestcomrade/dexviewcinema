@@ -2,10 +2,12 @@ import { NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 import { revalidatePath } from "next/cache"
+import { getNextSequence, formatBookingCode } from "@/lib/sequences"
 
 // Define the structure for a booking document
 interface BookingDocument {
   _id?: ObjectId
+  bookingCode?: string
   customerName: string
   customerEmail: string
   customerPhone: string
@@ -47,14 +49,12 @@ function generateReceiptHtml(booking: any, event: any, hall: any) {
       <meta http-equiv="x-ua-compatible" content="ie=edge">
       <title>Booking Confirmation - Dex View Cinema</title>
       <style>
-        /* General resets for better email client support */
         body,table,td,a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
         table,td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
         img { -ms-interpolation-mode: bicubic; }
         img { border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
         table { border-collapse: collapse !important; }
         body { margin: 0 !important; padding: 0 !important; width: 100% !important; background-color: #f4f5f7; }
-        /* Mobile styles */
         @media screen and (max-width: 600px) {
           .container { width: 100% !important; }
           .px { padding-left: 16px !important; padding-right: 16px !important; }
@@ -62,44 +62,38 @@ function generateReceiptHtml(booking: any, event: any, hall: any) {
       </style>
     </head>
     <body style="background-color:#f4f5f7; margin:0; padding:0;">
-      <!-- Preheader text: appears in inbox preview, hidden in body -->
       <div style="display:none; font-size:1px; color:#f4f5f7; line-height:1px; max-height:0; max-width:0; opacity:0; overflow:hidden;">
         Your booking for ${booking.eventTitle} is confirmed. Seats: ${seatsFormatted}. Total: ₦${booking.totalAmount.toLocaleString()}
       </div>
 
-      <!-- Outer wrapper -->
       <table border="0" cellpadding="0" cellspacing="0" width="100%">
         <tr>
           <td align="center" style="padding: 24px 12px;">
-            <!-- Card -->
             <table border="0" cellpadding="0" cellspacing="0" width="600" class="container" style="width:600px; max-width:600px; background-color:#ffffff; border-radius:8px; overflow:hidden; box-shadow:0 2px 8px rgba(16,24,40,0.08);">
-              <!-- Header -->
               <tr>
                 <td align="center" style="background-color:#e53e3e; padding:28px 24px;">
-                  <h1 style="margin:0; color:#ffffff; font-family:Arial, Helvetica, sans-serif; font-size:24px; font-weight:700;">Dex View Cinema</h1>
-                  <p style="margin:6px 0 0; color:#ffe8e8; font-family:Arial, Helvetica, sans-serif; font-size:14px;">Booking Confirmation</p>
+                  <h1 style="margin:0; color:#ffffff; font-size:24px; font-weight:700;">Dex View Cinema</h1>
+                  <p style="margin:6px 0 0; color:#ffe8e8; font-size:14px;">Booking Confirmation</p>
                 </td>
               </tr>
 
-              <!-- Body Intro -->
               <tr>
                 <td class="px" style="padding: 28px 24px 8px 24px;">
-                  <h2 style="margin:0 0 12px 0; color:#101828; font-family:Arial, Helvetica, sans-serif; font-size:20px; font-weight:700;">🎉 Booking Confirmed!</h2>
-                  <p style="margin:0; color:#475467; font-family:Arial, Helvetica, sans-serif; font-size:14px; line-height:1.6;">
+                  <h2 style="margin:0 0 12px 0; color:#101828; font-size:20px; font-weight:700;">🎉 Booking Confirmed!</h2>
+                  <p style="margin:0; color:#475467; font-size:14px; line-height:1.6;">
                     Dear <strong style="color:#101828;">${booking.customerName}</strong>,<br/>
                     Thank you for choosing Dex View Cinema! Your booking for <strong>${booking.eventTitle}</strong> has been successfully confirmed.
                   </p>
                 </td>
               </tr>
 
-              <!-- View Receipt Button -->
               <tr>
                 <td class="px" align="left" style="padding: 16px 24px 8px 24px;">
                   <table border="0" cellspacing="0" cellpadding="0">
                     <tr>
                       <td align="center" bgcolor="#e53e3e" style="border-radius:6px;">
                         <a href="${receiptUrl}" target="_blank"
-                           style="display:inline-block; padding:10px 16px; font-family:Arial, Helvetica, sans-serif; font-size:14px; color:#ffffff; text-decoration:none; border-radius:6px;">
+                           style="display:inline-block; padding:10px 16px; font-size:14px; color:#ffffff; text-decoration:none; border-radius:6px;">
                            View Receipt
                         </a>
                       </td>
@@ -108,64 +102,61 @@ function generateReceiptHtml(booking: any, event: any, hall: any) {
                 </td>
               </tr>
 
-              <!-- Details Heading -->
               <tr>
                 <td class="px" style="padding: 16px 24px 0 24px;">
-                  <p style="margin:0; color:#98A2B3; font-family:Arial, Helvetica, sans-serif; font-size:12px; text-transform:uppercase; letter-spacing:0.6px;">
+                  <p style="margin:0; color:#98A2B3; font-size:12px; text-transform:uppercase; letter-spacing:0.6px;">
                     Booking Details
                   </p>
                 </td>
               </tr>
 
-              <!-- Details Table -->
               <tr>
                 <td class="px" style="padding: 8px 24px 24px 24px;">
                   <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #EAECF0; border-radius:8px; overflow:hidden;">
                     <tbody>
                       <tr>
-                        <td width="40%" style="background:#F9FAFB; padding:12px; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#344054; font-weight:600;">Booking ID</td>
-                        <td style="padding:12px; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#475467;">${booking._id}</td>
+                        <td width="40%" style="background:#F9FAFB; padding:12px; font-size:13px; color:#344054; font-weight:600;">Booking Code</td>
+                        <td style="padding:12px; font-size:13px; color:#475467;">${booking.bookingCode || booking._id}</td>
                       </tr>
                       <tr>
-                        <td width="40%" style="background:#F9FAFB; padding:12px; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#344054; font-weight:600;">Event</td>
-                        <td style="padding:12px; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#475467;">${booking.eventTitle}</td>
+                        <td width="40%" style="background:#F9FAFB; padding:12px; font-size:13px; color:#344054; font-weight:600;">Event</td>
+                        <td style="padding:12px; font-size:13px; color:#475467;">${booking.eventTitle}</td>
                       </tr>
                       <tr>
-                        <td width="40%" style="background:#F9FAFB; padding:12px; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#344054; font-weight:600;">Type</td>
-                        <td style="padding:12px; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#475467;">${booking.eventType === "match" ? "Sports Match" : "Movie"}</td>
+                        <td width="40%" style="background:#F9FAFB; padding:12px; font-size:13px; color:#344054; font-weight:600;">Type</td>
+                        <td style="padding:12px; font-size:13px; color:#475467;">${booking.eventType === "match" ? "Sports Match" : "Movie"}</td>
                       </tr>
                       <tr>
-                        <td width="40%" style="background:#F9FAFB; padding:12px; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#344054; font-weight:600;">Date &amp; Time</td>
-                        <td style="padding:12px; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#475467;">${eventDate} at ${eventTime}</td>
+                        <td width="40%" style="background:#F9FAFB; padding:12px; font-size:13px; color:#344054; font-weight:600;">Date &amp; Time</td>
+                        <td style="padding:12px; font-size:13px; color:#475467;">${eventDate} at ${eventTime}</td>
                       </tr>
                       <tr>
-                        <td width="40%" style="background:#F9FAFB; padding:12px; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#344054; font-weight:600;">Venue</td>
-                        <td style="padding:12px; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#475467;">${venue}</td>
+                        <td width="40%" style="background:#F9FAFB; padding:12px; font-size:13px; color:#344054; font-weight:600;">Venue</td>
+                        <td style="padding:12px; font-size:13px; color:#475467;">${venue}</td>
                       </tr>
                       <tr>
-                        <td width="40%" style="background:#F9FAFB; padding:12px; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#344054; font-weight:600;">Seats</td>
-                        <td style="padding:12px; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#475467;">
+                        <td width="40%" style="background:#F9FAFB; padding:12px; font-size:13px; color:#344054; font-weight:600;">Seats</td>
+                        <td style="padding:12px; font-size:13px; color:#475467;">
                           <span style="display:inline-block; background:#fee2e2; color:#b91c1c; padding:4px 8px; border-radius:4px; font-weight:700;">${seatsFormatted}</span>
                           <div style="margin-top:4px; color:#667085; font-size:12px;">${booking.seatType}</div>
                         </td>
                       </tr>
                       <tr>
-                        <td width="40%" style="background:#F9FAFB; padding:12px; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#344054; font-weight:600;">Total Amount</td>
-                        <td style="padding:12px; font-family:Arial, Helvetica, sans-serif; font-size:15px; color:#e53e3e; font-weight:700;">₦${booking.totalAmount.toLocaleString()}</td>
+                        <td width="40%" style="background:#F9FAFB; padding:12px; font-size:13px; color:#344054; font-weight:600;">Total Amount</td>
+                        <td style="padding:12px; font-size:15px; color:#e53e3e; font-weight:700;">₦${booking.totalAmount.toLocaleString()}</td>
                       </tr>
                     </tbody>
                   </table>
                 </td>
               </tr>
 
-              <!-- Notes -->
               <tr>
                 <td class="px" style="padding: 0 24px 24px 24px;">
                   <table width="100%" cellpadding="0" cellspacing="0" style="background:#FFFAEB; border:1px solid #FDE68A; border-radius:8px;">
                     <tr>
                       <td style="padding:16px 16px 10px 16px;">
-                        <p style="margin:0 0 8px 0; color:#92400E; font-family:Arial, Helvetica, sans-serif; font-size:14px; font-weight:700;">Important Notes</p>
-                        <ul style="margin:0; padding-left:18px; color:#92400E; font-family:Arial, Helvetica, sans-serif; font-size:13px; line-height:1.6;">
+                        <p style="margin:0 0 8px 0; color:#92400E; font-size:14px; font-weight:700;">Important Notes</p>
+                        <ul style="margin:0; padding-left:18px; color:#92400E; font-size:13px; line-height:1.6;">
                           <li>Please arrive at least 15 minutes before the event starts</li>
                           <li>Bring a valid ID for verification</li>
                           <li>Your seats are reserved and guaranteed</li>
@@ -177,33 +168,30 @@ function generateReceiptHtml(booking: any, event: any, hall: any) {
                 </td>
               </tr>
 
-              <!-- Closing copy -->
               <tr>
                 <td class="px" style="padding: 0 24px 28px 24px;">
-                  <p style="margin:0; color:#475467; font-family:Arial, Helvetica, sans-serif; font-size:14px; line-height:1.6;">
+                  <p style="margin:0; color:#475467; font-size:14px; line-height:1.6;">
                     We're excited to have you join us! For assistance, reply to this email or contact our support team.
                   </p>
                 </td>
               </tr>
 
-              <!-- Footer -->
               <tr>
                 <td align="center" style="background:#F9FAFB; padding:16px 24px; border-top:1px solid #EAECF0;">
-                  <p style="margin:0 0 6px 0; color:#667085; font-family:Arial, Helvetica, sans-serif; font-size:12px;">
+                  <p style="margin:0 0 6px 0; color:#667085; font-size:12px;">
                     📧 support@dexviewcinema.com &nbsp;&nbsp;|&nbsp;&nbsp; 📞 08139614950
                   </p>
-                  <p style="margin:0; color:#98A2B3; font-family:Arial, Helvetica, sans-serif; font-size:11px;">
+                  <p style="margin:0; color:#98A2B3; font-size:11px;">
                     Developed by <strong>SydaTech</strong> &middot; sydatech.com.ng
                   </p>
                 </td>
               </tr>
             </table>
 
-            <!-- Small legal line -->
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" class="container" style="width:600px; max-width:600px; margin-top:12px;">
               <tr>
                 <td align="center" style="padding: 0 12px;">
-                  <p style="margin:0; color:#98A2B3; font-family:Arial, Helvetica, sans-serif; font-size:11px;">
+                  <p style="margin:0; color:#98A2B3; font-size:11px;">
                     You received this email because you made a booking at Dex View Cinema.
                   </p>
                 </td>
@@ -235,7 +223,7 @@ function generateReceiptText(booking: any, event: any, hall: any) {
     `Your booking for "${booking.eventTitle}" is confirmed.`,
     "",
     "Booking Details:",
-    `- Booking ID: ${booking._id}`,
+    `- Booking Code: ${booking.bookingCode || booking._id}`,
     `- Type: ${booking.eventType === "match" ? "Sports Match" : "Movie"}`,
     `- Date & Time: ${eventDate} at ${eventTime}`,
     `- Venue: ${venue}`,
@@ -266,10 +254,6 @@ async function sendBookingConfirmationEmail(booking: any, event: any, hall: any)
   }
 
   try {
-    console.log(`Attempting to send booking confirmation email to: ${booking.customerEmail}`)
-
-    const htmlContent = generateReceiptHtml(booking, event, hall)
-
     const emailData = {
       sender: {
         email: BREVO_SENDER_EMAIL,
@@ -286,12 +270,6 @@ async function sendBookingConfirmationEmail(booking: any, event: any, hall: any)
       textContent: generateReceiptText(booking, event, hall),
       replyTo: { email: "support@dexviewcinema.com", name: "Dex View Cinema Support" },
     }
-
-    console.log("Sending email with data:", {
-      to: emailData.to,
-      subject: emailData.subject,
-      sender: emailData.sender,
-    })
 
     const brevoResponse = await fetch("https://api.brevo.com/v3/smtp/email", {
       method: "POST",
@@ -312,12 +290,6 @@ async function sendBookingConfirmationEmail(booking: any, event: any, hall: any)
       })
       return { success: false, error: responseData }
     }
-
-    console.log("Email sent successfully:", {
-      bookingId: booking._id,
-      messageId: responseData.messageId,
-      to: booking.customerEmail,
-    })
 
     return { success: true, messageId: responseData.messageId }
   } catch (emailError) {
@@ -342,7 +314,7 @@ export async function GET(request: Request) {
       orConditions.push({ customerEmail: email })
     }
     if (name) {
-      orConditions.push({ customerName: { $regex: name, $options: "i" } }) // Case-insensitive partial match
+      orConditions.push({ customerName: { $regex: name, $options: "i" } })
     }
     if (phone) {
       orConditions.push({ customerPhone: phone })
@@ -369,8 +341,6 @@ export async function POST(request: Request) {
   try {
     const { db } = await connectToDatabase()
     const newBookingData: BookingDocument = await request.json()
-
-    console.log("Creating new booking with data:", newBookingData)
 
     // Basic validation for required fields
     const {
@@ -409,7 +379,6 @@ export async function POST(request: Request) {
     if (!paymentMethod) missingFields.push("paymentMethod")
 
     if (missingFields.length > 0) {
-      console.error("Missing required fields for booking:", missingFields.join(", "), newBookingData)
       return NextResponse.json({ message: `Missing required fields: ${missingFields.join(", ")}` }, { status: 400 })
     }
 
@@ -421,15 +390,19 @@ export async function POST(request: Request) {
     })
 
     if (existingBooking) {
-      console.warn("Duplicate booking attempt detected:", newBookingData)
       return NextResponse.json(
         { message: "One or more selected seats are already booked for this event." },
         { status: 409 },
       )
     }
 
+    // Generate human-friendly booking code
+    const seq = await getNextSequence(db, "booking")
+    const bookingCode = formatBookingCode(seq, "DEX", 6)
+
     const bookingToInsert = {
       ...newBookingData,
+      bookingCode,
       eventId: new ObjectId(eventId),
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -438,7 +411,6 @@ export async function POST(request: Request) {
     const result = await db.collection("bookings").insertOne(bookingToInsert)
 
     if (!result.acknowledged) {
-      console.error("MongoDB insertOne not acknowledged for booking:", result)
       throw new Error("Failed to create booking: Acknowledgment failed.")
     }
 
@@ -448,46 +420,18 @@ export async function POST(request: Request) {
       eventId: eventId,
     }
 
-    console.log("Booking created successfully:", createdBooking._id)
-
-    // --- Send email automatically after successful booking ---
+    // Send email (non-blocking errors)
     try {
-      // Fetch event details to get hall_id
       const event = await db.collection("events").findOne({ _id: new ObjectId(createdBooking.eventId) })
       let hall = null
       if (event && event.hall_id) {
-        // Fetch hall details
         hall = await db.collection("halls").findOne({ _id: new ObjectId(event.hall_id) })
       }
-
-      console.log("Fetched event and hall data for email:", {
-        eventFound: !!event,
-        hallFound: !!hall,
-        eventTitle: event?.title,
-        hallName: hall?.name,
-      })
-
-      const emailResult = await sendBookingConfirmationEmail(createdBooking, event, hall)
-
-      if (emailResult.success) {
-        console.log("✅ Booking confirmation email sent successfully:", {
-          bookingId: createdBooking._id,
-          email: createdBooking.customerEmail,
-          messageId: emailResult.messageId,
-        })
-      } else {
-        console.error("❌ Failed to send booking confirmation email:", {
-          bookingId: createdBooking._id,
-          email: createdBooking.customerEmail,
-          error: emailResult.error,
-        })
-      }
+      await sendBookingConfirmationEmail(createdBooking, event, hall)
     } catch (emailError) {
-      console.error("❌ Exception while sending booking confirmation email:", emailError)
+      console.error("Exception while sending booking confirmation email:", emailError)
     }
-    // --- End email sending logic ---
 
-    // Revalidate the admin page to show the new booking
     revalidatePath("/admin")
 
     return NextResponse.json(createdBooking, { status: 201 })
