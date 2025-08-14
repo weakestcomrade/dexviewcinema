@@ -10,11 +10,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2, Shield, Eye, EyeOff, Film } from "lucide-react"
-import Image from "next/image"
+import { Eye, EyeOff, Shield, Lock, Mail, ArrowRight } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 
-export default function AdminLoginPage() {
+export default function AdminLogin() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -64,7 +64,7 @@ export default function AdminLoginPage() {
         <div className="absolute top-1/3 left-1/3 w-16 h-16 border border-cyber-purple-500/20 rounded-full animate-pulse-slow"></div>
       </div>
 
-      <div className="relative z-10 w-full max-w-md px-4">
+      <div className="relative z-10 w-full max-w-md mx-auto px-4">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center space-x-4 mb-6">
@@ -82,117 +82,135 @@ export default function AdminLoginPage() {
               </div>
               <div className="absolute inset-0 bg-gradient-to-br from-brand-red-500/30 to-brand-red-600/30 rounded-4xl blur-xl animate-glow"></div>
             </div>
+            <div className="text-left">
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-white via-brand-red-200 to-white bg-clip-text text-transparent">
+                Admin Portal
+              </h1>
+              <p className="text-sm font-medium bg-gradient-to-r from-brand-red-400 to-brand-red-300 bg-clip-text text-transparent">
+                Dex View Cinema
+              </p>
+            </div>
           </div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-white via-brand-red-200 to-white bg-clip-text text-transparent mb-2">
-            Admin Portal
-          </h1>
-          <p className="text-cyber-slate-300">Sign in to access the admin dashboard</p>
         </div>
 
         {/* Login Card */}
         <Card className="bg-glass-white-strong backdrop-blur-xl shadow-cyber-card border border-white/20 rounded-3xl">
-          <CardHeader className="space-y-1 pb-6">
-            <CardTitle className="text-2xl font-bold text-white flex items-center gap-3">
-              <Shield className="w-6 h-6 text-brand-red-400" />
-              Admin Login
-            </CardTitle>
+          <CardHeader className="text-center pb-6">
+            <div className="w-16 h-16 bg-gradient-to-br from-brand-red-500/20 to-brand-red-600/20 rounded-full flex items-center justify-center border border-brand-red-500/30 mb-4 mx-auto">
+              <Shield className="w-8 h-8 text-brand-red-400" />
+            </div>
+            <CardTitle className="text-2xl font-bold text-white">Admin Login</CardTitle>
             <CardDescription className="text-cyber-slate-300">
-              Enter your credentials to access the admin panel
+              Enter your credentials to access the admin dashboard
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
               {error && (
                 <Alert className="border-red-500/50 bg-red-500/10">
-                  <AlertDescription className="text-red-400">{error}</AlertDescription>
+                  <AlertDescription className="text-red-300">{error}</AlertDescription>
                 </Alert>
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-cyber-slate-200 font-medium">
+                <Label htmlFor="email" className="text-white font-medium">
                   Email Address
                 </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="admin@dexcinema.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="bg-glass-white border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-500 focus:ring-brand-red-500/20 rounded-2xl h-12"
-                />
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-cyber-slate-400" />
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="admin@dexviewcinema.com"
+                    className="pl-10 bg-glass-white border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-500/50 focus:ring-brand-red-500/20 rounded-2xl h-12"
+                    required
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-cyber-slate-200 font-medium">
+                <Label htmlFor="password" className="text-white font-medium">
                   Password
                 </Label>
                 <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-cyber-slate-400" />
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    className="pl-10 pr-10 bg-glass-white border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-500/50 focus:ring-brand-red-500/20 rounded-2xl h-12"
                     required
-                    className="bg-glass-white border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-500 focus:ring-brand-red-500/20 rounded-2xl h-12 pr-12"
                   />
-                  <Button
+                  <button
                     type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0 text-cyber-slate-400 hover:text-white"
                     onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-cyber-slate-400 hover:text-white transition-colors"
                   >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </Button>
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
                 </div>
               </div>
 
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 text-white shadow-glow-red rounded-2xl h-12 font-bold text-lg transition-all duration-300 transform hover:scale-105"
+                className="w-full bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 text-white shadow-glow-red rounded-2xl h-12 font-semibold group"
               >
                 {isLoading ? (
-                  <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  <div className="flex items-center">
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
                     Signing In...
-                  </>
+                  </div>
                 ) : (
-                  <>
-                    <Shield className="w-5 h-5 mr-2" />
+                  <div className="flex items-center">
                     Sign In
-                  </>
+                    <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                  </div>
                 )}
               </Button>
             </form>
 
-            <div className="mt-6 pt-6 border-t border-white/10">
-              <div className="text-center">
-                <p className="text-sm text-cyber-slate-400 mb-2">Default credentials for testing:</p>
-                <p className="text-xs text-cyber-slate-500 font-mono bg-glass-dark rounded-lg p-2">
-                  Email: admin@dexcinema.com
-                  <br />
-                  Password: admin123
-                </p>
-              </div>
+            <div className="mt-6 text-center">
+              <p className="text-cyber-slate-400 text-sm">
+                Need an admin account?{" "}
+                <Link
+                  href="/admin/signup"
+                  className="text-brand-red-400 hover:text-brand-red-300 font-medium hover:underline transition-colors"
+                >
+                  Create Account
+                </Link>
+              </p>
+            </div>
+
+            <div className="mt-4 text-center">
+              <Link
+                href="/"
+                className="text-cyber-slate-400 hover:text-white text-sm transition-colors inline-flex items-center"
+              >
+                <ArrowRight className="w-4 h-4 mr-1 rotate-180" />
+                Back to Home
+              </Link>
             </div>
           </CardContent>
         </Card>
 
-        {/* Back to Home */}
-        <div className="text-center mt-6">
-          <Link href="/">
-            <Button
-              variant="ghost"
-              className="text-cyber-slate-300 hover:text-white hover:bg-glass-white transition-all duration-300"
-            >
-              <Film className="w-4 h-4 mr-2" />
-              Back to Cinema
-            </Button>
-          </Link>
-        </div>
+        {/* Default Credentials Info (for development) */}
+        <Card className="mt-6 bg-glass-white backdrop-blur-xl border border-cyber-blue-500/30 rounded-2xl">
+          <CardContent className="p-4">
+            <div className="text-center">
+              <p className="text-cyber-blue-300 text-sm font-medium mb-2">Development Credentials</p>
+              <p className="text-cyber-slate-300 text-xs">
+                Email: admin@dexviewcinema.com
+                <br />
+                Password: admin123
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

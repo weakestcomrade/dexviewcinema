@@ -1,7 +1,6 @@
 import { MongoClient, type Db } from "mongodb"
 
 const uri = process.env.MONGODB_URI
-const dbName = process.env.MONGODB_DB
 const options = {}
 
 let client: MongoClient
@@ -9,10 +8,6 @@ let clientPromise: Promise<MongoClient>
 
 if (!uri) {
   throw new Error("Please add your MONGODB_URI to .env.local")
-}
-
-if (!dbName) {
-  throw new Error("Please add your MONGODB_DB to .env.local")
 }
 
 // In production, it's best to not use a global variable.
@@ -32,14 +27,7 @@ if (process.env.NODE_ENV === "development") {
 }
 
 export async function connectToDatabase(): Promise<{ client: MongoClient; db: Db }> {
-  try {
-    console.log("Connecting to MongoDB...")
-    const connectedClient = await clientPromise
-    const db = connectedClient.db(dbName)
-    console.log("Successfully connected to MongoDB database:", dbName)
-    return { client: connectedClient, db }
-  } catch (error) {
-    console.error("Failed to connect to MongoDB:", error)
-    throw error
-  }
+  const connectedClient = await clientPromise
+  const db = connectedClient.db("cinema_db") // Replace with your database name
+  return { client: connectedClient, db }
 }

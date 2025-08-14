@@ -2,7 +2,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, Clock, MapPin, Users, Film, Trophy, Sparkles, ArrowRight, Shield } from "lucide-react"
+import { Calendar, Clock, MapPin, Users, Film, Trophy, Sparkles, ArrowRight } from "lucide-react"
 import { connectToDatabase } from "@/lib/mongodb" // Import the MongoDB connection utility
 import type { Hall } from "@/types/hall" // Import the Hall interface
 import Image from "next/image" // Import Image component for the logo
@@ -124,13 +124,13 @@ export default async function Home() {
                   My Bookings
                 </Button>
               </Link>
-              <Link href="/admin/login" className="w-full sm:w-auto">
+              <Link href="/admin" className="w-full sm:w-auto">
                 <Button
                   size="sm"
                   className="bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 shadow-glow-red text-white group rounded-2xl w-full sm:w-auto h-10 sm:h-9"
                 >
-                  <Shield className="w-4 h-4 mr-2 group-hover:rotate-180 transition-transform duration-300" />
-                  Admin Login
+                  <Users className="w-4 h-4 mr-2 group-hover:rotate-180 transition-transform duration-300" />
+                  Admin Dashboard
                 </Button>
               </Link>
             </div>
