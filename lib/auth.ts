@@ -1,86 +1,60 @@
-import { connectToDatabase } from "@/lib/mongodb"
 import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
+import type { User } from "@/types/user"
 
-// Authentication utilities for admin users
-export interface AdminUser {
-  id: string
-  email: string
-  isAuthenticated: boolean
+const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key"
+
+export async function hashPassword(password: string): Promise<string> {
+  const saltRounds = 12
+  return await bcrypt.hash(password, saltRounds)
 }
 
-// Database-based authentication with bcrypt password verification
-export const authenticateAdmin = async (email: string, password: string): Promise<AdminUser | null> => {
-  try {
-    const { db } = await connectToDatabase()
-
-    // Find admin user by email
-    const adminUser = await db.collection("admins").findOne({ email })
-
-    if (!adminUser) {
-      return null
-    }
-
-    // Verify password using bcrypt
-    const isPasswordValid = await bcrypt.compare(password, adminUser.password)
-
-    if (!isPasswordValid) {
-      return null
-    }
-
-    // Return authenticated user data
-    return {
-      id: adminUser._id.toString(),
-      email: adminUser.email,
-      isAuthenticated: true,
-    }
-  } catch (error) {
-    console.error("Authentication error:", error)
-    return null
-  }
+export async function verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
+  return await bcrypt.compare(password, hashedPassword)
 }
 
-// Generate JWT token for authenticated admin
-const generateJWTToken = (adminUser: AdminUser): string => {
-  const secret = process.env.JWT_SECRET || "fallback-secret"
+export function generateToken(user: Omit<User, "password">): string {
   return jwt.sign(
     {
-      id: adminUser.id,
-      email: adminUser.email,
-      role: "admin",
+      userId: user._id,
+      email: user.email,
+      role: user.role,
+      name: user.name,
     },
-    secret,
-    { expiresIn: "24h" },
+    JWT_SECRET,
+    { expiresIn: "7d" },
   )
 }
 
-// Set authentication cookie with JWT token
-export const setAuthCookie = (response: Response, adminUser: AdminUser) => {
-  const token = generateJWTToken(adminUser)
-
-  const cookie = `admin-token=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=86400`
-  response.headers.set("Set-Cookie", cookie)
-}
-
-// Clear authentication cookie
-export const clearAuthCookie = (response: Response) => {
-  const cookie = `admin-token=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`
-  response.headers.set("Set-Cookie", cookie)
-}
-
-// Verify JWT token from cookie
-export const verifyAuthToken = (token: string): AdminUser | null => {
+export function verifyToken(token: string): any {
   try {
-    const secret = process.env.JWT_SECRET || "fallback-secret"
-    const decoded = jwt.verify(token, secret) as any
-
-    return {
-      id: decoded.id,
-      email: decoded.email,
-      isAuthenticated: true,
-    }
+    return jwt.verify(token, JWT_SECRET)
   } catch (error) {
-    console.error("Token verification error:", error)
     return null
   }
+}
+
+export function validateEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  return emailRegex.test(email)
+}
+
+export function validatePassword(password: string): { isValid: boolean; message?: string } {
+  if (password.length < 8) {
+    return { isValid: false, message: "Password must be at least 8 characters long" }
+  }
+
+  if (!/(?=.*[a-z])/.test(password)) {
+    return { isValid: false, message: "Password must contain at least one lowercase letter" }
+  }
+
+  if (!/(?=.*[A-Z])/.test(password)) {
+    return { isValid: false, message: "Password must contain at least one uppercase letter" }
+  }
+
+  if (!/(?=.*\d)/.test(password)) {
+    return { isValid: false, message: "Password must contain at least one number" }
+  }
+
+  return { isValid: true }
 }
