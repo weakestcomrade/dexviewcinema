@@ -423,7 +423,7 @@ export default async function Home() {
               className="bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 text-white shadow-glow-red rounded-3xl transform hover:scale-105 transition-all duration-300 group font-bold text-lg py-3 sm:py-4 h-auto"
             >
               View All Events
-              <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+              <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform duration-300" />
               <div className="absolute inset-0 bg-gradient-to-r from-brand-red-400/20 to-brand-red-600/20 rounded-3xl blur-xl group-hover:blur-2xl transition-all duration-500"></div>
             </Button>
           </Link>
@@ -440,17 +440,25 @@ export default async function Home() {
             <p className="text-cyber-slate-300 text-lg mb-4 sm:mb-0">
               &copy; 2025 Dex View Cinema. All rights reserved.
             </p>
-            <p className="text-cyber-slate-300 text-lg">
-              Developed by{" "}
-              <a
-                href="https://www.sydatech.com.ng"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-brand-red-400 hover:text-brand-red-300 transition-colors font-bold hover:underline"
+            <div className="flex flex-col sm:flex-row items-center gap-4">
+              <p className="text-cyber-slate-300 text-lg">
+                Developed by{" "}
+                <a
+                  href="https://www.sydatech.com.ng"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-brand-red-400 hover:text-brand-red-300 transition-colors font-bold hover:underline"
+                >
+                  SydaTech
+                </a>
+              </p>
+              <Link
+                href="/admin/login"
+                className="text-cyber-slate-500 hover:text-cyber-slate-400 text-sm transition-colors opacity-50 hover:opacity-100"
               >
-                SydaTech
-              </a>
-            </p>
+                Admin
+              </Link>
+            </div>
           </div>
         </div>
       </footer>
