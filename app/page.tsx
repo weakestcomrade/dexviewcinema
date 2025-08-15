@@ -124,15 +124,6 @@ export default async function Home() {
                   My Bookings
                 </Button>
               </Link>
-              <Link href="/admin" className="w-full sm:w-auto">
-                <Button
-                  size="sm"
-                  className="bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 shadow-glow-red text-white group rounded-2xl w-full sm:w-auto h-10 sm:h-9"
-                >
-                  <Users className="w-4 h-4 mr-2 group-hover:rotate-180 transition-transform duration-300" />
-                  Admin Dashboard
-                </Button>
-              </Link>
             </div>
           </div>
         </div>
