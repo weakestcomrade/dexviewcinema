@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -11,7 +10,6 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Eye, EyeOff, Shield, Lock, Mail, ArrowRight } from "lucide-react"
 import Link from "next/link"
-import Image from "next/image"
 
 export default function AdminLogin() {
   const [email, setEmail] = useState("")
@@ -53,55 +51,29 @@ export default function AdminLogin() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 relative overflow-hidden flex items-center justify-center">
-      {/* Cyber-Glassmorphism background elements */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-brand-red-500/20 to-cyber-purple-500/20 rounded-full blur-3xl animate-float"></div>
-        <div className="absolute top-1/2 -left-40 w-80 h-80 bg-gradient-to-br from-cyber-blue-500/15 to-brand-red-500/15 rounded-full blur-3xl animate-float delay-1000"></div>
-        <div className="absolute -bottom-40 right-1/3 w-72 h-72 bg-gradient-to-br from-cyber-green-500/15 to-cyber-purple-500/15 rounded-full blur-3xl animate-float delay-2000"></div>
-
-        <div className="absolute top-20 right-20 w-32 h-32 border border-brand-red-500/20 rotate-45 animate-spin-slow"></div>
-        <div className="absolute bottom-40 left-20 w-24 h-24 border border-cyber-blue-500/30 rotate-12 animate-bounce-slow"></div>
-        <div className="absolute top-1/3 left-1/3 w-16 h-16 border border-cyber-purple-500/20 rounded-full animate-pulse-slow"></div>
-      </div>
-
-      <div className="relative z-10 w-full max-w-md mx-auto px-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center space-x-4 mb-6">
-            <div className="relative group">
-              <Image
-                src="/dexcinema-logo.jpeg"
-                alt="Dex View Cinema Logo"
-                width={64}
-                height={64}
-                className="w-16 h-16 rounded-4xl shadow-glow-red transform group-hover:scale-110 transition-all duration-300"
-                priority
-              />
-              <div className="absolute -top-1 -right-1 w-5 h-5 bg-white rounded-full flex items-center justify-center shadow-lg">
-                <div className="w-2.5 h-2.5 bg-brand-red-500 rounded-full animate-pulse"></div>
-              </div>
-              <div className="absolute inset-0 bg-gradient-to-br from-brand-red-500/30 to-brand-red-600/30 rounded-4xl blur-xl animate-glow"></div>
+            <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center">
+              <Shield className="w-8 h-8 text-white" />
             </div>
             <div className="text-left">
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-white via-brand-red-200 to-white bg-clip-text text-transparent">
-                Admin Portal
-              </h1>
-              <p className="text-sm font-medium bg-gradient-to-r from-brand-red-400 to-brand-red-300 bg-clip-text text-transparent">
-                Dex View Cinema
-              </p>
+              <h1 className="text-2xl font-bold text-white">Admin Portal</h1>
+              <p className="text-sm text-red-400">Dex View Cinema</p>
             </div>
           </div>
         </div>
 
         {/* Login Card */}
-        <Card className="bg-glass-white-strong backdrop-blur-xl shadow-cyber-card border border-white/20 rounded-3xl">
+        <Card className="bg-slate-800/50 backdrop-blur-xl border-slate-700">
           <CardHeader className="text-center pb-6">
-            <div className="w-16 h-16 bg-gradient-to-br from-brand-red-500/20 to-brand-red-600/20 rounded-full flex items-center justify-center border border-brand-red-500/30 mb-4 mx-auto">
-              <Shield className="w-8 h-8 text-brand-red-400" />
+            <div className="w-16 h-16 bg-red-600/20 rounded-full flex items-center justify-center border border-red-500/30 mb-4 mx-auto">
+              <Shield className="w-8 h-8 text-red-400" />
             </div>
             <CardTitle className="text-2xl font-bold text-white">Admin Login</CardTitle>
-            <CardDescription className="text-cyber-slate-300">
+            <CardDescription className="text-slate-300">
               Enter your credentials to access the admin dashboard
             </CardDescription>
           </CardHeader>
@@ -118,14 +90,14 @@ export default function AdminLogin() {
                   Email Address
                 </Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-cyber-slate-400" />
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
                   <Input
                     id="email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="admin@dexviewcinema.com"
-                    className="pl-10 bg-glass-white border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-500/50 focus:ring-brand-red-500/20 rounded-2xl h-12"
+                    className="pl-10 bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-400 focus:border-red-500 focus:ring-red-500/20"
                     required
                   />
                 </div>
@@ -136,20 +108,20 @@ export default function AdminLogin() {
                   Password
                 </Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-cyber-slate-400" />
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
-                    className="pl-10 pr-10 bg-glass-white border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-500/50 focus:ring-brand-red-500/20 rounded-2xl h-12"
+                    className="pl-10 pr-10 bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-400 focus:border-red-500 focus:ring-red-500/20"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-cyber-slate-400 hover:text-white transition-colors"
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
                   >
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
@@ -159,7 +131,7 @@ export default function AdminLogin() {
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 text-white shadow-glow-red rounded-2xl h-12 font-semibold group"
+                className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-semibold group"
               >
                 {isLoading ? (
                   <div className="flex items-center">
@@ -176,11 +148,11 @@ export default function AdminLogin() {
             </form>
 
             <div className="mt-6 text-center">
-              <p className="text-cyber-slate-400 text-sm">
+              <p className="text-slate-400 text-sm">
                 Need an admin account?{" "}
                 <Link
                   href="/admin/signup"
-                  className="text-brand-red-400 hover:text-brand-red-300 font-medium hover:underline transition-colors"
+                  className="text-red-400 hover:text-red-300 font-medium hover:underline transition-colors"
                 >
                   Create Account
                 </Link>
@@ -190,7 +162,7 @@ export default function AdminLogin() {
             <div className="mt-4 text-center">
               <Link
                 href="/"
-                className="text-cyber-slate-400 hover:text-white text-sm transition-colors inline-flex items-center"
+                className="text-slate-400 hover:text-white text-sm transition-colors inline-flex items-center"
               >
                 <ArrowRight className="w-4 h-4 mr-1 rotate-180" />
                 Back to Home
@@ -199,12 +171,12 @@ export default function AdminLogin() {
           </CardContent>
         </Card>
 
-        {/* Default Credentials Info (for development) */}
-        <Card className="mt-6 bg-glass-white backdrop-blur-xl border border-cyber-blue-500/30 rounded-2xl">
+        {/* Default Credentials Info */}
+        <Card className="mt-6 bg-slate-800/30 border-slate-700">
           <CardContent className="p-4">
             <div className="text-center">
-              <p className="text-cyber-blue-300 text-sm font-medium mb-2">Development Credentials</p>
-              <p className="text-cyber-slate-300 text-xs">
+              <p className="text-blue-300 text-sm font-medium mb-2">Development Credentials</p>
+              <p className="text-slate-300 text-xs">
                 Email: admin@dexviewcinema.com
                 <br />
                 Password: admin123
