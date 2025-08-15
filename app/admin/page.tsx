@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -48,9 +49,6 @@ import {
 import Link from "next/link"
 import Image from "next/image"
 import { useToast } from "@/components/ui/use-toast"
-import jsPDF from "jspdf"
-import html2canvas from "html2canvas"
-import { addDays, startOfWeek, startOfMonth, endOfWeek, endOfMonth, isWithinInterval } from "date-fns"
 import type { Hall } from "@/types/hall" // Import the new Hall type
 
 // Define types for events fetched from the database
@@ -409,6 +407,7 @@ const getSeatTypeName = (type: string) => {
 }
 
 export default function AdminDashboard() {
+  const router = useRouter()
   const { toast } = useToast()
   const [events, setEvents] = useState<Event[]>([])
   const [actualBookings, setActualBookings] = useState<Booking[]>([]) // State for actual bookings
@@ -446,152 +445,31 @@ export default function AdminDashboard() {
   const [customRevenueStartDate, setCustomRevenueStartDate] = useState<string>("")
   const [customRevenueEndDate, setCustomRevenueEndDate] = useState<string>("")
 
-  const fetchHalls = useCallback(async () => {
+  const handleSignOut = async () => {
     try {
-      const res = await fetch("/api/halls")
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`)
-      }
-      const data: Hall[] = await res.json()
-      setHalls(data)
-      // Set initial new event state based on fetched halls
-      if (data.length > 0 && newEvent.hall_id === "") {
-        const defaultHall = data[0] // Use the first hall as default
-        setNewEvent((prev) => ({
-          ...prev,
-          hall_id: defaultHall._id,
-          total_seats: defaultHall.capacity,
-          pricing: defaultHall.type === "vip" ? defaultVipMoviePricing : defaultStandardMoviePricingHallA, // Default pricing based on hall type
-        }))
+      const response = await fetch('/api/admin/signout', {
+        method: 'POST',
+      })
+      
+      if (response.ok) {
+        router.push('/admin/signin')
       }
     } catch (error) {
-      console.error("Failed to fetch halls:", error)
-      toast({
-        title: "Error fetching halls",
-        description: "Could not load hall information from the database.",
-        variant: "destructive",
-      })
+      console.error('Signout error:', error)
     }
-  }, [newEvent.hall_id, toast])
-
-  const fetchEvents = useCallback(async () => {
-    try {
-      const res = await fetch("/api/events")
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`)
-      }
-      const data: Event[] = await res.json()
-      // Placeholder for bookedSeats - in a real app, these would be calculated or fetched
-      // For now, let's simulate booked seats based on actual bookings if available
-      const formattedEvents = data.map((event) => {
-        const bookingsForEvent = actualBookings.filter((booking) => booking.eventId === event._id)
-        const bookedSeatIds = bookingsForEvent.flatMap((booking) => booking.seats)
-        return {
-          ...event,
-          bookedSeats: bookedSeatIds, // Store actual booked seat IDs
-        }
-      })
-      setEvents(formattedEvents)
-    } catch (error) {
-      console.error("Failed to fetch events:", error)
-      toast({
-        title: "Error fetching events",
-        description: "Could not load events from the database.",
-        variant: "destructive",
-      })
-    }
-  }, [actualBookings, toast]) // Depend on actualBookings to update bookedSeats
-
-  const fetchBookings = useCallback(async () => {
-    try {
-      const res = await fetch("/api/bookings")
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`)
-      }
-      const data: Booking[] = await res.json()
-      setActualBookings(data)
-    } catch (error) {
-      console.error("Failed to fetch bookings:", error)
-      toast({
-        title: "Error fetching bookings",
-        description: "Could not load bookings from the database.",
-        variant: "destructive",
-      })
-    }
-  }, [toast])
-
-  useEffect(() => {
-    fetchHalls() // Fetch halls first
-  }, [fetchHalls])
-
-  useEffect(() => {
-    fetchBookings() // Fetch bookings first
-  }, [fetchBookings])
-
-  useEffect(() => {
-    if (actualBookings.length > 0 || events.length === 0) {
-      // Only fetch events after bookings are loaded, or if events are empty
-      fetchEvents()
-    }
-  }, [actualBookings, fetchEvents, events.length])
-
-  const handleEventTypeChange = (type: EventType) => {
-    let newHallId: string
-    let newCategory: EventCategory
-    let newDuration: string
-    let newPricing: NewEventData["pricing"]
-
-    if (type === "match") {
-      newHallId = halls.find((h) => h.type === "vip")?._id || (halls.length > 0 ? halls[0]._id : "") // Default to VIP Hall for matches
-      newCategory = "Premium Match"
-      newDuration = "90 minutes + extra time"
-      newPricing = defaultVipMatchPricing
-    } else {
-      // movie
-      newHallId = halls.find((h) => h._id === "hallA")?._id || (halls.length > 0 ? halls[0]._id : "") // Default to Hall A for movies
-      newCategory = "Blockbuster"
-      newDuration = "120 minutes"
-      newPricing = defaultStandardMoviePricingHallA // Default to standard pricing for Hall A
-    }
-
-    setNewEvent({
-      ...newEvent,
-      event_type: type,
-      category: newCategory,
-      hall_id: newHallId,
-      total_seats: getHallTotalSeats(halls, newHallId),
-      duration: newDuration,
-      pricing: newPricing,
-    })
   }
 
-  const handleCategoryChange = (category: EventCategory) => {
-    let updatedPricing = { ...newEvent.pricing }
+  const handleEventTypeChange = (value: EventType) => {
+    setNewEvent({ ...newEvent, event_type: value, category: value === "movie" ? "Blockbuster" : "Premium Match" })
+  }
 
-    if (newEvent.event_type === "match") {
-      if (getHallType(halls, newEvent.hall_id) === "vip") {
-        if (category === "Big Match") {
-          updatedPricing = {
-            vipSofaSeats: { price: 3000, count: 10 },
-            vipRegularSeats: { price: 2500, count: 12 },
-          }
-        } else {
-          updatedPricing = defaultVipMatchPricing
-        }
-      } else if (newEvent.hall_id === "hallA") {
-        updatedPricing = defaultStandardMatchPricingHallA
-      } else if (newEvent.hall_id === "hallB") {
-        updatedPricing = defaultStandardMatchPricingHallB
-      }
-    }
-    // For movie categories, pricing is determined by hall_id, not category, so no change here.
-
-    setNewEvent({ ...newEvent, category, pricing: updatedPricing })
+  const handleCategoryChange = (value: EventCategory) => {
+    setNewEvent({ ...newEvent, category: value })
   }
 
   const handleCreateEvent = async () => {
     try {
-      const res = await fetch("/api/events", {
+      const response = await fetch("/api/events", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -599,60 +477,43 @@ export default function AdminDashboard() {
         body: JSON.stringify(newEvent),
       })
 
-      if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.message || `HTTP error! status: ${res.status}`)
+      if (response.ok) {
+        toast({
+          title: "Event created successfully!",
+          description: "The new event has been added to the schedule.",
+        })
+        setIsCreateEventOpen(false) // Close the dialog
+        setNewEvent(initialNewEventState) // Reset the form
+        fetchEvents() // Refresh the events list
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Failed to create event.",
+          description: "Please check the form data and try again.",
+        })
       }
-
-      toast({
-        title: "Event created successfully!",
-        description: `${newEvent.title} has been added.`,
-      })
-      setIsCreateEventOpen(false)
-      setNewEvent(initialNewEventState) // Reset form to initial state
-      fetchEvents() // Refresh the list
     } catch (error) {
-      console.error("Failed to create event:", error)
+      console.error("Create event error:", error)
       toast({
-        title: "Error creating event",
-        description: (error as Error).message,
         variant: "destructive",
+        title: "An error occurred.",
+        description: "Could not create the event. Please try again later.",
       })
     }
-  }
-
-  const handleEditClick = (event: Event) => {
-    // Map fetched event data to NewEventData for the form
-    setNewEvent({
-      _id: event._id,
-      title: event.title,
-      event_type: event.event_type,
-      category: event.category as EventCategory,
-      event_date: event.event_date,
-      event_time: event.event_time,
-      hall_id: event.hall_id,
-      description: event.description || "",
-      duration: event.duration || "",
-      pricing: event.pricing, // Use the existing pricing from the event
-      total_seats: event.total_seats,
-      status: event.status,
-      image_url: event.image_url || "", // Set image_url for editing
-    })
-    setIsEditEventOpen(true)
   }
 
   const handleUpdateEvent = async () => {
-    if (!newEvent._id) {
-      toast({
-        title: "Error updating event",
-        description: "Event ID is missing.",
-        variant: "destructive",
-      })
-      return
-    }
-
     try {
-      const res = await fetch(`/api/events/${newEvent._id}`, {
+      if (!newEvent._id) {
+        toast({
+          variant: "destructive",
+          title: "Event ID missing.",
+          description: "Cannot update event without an ID.",
+        })
+        return
+      }
+
+      const response = await fetch(`/api/events/${newEvent._id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -660,579 +521,177 @@ export default function AdminDashboard() {
         body: JSON.stringify(newEvent),
       })
 
-      if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.message || `HTTP error! status: ${res.status}`)
+      if (response.ok) {
+        toast({
+          title: "Event updated successfully!",
+          description: "The event details have been updated.",
+        })
+        setIsEditEventOpen(false) // Close the dialog
+        setNewEvent(initialNewEventState) // Reset the form
+        fetchEvents() // Refresh the events list
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Failed to update event.",
+          description: "Please check the form data and try again.",
+        })
       }
-
-      toast({
-        title: "Event updated successfully!",
-        description: `${newEvent.title} has been updated.`,
-      })
-      setIsEditEventOpen(false)
-      setNewEvent(initialNewEventState) // Reset form after update
-      fetchEvents() // Refresh the list
     } catch (error) {
-      console.error("Failed to update event:", error)
+      console.error("Update event error:", error)
       toast({
-        title: "Error updating event",
-        description: (error as Error).message,
         variant: "destructive",
+        title: "An error occurred.",
+        description: "Could not update the event. Please try again later.",
       })
     }
   }
 
-  const handleDeleteEvent = async (id: string, title: string) => {
-    if (!window.confirm(`Are you sure you want to delete "${title}"?`)) {
-      return
-    }
-
-    try {
-      const res = await fetch(`/api/events/${id}`, {
-        method: "DELETE",
-      })
-
-      if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.message || `HTTP error! status: ${res.status}`)
-      }
-
-      toast({
-        title: "Event deleted successfully!",
-        description: `${title} has been removed.`,
-      })
-      fetchEvents() // Refresh the list
-    } catch (error) {
-      console.error("Failed to delete event:", error)
-      toast({
-        title: "Error deleting event",
-        description: (error as Error).message,
-        variant: "destructive",
-      })
-    }
-  }
-
-  const handlePrintReceipt = (booking: Booking) => {
-    setSelectedBooking(booking)
-    setIsPrintReceiptOpen(true)
-  }
-
-  const printReceipt = () => {
-    window.print()
-  }
-
-  // Handle change for new booking event selection
-  const handleNewBookingEventChange = async (eventId: string) => {
-    const event = events.find((e) => e._id === eventId)
-    setSelectedEventForBooking(event || null)
-    setSelectedSeatsForAdminBooking([]) // Clear selected seats when event changes
-    setCurrentEventSeats([]) // Clear current event seats
-
-    if (event) {
-      // Fetch the full event details including bookedSeats from the API
+  const handleDeleteEvent = async (eventId: string, eventTitle: string) => {
+    if (window.confirm(`Are you sure you want to delete ${eventTitle}?`)) {
       try {
-        const res = await fetch(`/api/events/${eventId}`)
-        if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`)
-        }
-        const fullEventData: Event = await res.json()
+        const response = await fetch(`/api/events/${eventId}`, {
+          method: "DELETE",
+        })
 
-        // Generate seat map based on event type and hall
-        let generatedSeats: Seat[] = []
-        if (fullEventData.event_type === "match") {
-          if (getHallType(halls, fullEventData.hall_id) === "vip") {
-            generatedSeats = generateVipMatchSeats(fullEventData.pricing, fullEventData.bookedSeats)
+        if (response.ok) {
+          toast({
+            title: "Event deleted successfully!",
+            description: `The event "${eventTitle}" has been removed.`,
+          })
+          fetchEvents() // Refresh the events list
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Failed to delete event.",
+            description: "Please try again later.",
+          })
+        }
+      } catch (error) {
+        console.error("Delete event error:", error)
+        toast({
+          variant: "destructive",
+          title: "An error occurred.",
+          description: "Could not delete the event. Please try again later.",
+        })
+      }
+    }
+  }
+
+  const handleNewBookingEventChange = useCallback(
+    async (eventId: string) => {
+      setNewBooking({ ...newBooking, eventId: eventId }) // Update eventId in newBooking state
+
+      const selectedEvent = events.find((event) => event._id === eventId)
+      if (selectedEvent) {
+        setSelectedEventForBooking(selectedEvent) // Store the selected event object
+        setNewBooking({
+          ...newBooking,
+          eventId: selectedEvent._id,
+          eventTitle: selectedEvent.title,
+          eventType: selectedEvent.event_type,
+        }) // Update other fields
+
+        // Generate seats based on event type and hall
+        let seats: Seat[] = []
+        if (selectedEvent.event_type === "match") {
+          if (getHallType(halls, selectedEvent.hall_id) === "vip") {
+            seats = generateVipMatchSeats(selectedEvent.pricing, selectedEvent.bookedSeats)
           } else {
-            generatedSeats = generateStandardMatchSeats(
-              fullEventData.pricing,
-              fullEventData.hall_id,
-              halls, // Pass halls here
-              fullEventData.bookedSeats,
+            seats = generateStandardMatchSeats(
+              selectedEvent.pricing,
+              selectedEvent.hall_id,
+              halls,
+              selectedEvent.bookedSeats,
             )
           }
         } else {
-          // Movie event
-          if (getHallType(halls, fullEventData.hall_id) === "vip") {
-            generatedSeats = generateMovieSeats(
-              fullEventData.pricing,
-              fullEventData.hall_id,
-              halls,
-              fullEventData.bookedSeats,
-            ) // Pass halls here
-          } else {
-            generatedSeats = generateMovieSeats(
-              fullEventData.pricing,
-              fullEventData.hall_id,
-              halls,
-              fullEventData.bookedSeats,
-            ) // Pass halls here
-          }
+          seats = generateMovieSeats(selectedEvent.pricing, selectedEvent.hall_id, halls, selectedEvent.bookedSeats)
         }
-        setCurrentEventSeats(generatedSeats)
-
-        setNewBooking((prev) => ({
-          ...prev,
-          eventId: eventId,
-          eventTitle: fullEventData.title,
-          eventType: fullEventData.event_type,
-          seats: [], // Ensure seats array is empty
-          seatType: "", // Reset seat type
-          amount: 0,
-          totalAmount: newBooking.processingFee, // Only processing fee initially
-        }))
-      } catch (err) {
-        console.error("Failed to fetch full event details for booking:", err)
-        toast({
-          title: "Error loading event seats",
-          description: "Could not load seat map for the selected event.",
-          variant: "destructive",
-        })
+        setCurrentEventSeats(seats) // Update the seat map
+      } else {
+        setSelectedEventForBooking(null) // Clear selected event if not found
+        setCurrentEventSeats([]) // Clear seat map
       }
-    } else {
-      setNewBooking(initialNewBookingState)
-    }
-  }
+    },
+    [events, halls, newBooking, setNewBooking, setCurrentEventSeats, setSelectedEventForBooking],
+  )
 
   const handleAdminSeatClick = (seatId: string, seatType: string, isBooked: boolean, seatPrice: number) => {
-    if (isBooked) return // Cannot select already booked seats
-
-    const hallType = getHallType(halls, selectedEventForBooking?.hall_id || "")
-
-    let newSelectedSeats: string[]
-    let newSelectedSeatType: string
-
-    if (selectedEventForBooking?.event_type === "movie" && hallType === "vip") {
-      // For VIP movie halls, only allow one selection per type (single, couple, family unit)
-      if (selectedSeatsForAdminBooking.length > 0 && newBooking.seatType !== seatType) {
-        toast({
-          title: "Seat Selection Conflict",
-          description: `Please select only ${getSeatTypeName(newBooking.seatType)} seats for consistency.`,
-          variant: "destructive",
-        })
-        return
-      }
-      if (selectedSeatsForAdminBooking.includes(seatId)) {
-        newSelectedSeats = []
-        newSelectedSeatType = ""
-      } else {
-        newSelectedSeats = [seatId]
-        newSelectedSeatType = seatType
-      }
-    } else {
-      // For football matches (both VIP and Standard) and standard movie halls, allow multiple selections of same type
-      if (selectedSeatsForAdminBooking.length > 0 && newBooking.seatType !== seatType) {
-        toast({
-          title: "Seat Selection Conflict",
-          description: `Please select only ${getSeatTypeName(newBooking.seatType)} seats for consistency.`,
-          variant: "destructive",
-        })
-        return
-      }
-
-      if (selectedSeatsForAdminBooking.includes(seatId)) {
-        newSelectedSeats = selectedSeatsForAdminBooking.filter((id) => id !== seatId)
-        newSelectedSeatType = newSelectedSeats.length > 0 ? seatType : ""
-      } else {
-        newSelectedSeats = [...selectedSeatsForAdminBooking, seatId]
-        newSelectedSeatType = seatType
-      }
+    if (isBooked) {
+      toast({
+        variant: "destructive",
+        title: "Seat already booked.",
+        description: "This seat is currently unavailable.",
+      })
+      return // Prevent selecting booked seats
     }
 
-    setSelectedSeatsForAdminBooking(newSelectedSeats)
+    const isSelected = selectedSeatsForAdminBooking.includes(seatId)
+    let updatedSeats = [...selectedSeatsForAdminBooking]
 
-    // Recalculate amount based on newSelectedSeats
-    let calculatedAmount = 0
-    newSelectedSeats.forEach((sId) => {
-      const seat = currentEventSeats.find((s) => s.id === sId)
-      if (seat) {
-        calculatedAmount += seat.price
-      }
+    if (isSelected) {
+      updatedSeats = updatedSeats.filter((id) => id !== seatId) // Deselect seat
+    } else {
+      updatedSeats.push(seatId) // Select seat
+    }
+
+    setSelectedSeatsForAdminBooking(updatedSeats) // Update selected seats
+
+    // Calculate amount based on selected seats
+    const newAmount = updatedSeats.length * seatPrice
+    setNewBooking({
+      ...newBooking,
+      seats: updatedSeats, // Update the seats array in newBooking
+      seatType: getSeatTypeName(seatType), // Update seatType in newBooking
+      amount: newAmount, // Update amount in newBooking
+      totalAmount: newAmount + newBooking.processingFee, // Update totalAmount in newBooking
     })
-
-    setNewBooking((prev) => ({
-      ...prev,
-      seats: newSelectedSeats,
-      seatType: newSelectedSeatType,
-      amount: calculatedAmount,
-      totalAmount: calculatedAmount + prev.processingFee,
-    }))
   }
 
   const handleCreateBooking = async () => {
-    if (!selectedEventForBooking) {
-      toast({
-        title: "Error creating booking",
-        description: "Please select an event.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (selectedSeatsForAdminBooking.length === 0) {
-      toast({
-        title: "No Seats Selected",
-        description: "Please select at least one seat.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (!newBooking.customerName || !newBooking.customerEmail || !newBooking.customerPhone) {
-      toast({
-        title: "Missing Information",
-        description: "Please fill in all customer information.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    const bookingPayload = {
-      ...newBooking,
-      seats: selectedSeatsForAdminBooking, // Use the array of selected seats
-      eventId: selectedEventForBooking._id,
-      eventTitle: selectedEventForBooking.title,
-      eventType: selectedEventForBooking.event_type,
-    }
-
     try {
-      const res = await fetch("/api/bookings", {
+      const response = await fetch("/api/bookings", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(bookingPayload),
+        body: JSON.stringify({
+          ...newBooking,
+          seats: newBooking.seats, // Ensure seats is an array of seat IDs
+        }),
       })
 
-      if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.message || `HTTP error! status: ${res.status}`)
-      }
-
-      toast({
-        title: "Booking created successfully!",
-        description: `Booking for ${newBooking.customerName} has been added.`,
-      })
-      setIsCreateBookingOpen(false)
-      setNewBooking(initialNewBookingState) // Reset form
-      setSelectedEventForBooking(null) // Reset selected event
-      setSelectedSeatsForAdminBooking([]) // Clear selected seats
-      setCurrentEventSeats([]) // Clear seat map
-      fetchBookings() // Refresh bookings list
-      fetchEvents() // Refresh events to update booked seats count
-    } catch (error) {
-      console.error("Failed to create booking:", error)
-      toast({
-        title: "Error creating booking",
-        description: (error as Error).message,
-        variant: "destructive",
-      })
-    }
-  }
-
-  const getSeatTypeBreakdown = (event: Event, halls: Hall[], specificBookedSeats: string[]) => {
-    const breakdown: Record<string, number> = {}
-    if (!event || specificBookedSeats.length === 0) {
-      return breakdown
-    }
-
-    const hallType = getHallType(halls, event.hall_id)
-
-    specificBookedSeats.forEach((seatId) => {
-      let seatTypeKey = "Unknown"
-      if (event.event_type === "match") {
-        if (hallType === "vip") {
-          if (seatId.startsWith("S")) seatTypeKey = "VIP Sofa"
-          else if (seatId.match(/^[A-Z]\d+$/)) seatTypeKey = "VIP Regular"
-        } else {
-          seatTypeKey = "Standard Match"
-        }
+      if (response.ok) {
+        toast({
+          title: "Booking created successfully!",
+          description: "The new booking has been added.",
+        })
+        setIsCreateBookingOpen(false) // Close the dialog
+        setNewBooking(initialNewBookingState) // Reset the form
+        setSelectedEventForBooking(null) // Clear selected event
+        setSelectedSeatsForAdminBooking([]) // Clear selected seats
+        setCurrentEventSeats([]) // Clear seat map
+        fetchBookings() // Refresh the bookings list
       } else {
-        // Movie event
-        if (hallType === "vip") {
-          if (seatId.startsWith("S")) seatTypeKey = "VIP Single"
-          else if (seatId.startsWith("C")) seatTypeKey = "VIP Couple"
-          else if (seatId.startsWith("F")) seatTypeKey = "VIP Family"
-        } else {
-          seatTypeKey = "Standard Single"
-        }
+        toast({
+          variant: "destructive",
+          title: "Failed to create booking.",
+          description: "Please check the form data and try again.",
+        })
       }
-      breakdown[seatTypeKey] = (breakdown[seatTypeKey] || 0) + 1
-    })
-    return breakdown
-  }
-
-  const handleExportPdf = async () => {
-    const input = document.getElementById("full-report-content")
-    if (!input) {
-      toast({
-        title: "Export Failed",
-        description: "Could not find report content to export.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    // Calculate summary analytics based on filteredReportsBookings
-    const summaryTotalRevenue = filteredReportsBookings.reduce((sum, booking) => sum + booking.totalAmount, 0)
-    const summaryTotalBookings = filteredReportsBookings.length
-    const summaryTotalSeatsBooked = filteredReportsBookings.reduce((sum, booking) => sum + booking.seats.length, 0)
-
-    let summaryOverallOccupancyRate = 0
-    let summaryRevenueByCategoryHtml = ""
-    let summaryHallPerformanceHtml = ""
-    let specificEventDetailsHtml = ""
-
-    const currentEventForReport =
-      selectedEventIdForReports !== "all" ? events.find((e) => e._id === selectedEventIdForReports) : null
-
-    if (currentEventForReport) {
-      const eventBookingsForReport = filteredReportsBookings.filter((b) => b.eventId === currentEventForReport._id)
-      const eventBookedSeatsCount = eventBookingsForReport.reduce((sum, b) => sum + b.seats.length, 0)
-      summaryOverallOccupancyRate =
-        currentEventForReport.total_seats > 0 ? (eventBookedSeatsCount / currentEventForReport.total_seats) * 100 : 0
-
-      const filteredBookedSeatsForCurrentEvent = eventBookingsForReport.flatMap((b) => b.seats)
-      const seatBreakdown = getSeatTypeBreakdown(currentEventForReport, halls, filteredBookedSeatsForCurrentEvent)
-      const seatBreakdownList = Object.entries(seatBreakdown)
-        .map(([type, count]) => `<li>${type}: ${count}</li>`)
-        .join("")
-
-      specificEventDetailsHtml = `
-        <h2 class="text-2xl font-bold mb-6">Event Specific Details</h2>
-        <div class="mb-10 p-4 border border-gray-300 rounded-lg">
-          <h3 class="text-xl font-semibold mb-4">${currentEventForReport.title} (${getHallDisplayName(halls, currentEventForReport.hall_id)})</h3>
-          <p><strong>Date:</strong> ${currentEventForReport.event_date}</p>
-          <p><strong>Time:</strong> ${currentEventForReport.event_time}</p>
-          <p><strong>Total Seats:</strong> ${currentEventForReport.total_seats}</p>
-          <p><strong>Booked Seats (Filtered):</strong> ${eventBookedSeatsCount}</p>
-          <p><strong>Occupancy:</strong> ${summaryOverallOccupancyRate.toFixed(0)}%</p>
-          <h4 class="text-lg font-semibold mt-4 mb-2">Booked Seats Breakdown:</h4>
-          <ul>${seatBreakdownList}</ul>
-        </div>
-      `
-    } else {
-      // Calculate for all filtered events
-      const relevantEventIds = new Set(filteredReportsBookings.map((b) => b.eventId))
-      const relevantEvents = events.filter((e) => relevantEventIds.has(e._id))
-
-      const totalBookedSeatsFiltered = filteredReportsBookings.reduce((sum, booking) => sum + booking.seats.length, 0)
-      const totalAvailableSeatsRelevant = relevantEvents.reduce((sum, event) => sum + event.total_seats, 0)
-      summaryOverallOccupancyRate =
-        totalAvailableSeatsRelevant > 0 ? (totalBookedSeatsFiltered / totalAvailableSeatsRelevant) * 100 : 0
-
-      const currentRevenueByCategory = filteredReportsBookings.reduce(
-        (acc, booking) => {
-          const category = events.find((e) => e._id === booking.eventId)?.category || "Unknown"
-          acc[category] = (acc[category] || 0) + booking.totalAmount
-          return acc
-        },
-        {} as Record<string, number>,
-      )
-
-      summaryRevenueByCategoryHtml =
-        Object.entries(currentRevenueByCategory).length > 0
-          ? Object.entries(currentRevenueByCategory)
-              .map(
-                ([category, revenue]) => `
-          <div class="flex justify-between items-center text-lg border-b border-gray-200 pb-2">
-            <span>${category}:</span>
-            <span class="font-bold">₦${revenue.toLocaleString()}</span>
-          </div>
-        `,
-              )
-              .join("")
-          : `<p>No revenue data available for these filters.</p>`
-
-      const currentHallPerformance = relevantEvents.reduce(
-        (acc, event) => {
-          const hallName = getHallDisplayName(halls, event.hall_id)
-          if (!acc[hallName]) {
-            acc[hallName] = { booked: 0, total: 0 }
-          }
-          // Sum booked seats for this hall from the filtered bookings
-          const bookedSeatsForHall = filteredReportsBookings
-            .filter((b) => b.eventId === event._id)
-            .reduce((sum, b) => sum + b.seats.length, 0)
-
-          acc[hallName].booked += bookedSeatsForHall
-          acc[hallName].total += event.total_seats
-          return acc
-        },
-        {} as Record<string, { booked: number; total: number }>,
-      )
-
-      summaryHallPerformanceHtml =
-        Object.entries(currentHallPerformance).length > 0
-          ? Object.entries(currentHallPerformance)
-              .map(([hallName, data]) => {
-                const occupancy = data.total > 0 ? (data.booked / data.total) * 100 : 0
-                return `
-          <div class="mb-4">
-            <div class="flex justify-between text-lg mb-2">
-              <span>${hallName}:</span>
-              <span class="font-bold">${occupancy.toFixed(0)}% Occupancy</span>
-            </div>
-            <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
-              <div class="bg-blue-500 h-4 rounded-full" style="width: ${occupancy}%"></div>
-            </div>
-          </div>
-        `
-              })
-              .join("")
-          : `<p>No hall performance data available for these filters.</p>`
-    }
-
-    const summaryReportHtml = `
-      <div class="p-8 bg-white text-black">
-        <h1 class="text-3xl font-bold text-center mb-8">Event Booking Summary Report</h1>
-
-        <div class="mb-8 p-4 border border-gray-300 rounded-lg">
-          <h2 class="text-xl font-semibold mb-4">Filters Applied:</h2>
-          <div class="grid grid-cols-2 gap-4 text-lg">
-            <div><strong>Date Range:</strong> ${reportStartDate || "All"} to ${reportEndDate || "All"}</div>
-            <div><strong>Event Type:</strong> ${reportEventType === "all" ? "All" : reportEventType}</div>
-            <div><strong>Booking Status:</strong> ${reportStatus === "all" ? "All" : reportStatus}</div>
-            <div><strong>Selected Event:</strong> ${currentEventForReport ? `${currentEventForReport.title} (${getHallDisplayName(halls, currentEventForReport.hall_id)})` : "All Events"}</div>
-          </div>
-        </div>
-
-        <h2 class="text-2xl font-bold mb-6">Summary Statistics</h2>
-        <div class="grid grid-cols-2 gap-6 mb-10">
-          <div class="p-4 border border-gray-300 rounded-lg">
-            <h3 class="text-lg font-semibold mb-2">Total Revenue (Filtered)</h3>
-            <p class="text-3xl font-bold">₦${summaryTotalRevenue.toLocaleString()}</p>
-          </div>
-          <div class="p-4 border border-gray-300 rounded-lg">
-            <h3 class="text-lg font-semibold mb-2">Total Bookings (Filtered)</h3>
-            <p class="text-3xl font-bold">${summaryTotalBookings}</p>
-          </div>
-          <div class="p-4 border border-gray-300 rounded-lg">
-            <h3 class="text-lg font-semibold mb-2">Total Seats Booked (Filtered)</h3>
-            <p class="text-3xl font-bold">${summaryTotalSeatsBooked}</p>
-          </div>
-          <div class="p-4 border border-gray-300 rounded-lg">
-            <h3 class="text-lg font-semibold mb-2">Overall Occupancy Rate (Filtered)</h3>
-            <p class="text-3xl font-bold">${summaryOverallOccupancyRate.toFixed(0)}%</p>
-          </div>
-        </div>
-        ${specificEventDetailsHtml}
-        ${
-          selectedEventIdForReports === "all"
-            ? `
-          <h2 class="text-2xl font-bold mb-6">Revenue by Category</h2>
-          <div class="space-y-4 mb-10">${summaryRevenueByCategoryHtml}</div>
-          <h2 class="text-2xl font-bold mb-6">Hall Performance</h2>
-          <div class="space-y-4 mb-10">${summaryHallPerformanceHtml}</div>
-        `
-            : ""
-        }
-      </div>
-    `
-
-    // Set the content of the hidden div
-    input.innerHTML = summaryReportHtml
-
-    // Temporarily apply styles for PDF rendering
-    input.style.backgroundColor = "#ffffff"
-    input.style.padding = "20px"
-    input.style.color = "#000000"
-    input.style.boxShadow = "none"
-    input.style.borderRadius = "0"
-    input.style.display = "block" // Make sure it's visible for html2canvas
-
-    // Temporarily change text color for all elements within the report content
-    const textElements = input.querySelectorAll("*")
-    textElements.forEach((el) => {
-      if (el instanceof HTMLElement) {
-        const computedColor = window.getComputedStyle(el).color
-        // Only override if the color is not already black or a very dark color
-        if (computedColor !== "rgb(0, 0, 0)" && computedColor !== "rgb(255, 255, 255)") {
-          el.style.color = "#000000"
-        }
-        // Remove background gradients/shadows from cards
-        if (el.classList.contains("bg-glass-white-strong") || el.classList.contains("shadow-cyber-card")) {
-          el.style.backgroundColor = "#ffffff"
-          el.style.boxShadow = "none"
-          el.style.border = "1px solid #e0e0e0"
-        }
-        // Remove text gradients
-        if (el.classList.contains("bg-clip-text")) {
-          el.style.color = "#000000"
-          el.style.backgroundImage = "none"
-        }
-        // Remove badge backgrounds
-        if (el.classList.contains("badge")) {
-          el.style.backgroundColor = "#f0f0f0"
-          el.style.color = "#333333"
-          el.style.border = "1px solid #cccccc"
-        }
-      }
-    })
-
-    try {
-      const canvas = await html2canvas(input, {
-        scale: 2, // Increase scale for better resolution
-        useCORS: true, // Important for images if any
-        logging: true, // Enable logging for debugging
-      })
-
-      const imgData = canvas.toDataURL("image/png")
-      const pdf = new jsPDF("l", "mm", "a4") // 'l' for landscape, 'mm' for units, 'a4' for page size
-      const imgWidth = 297 // A4 landscape width in mm
-      const pageHeight = 210 // A4 landscape height in mm
-      const imgHeight = (canvas.height * imgWidth) / canvas.width
-      let heightLeft = imgHeight
-      let position = 0
-
-      pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight)
-      heightLeft -= pageHeight
-
-      while (heightLeft >= 0) {
-        position = heightLeft - imgHeight
-        pdf.addPage()
-        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight)
-        heightLeft -= pageHeight
-      }
-
-      pdf.save("booking_report.pdf")
-
-      toast({
-        title: "PDF Exported",
-        description: "Booking report has been exported as PDF.",
-      })
     } catch (error) {
-      console.error("Failed to export PDF:", error)
+      console.error("Create booking error:", error)
       toast({
-        title: "Export Failed",
-        description: "Could not export report as PDF. Please try again.",
         variant: "destructive",
-      })
-    } finally {
-      // Revert temporary styles and clear content
-      input.style.backgroundColor = ""
-      input.style.padding = ""
-      input.style.color = ""
-      input.style.boxShadow = ""
-      input.style.borderRadius = ""
-      input.style.display = "none" // Hide it again
-      input.innerHTML = "" // Clear the content
-
-      textElements.forEach((el) => {
-        if (el instanceof HTMLElement) {
-          el.style.color = "" // Revert to original computed style
-          el.style.backgroundColor = ""
-          el.style.boxShadow = ""
-          el.style.border = ""
-          el.style.backgroundImage = ""
-        }
+        title: "An error occurred.",
+        description: "Could not create the booking. Please try again later.",
       })
     }
   }
 
-  // --- Hall Management Functions ---
   const handleCreateHall = async () => {
     try {
-      const res = await fetch("/api/halls", {
+      const response = await fetch("/api/halls", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1240,29 +699,126 @@ export default function AdminDashboard() {
         body: JSON.stringify(currentHall),
       })
 
-      if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.message || `HTTP error! status: ${res.status}`)
+      if (response.ok) {
+        toast({
+          title: "Hall created successfully!",
+          description: "The new hall has been added.",
+        })
+        setIsCreateEditHallOpen(false) // Close the dialog
+        setCurrentHall(initialNewHallState) // Reset the form
+        fetchHalls() // Refresh the halls list
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Failed to create hall.",
+          description: "Please check the form data and try again.",
+        })
       }
-
-      toast({
-        title: "Hall created successfully!",
-        description: `${currentHall.name} has been added.`,
-      })
-      setIsCreateEditHallOpen(false)
-      setCurrentHall(initialNewHallState) // Reset form
-      fetchHalls() // Refresh the list
     } catch (error) {
-      console.error("Failed to create hall:", error)
+      console.error("Create hall error:", error)
       toast({
-        title: "Error creating hall",
-        description: (error as Error).message,
         variant: "destructive",
+        title: "An error occurred.",
+        description: "Could not create the hall. Please try again later.",
       })
     }
   }
 
-  const handleEditHallClick = (hall: Hall) => {
+  const handleUpdateHall = async () => {
+    try {
+      if (!currentHall._id) {
+        toast({
+          variant: "destructive",
+          title: "Hall ID missing.",
+          description: "Cannot update hall without an ID.",
+        })
+        return
+      }
+
+      const response = await fetch(`/api/halls/${currentHall._id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(currentHall),
+      })
+
+      if (response.ok) {
+        toast({
+          title: "Hall updated successfully!",
+          description: "The hall details have been updated.",
+        })
+        setIsCreateEditHallOpen(false) // Close the dialog
+        setCurrentHall(initialNewHallState) // Reset the form
+        fetchHalls() // Refresh the halls list
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Failed to update hall.",
+          description: "Please check the form data and try again.",
+        })
+      }
+    } catch (error) {
+      console.error("Update hall error:", error)
+      toast({
+        variant: "destructive",
+        title: "An error occurred.",
+        description: "Could not update the hall. Please try again later.",
+      })
+    }
+  }
+
+  const handleDeleteHall = async (hallId: string, hallName: string) => {
+    if (window.confirm(`Are you sure you want to delete ${hallName}?`)) {
+      try {
+        const response = await fetch(`/api/halls/${hallId}`, {
+          method: "DELETE",
+        })
+
+        if (response.ok) {
+          toast({
+            title: "Hall deleted successfully!",
+            description: `The hall "${hallName}" has been removed.`,
+          })
+          fetchHalls() // Refresh the halls list
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Failed to delete hall.",
+            description: "Please try again later.",
+          })
+        }
+      } catch (error) {
+        console.error("Delete hall error:", error)
+        toast({
+          variant: "destructive",
+          title: "An error occurred.",
+          description: "Could not delete the hall. Please try again later.",
+        })
+      }
+    }
+  }
+
+  const handleEditClick = (event: Event) => {
+    setNewEvent({
+      _id: event._id,
+      title: event.title,
+      event_type: event.event_type,
+      category: event.category,
+      event_date: event.event_date,
+      event_time: event.event_time,
+      hall_id: event.hall_id,
+      description: event.description || "",
+      duration: event.duration,
+      total_seats: event.total_seats,
+      pricing: event.pricing,
+      status: event.status,
+      image_url: event.image_url || "",
+    })
+    setIsEditEventOpen(true)
+  }
+
+  const handleEditHallClick = (hall: NewHallData) => {
     setCurrentHall({
       _id: hall._id,
       name: hall.name,
@@ -1272,167 +828,188 @@ export default function AdminDashboard() {
     setIsCreateEditHallOpen(true)
   }
 
-  const handleUpdateHall = async () => {
-    if (!currentHall._id) {
+  const handlePrintReceipt = (booking: Booking) => {
+    setSelectedBooking(booking)
+    setIsPrintReceiptOpen(true)
+  }
+
+  const printReceipt = () => {
+    setTimeout(() => {
+      window.print()
+    }, 500)
+  }
+
+  const handleExportPdf = () => {
+    const reportTableContent = document.getElementById("report-table-content")
+    const fullReportContent = document.getElementById("full-report-content")
+
+    if (reportTableContent && fullReportContent) {
+      // Clear existing content
+      fullReportContent.innerHTML = ""
+
+      // Clone the table content
+      const clonedTable = reportTableContent.cloneNode(true) as HTMLElement
+
+      // Style the cloned table for printing
+      clonedTable.classList.add("table") // Add Tailwind table class
+      clonedTable.querySelectorAll("th, td").forEach((cell) => {
+        (cell as HTMLElement).classList.add("border", "border-gray-300", "p-2") // Add Tailwind border classes
+      })
+
+      // Create a header for the report
+      const reportHeader = document.createElement("div")
+      reportHeader.innerHTML = `
+        <div style="text-align: center; margin-bottom: 20px;">
+          <img src="/dexcinema-logo.jpeg" alt="Dex View Cinema Logo" style="width: 150px; margin: 0 auto;">
+          <h1 style="font-size: 2em; color: #e53e3e; margin-bottom: 0.25em;">Dex View Cinema - Booking Report</h1>
+          <p style="font-size: 1.2em; color: #718096;">Report Generated on: ${new Date().toLocaleDateString()}</p>
+        </div>
+      `
+
+      // Append the header and the cloned table to the full report content
+      fullReportContent.appendChild(reportHeader)
+      fullReportContent.appendChild(clonedTable)
+
+      // Trigger the print dialog
+      setTimeout(() => {
+        window.print()
+      }, 500)
+    } else {
+      console.error("Report table content not found.")
       toast({
-        title: "Error updating hall",
-        description: "Hall ID is missing.",
         variant: "destructive",
-      })
-      return
-    }
-
-    try {
-      const res = await fetch(`/api/halls/${currentHall._id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(currentHall),
-      })
-
-      if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.message || `HTTP error! status: ${res.status}`)
-      }
-
-      toast({
-        title: "Hall updated successfully!",
-        description: `${currentHall.name} has been updated.`,
-      })
-      setIsCreateEditHallOpen(false)
-      setCurrentHall(initialNewHallState) // Reset form
-      fetchHalls() // Refresh the list
-    } catch (error) {
-      console.error("Failed to update hall:", error)
-      toast({
-        title: "Error updating hall",
-        description: (error as Error).message,
-        variant: "destructive",
+        title: "Report content not found.",
+        description: "Could not generate the PDF report.",
       })
     }
   }
 
-  const handleDeleteHall = async (id: string, name: string) => {
-    if (!window.confirm(`Are you sure you want to delete hall "${name}"? This action cannot be undone.`)) {
-      return
-    }
-
+  const fetchEvents = useCallback(async () => {
     try {
-      const res = await fetch(`/api/halls/${id}`, {
-        method: "DELETE",
-      })
-
-      if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.message || `HTTP error! status: ${res.status}`)
+      const response = await fetch("/api/events")
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
       }
-
-      toast({
-        title: "Hall deleted successfully!",
-        description: `${name} has been removed.`,
-      })
-      fetchHalls() // Refresh the list
+      const data = await response.json()
+      setEvents(data)
     } catch (error) {
-      console.error("Failed to delete hall:", error)
+      console.error("Fetch events error:", error)
       toast({
-        title: "Error deleting hall",
-        description: (error as Error).message,
         variant: "destructive",
+        title: "Failed to load events.",
+        description: "Please check your network connection and try again.",
       })
     }
-  }
+  }, [toast])
 
-  // --- Analytics Calculations ---
-  const filteredBookingsForRevenue = actualBookings.filter((booking) => {
-    const bookingDate = new Date(booking.bookingDate)
-
-    if (revenueTimeFrame === "day") {
-      return bookingDate.toDateString() === new Date().toDateString()
-    }
-
-    if (revenueTimeFrame === "week") {
-      const start = startOfWeek(new Date())
-      const end = endOfWeek(new Date())
-      return isWithinInterval(bookingDate, { start, end })
-    }
-
-    if (revenueTimeFrame === "month") {
-      const start = startOfMonth(new Date())
-      const end = endOfMonth(new Date())
-      return isWithinInterval(bookingDate, { start, end })
-    }
-
-    if (revenueTimeFrame === "custom") {
-      const start = customRevenueStartDate ? new Date(customRevenueStartDate) : null
-      const end = customRevenueEndDate ? new Date(customRevenueEndDate) : null
-
-      if (start && end) {
-        return isWithinInterval(bookingDate, { start, end: addDays(new Date(end), 1) }) // Adding one day to include the end date
+  const fetchBookings = useCallback(async () => {
+    try {
+      const response = await fetch("/api/bookings")
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
       }
-      return true // If start or end date is missing, include all bookings
+      const data = await response.json()
+      setActualBookings(data)
+    } catch (error) {
+      console.error("Fetch bookings error:", error)
+      toast({
+        variant: "destructive",
+        title: "Failed to load bookings.",
+        description: "Please check your network connection and try again.",
+      })
     }
+  }, [toast])
 
-    return true // "all" timeframe
-  })
+  const fetchHalls = useCallback(async () => {
+    try {
+      const response = await fetch("/api/halls")
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      const data = await response.json()
+      setHalls(data)
+    } catch (error) {
+      console.error("Fetch halls error:", error)
+      toast({
+        variant: "destructive",
+        title: "Failed to load halls.",
+        description: "Please check your network connection and try again.",
+      })
+    }
+  }, [toast])
 
-  const totalRevenue = filteredBookingsForRevenue.reduce((sum, booking) => sum + booking.totalAmount, 0)
+  useEffect(() => {
+    fetchEvents()
+    fetchBookings()
+    fetchHalls()
+  }, [fetchEvents, fetchBookings, fetchHalls])
+
+  // Calculate total revenue
+  const totalRevenue = actualBookings.reduce((sum, booking) => {
+    if (booking.status === "confirmed") {
+      return sum + booking.totalAmount
+    }
+    return sum
+  }, 0)
+
+  // Calculate total bookings
   const totalBookings = actualBookings.length
-  const activeEventsCount = events.filter((e) => e.status === "active").length
 
-  const totalBookedSeatsCount = events.reduce((sum, event) => sum + (event.bookedSeats?.length || 0), 0)
-  const totalAvailableSeatsCount = events.reduce((sum, event) => sum + event.total_seats, 0)
+  // Calculate active events count
+  const activeEventsCount = events.filter((event) => event.status === "active").length
+
+  // Calculate overall occupancy rate
   const overallOccupancyRate =
-    totalAvailableSeatsCount > 0 ? (totalBookedSeatsCount / totalAvailableSeatsCount) * 100 : 0
+    events.reduce((sum, event) => {
+      const bookedSeats = event.bookedSeats ? event.bookedSeats.length : 0
+      return sum + (bookedSeats / event.total_seats) * 100
+    }, 0) / events.length || 0
 
-  const revenueByCategory = actualBookings.reduce(
-    (acc, booking) => {
-      const category = events.find((e) => e._id === booking.eventId)?.category || "Unknown"
-      acc[category] = (acc[category] || 0) + booking.totalAmount
-      return acc
-    },
-    {} as Record<string, number>,
-  )
-
-  const hallPerformance = events.reduce(
-    (acc, event) => {
-      const hallName = getHallDisplayName(halls, event.hall_id)
-      if (!acc[hallName]) {
-        acc[hallName] = { booked: 0, total: 0 }
-      }
-      acc[hallName].booked += event.bookedSeats?.length || 0
-      acc[hallName].total += event.total_seats
-      return acc
-    },
-    {} as Record<string, { booked: number; total: number }>,
-  )
-
-  // --- Reports Filtering ---
-  const filteredReportsBookings = actualBookings.filter((booking) => {
-    const bookingDate = new Date(booking.bookingDate)
-    const start = reportStartDate ? new Date(reportStartDate) : null
-    const end = reportEndDate ? new Date(reportEndDate) : null
-
-    const matchesDate =
-      (!start || bookingDate >= start) && (!end || bookingDate <= new Date(end.setDate(end.getDate() + 1))) // +1 day to include end date
-
-    const matchesEventType = reportEventType === "all" || booking.eventType === reportEventType
-    const matchesStatus = reportStatus === "all" || booking.status === reportStatus
-    const matchesEvent = selectedEventIdForReports === "all" || booking.eventId === selectedEventIdForReports // New filter
-
-    return matchesDate && matchesEventType && matchesStatus && matchesEvent
-  })
-
-  // --- Bookings Tab Filtering and Search ---
+  // Filter customer bookings based on selected event and search query
   const filteredCustomerBookings = actualBookings.filter((booking) => {
-    const matchesEvent = selectedEventIdForBookings === "all" || booking.eventId === selectedEventIdForBookings
-    const matchesSearch =
+    const eventFilter = selectedEventIdForBookings === "all" || booking.eventId === selectedEventIdForBookings
+    const searchFilter =
       customerSearchQuery === "" ||
       booking.customerName.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
       booking.customerEmail.toLowerCase().includes(customerSearchQuery.toLowerCase())
 
-    return matchesEvent && matchesSearch
+    return eventFilter && searchFilter
   })
+
+  // Filter reports bookings based on selected filters
+  const filteredReportsBookings = actualBookings.filter((booking) => {
+    const startDateFilter = reportStartDate === "" || new Date(booking.bookingDate) >= new Date(reportStartDate)
+    const endDateFilter = reportEndDate === "" || new Date(booking.bookingDate) <= new Date(reportEndDate)
+    const eventTypeFilter = reportEventType === "all" || booking.eventType === reportEventType
+    const statusFilter = reportStatus === "all" || booking.status === reportStatus
+    const eventFilter = selectedEventIdForReports === "all" || booking.eventId === selectedEventIdForReports
+
+    return startDateFilter && endDateFilter && eventTypeFilter && statusFilter && eventFilter
+  })
+
+  // Calculate revenue by category
+  const revenueByCategory = events.reduce((acc: { [key: string]: number }, event) => {
+    const category = event.category
+    const categoryBookings = actualBookings.filter(
+      (booking) => booking.eventId === event._id && booking.status === "confirmed",
+    )
+    const categoryRevenue = categoryBookings.reduce((sum, booking) => sum + booking.totalAmount, 0)
+
+    acc[category] = (acc[category] || 0) + categoryRevenue
+    return acc
+  }, {})
+
+  // Calculate hall performance (occupancy rates)
+  const hallPerformance = events.reduce((acc: { [key: string]: { booked: number; total: number } }, event) => {
+    const hallName = getHallDisplayName(halls, event.hall_id)
+    const bookedSeats = event.bookedSeats ? event.bookedSeats.length : 0
+
+    acc[hallName] = {
+      booked: (acc[hallName]?.booked || 0) + bookedSeats,
+      total: (acc[hallName]?.total || 0) + event.total_seats,
+    }
+    return acc
+  }, {})
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 relative overflow-hidden">
@@ -4028,258 +3605,5 @@ export default function AdminDashboard() {
 
               <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card">
                 <CardHeader>
-                  <CardTitle className="text-white text-xl font-bold">Hall Performance</CardTitle>
-                  <CardDescription className="text-cyber-slate-300">Occupancy rates by venue type</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    {Object.entries(hallPerformance).length > 0 ? (
-                      Object.entries(hallPerformance).map(([hallName, data]) => {
-                        const occupancy = data.total > 0 ? (data.booked / data.total) * 100 : 0
-                        return (
-                          <div key={hallName}>
-                            <div className="flex justify-between mb-3">
-                              <span className="text-cyber-slate-200">{hallName}</span>
-                              <span className="text-white font-semibold">{occupancy.toFixed(0)}%</span>
-                            </div>
-                            <div className="w-full bg-cyber-slate-700/50 rounded-full h-3 overflow-hidden">
-                              <div
-                                className="bg-gradient-to-r from-brand-red-500 to-brand-red-400 h-3 rounded-full transition-all duration-500"
-                                style={{ width: `${occupancy}%` }}
-                              ></div>
-                            </div>
-                          </div>
-                        )
-                      })
-                    ) : (
-                      <p className="text-cyber-slate-400">No hall performance data available.</p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-        </Tabs>
-      </div>
-
-      {/* Hidden div for full report content for PDF export */}
-      <div id="full-report-content" className="hidden p-8 bg-white text-black print-only">
-        {/* Content will be dynamically generated by handleExportPdf */}
-      </div>
-
-      {/* Receipt Print Dialog */}
-      <Dialog open={isPrintReceiptOpen} onOpenChange={setIsPrintReceiptOpen}>
-        <DialogContent className="sm:max-w-[600px] bg-glass-dark-strong backdrop-blur-xl border border-white/20 text-white shadow-cyber-hover rounded-4xl">
-          <DialogHeader>
-            <DialogTitle className="text-white text-xl font-bold bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
-              Booking Receipt
-            </DialogTitle>
-            <DialogDescription className="text-cyber-slate-300">
-              Customer booking receipt ready for printing
-            </DialogDescription>
-          </DialogHeader>
-          {selectedBooking && (
-            <div className="receipt-content bg-white text-black p-8 rounded-lg mx-4" id="receipt">
-              <div className="text-center mb-6">
-                <Image
-                  src="/dexcinema-logo.jpeg"
-                  alt="Dex View Cinema Logo"
-                  width={150}
-                  height={150}
-                  className="mx-auto mb-4"
-                />
-                <h1 className="text-3xl font-bold text-brand-red-600 mb-2">Dex View Cinema</h1>
-                <p className="text-gray-600">Premium Entertainment Experience</p>
-                <div className="border-b-2 border-brand-red-600 mt-4"></div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-8 mb-6">
-                <div>
-                  <h3 className="font-bold text-lg mb-3 text-brand-red-600">Customer Information</h3>
-                  <p>
-                    <strong>Name:</strong> {selectedBooking.customerName}
-                  </p>
-                  <p>
-                    <strong>Email:</strong> {selectedBooking.customerEmail}
-                  </p>
-                  <p>
-                    <strong>Phone:</strong> {selectedBooking.customerPhone}
-                  </p>
-                </div>
-                <div>
-                  <h3 className="font-bold text-lg mb-3 text-brand-red-600">Booking Details</h3>
-                  <p>
-                    <strong>Booking ID:</strong> {selectedBooking._id}
-                  </p>
-                  <p>
-                    <strong>Date:</strong> {selectedBooking.bookingDate}
-                  </p>
-                  <p>
-                    <strong>Time:</strong> {selectedBooking.bookingTime}
-                  </p>
-                  <p>
-                    <strong>Payment:</strong> {selectedBooking.paymentMethod}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mb-6">
-                <h3 className="font-bold text-lg mb-3 text-brand-red-600">Event Information</h3>
-                <p>
-                  <strong>Event:</strong> {selectedBooking.eventTitle}
-                </p>
-                <p>
-                  <strong>Type:</strong> {selectedBooking.eventType === "match" ? "Sports Match" : "Movie"}
-                </p>
-                <p>
-                  <strong>Seats:</strong> {selectedBooking.seats.join(", ")}
-                </p>
-                <p>
-                  <strong>Seat Type:</strong> {selectedBooking.seatType}
-                </p>
-              </div>
-
-              <div className="border-t-2 border-gray-300 pt-4 mb-6">
-                <h3 className="font-bold text-lg mb-3 text-brand-red-600">Payment Summary</h3>
-                <div className="flex justify-between mb-2">
-                  <span>Base Amount:</span>
-                  <span>₦{selectedBooking.amount.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between mb-2">
-                  <span>Processing Fee:</span>
-                  <span>₦{selectedBooking.processingFee}</span>
-                </div>
-                <div className="flex justify-between font-bold text-lg border-t border-gray-300 pt-2">
-                  <span>Total Amount:</span>
-                  <span>₦{selectedBooking.totalAmount.toLocaleString()}</span>
-                </div>
-              </div>
-
-              <div className="text-center text-sm text-gray-500 border-t border-gray-300 pt-4">
-                <p>Thank you for choosing Dex View Cinema!</p>
-                <p>For support, visit us at support@dexviewcinema.com or call 08139614950</p>
-                <p className="mt-2">Developed by SydaTech - www.sydatech.com.ng</p>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsPrintReceiptOpen(false)}
-              className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl"
-            >
-              Close
-            </Button>
-            <Button
-              onClick={printReceipt}
-              className="bg-gradient-to-r from-cyber-green-500 via-cyber-green-600 to-cyber-green-700 hover:from-cyber-green-600 hover:via-cyber-green-700 hover:to-cyber-green-800 text-white rounded-2xl"
-            >
-              <Printer className="w-4 h-4 mr-2" />
-              Print Receipt
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Footer */}
-      <footer className="bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 text-white py-12 relative overflow-hidden border-t border-white/10">
-        <div className="absolute inset-0 bg-gradient-to-r from-brand-red-900/10 via-transparent to-brand-red-900/10"></div>
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-500"></div>
-
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row justify-between items-center">
-            <p className="text-cyber-slate-300 text-lg mb-4 sm:mb-0">
-              &copy; 2025 Dex View Cinema Admin Dashboard. All rights reserved.
-            </p>
-            <p className="text-cyber-slate-300 text-lg">
-              Developed by{" "}
-              <a
-                href="https://www.sydatech.com.ng"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-brand-red-400 hover:text-brand-red-300 transition-colors font-bold hover:underline"
-              >
-                SydaTech
-              </a>
-            </p>
-          </div>
-        </div>
-      </footer>
-
-      {/* Print Styles */}
-      <style jsx global>{`
-        @media print {
-          body * {
-            visibility: hidden;
-          }
-          #receipt, #receipt *, #full-report-content, #full-report-content * {
-            visibility: visible;
-            color: #000 !important; /* Ensure text is black */
-            background-color: #fff !important; /* Ensure background is white */
-            box-shadow: none !important; /* Remove shadows */
-            border-color: #ccc !important; /* Light border for elements */
-            background-image: none !important; /* Remove gradients */
-          }
-          #receipt {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-          }
-          #full-report-content {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: auto;
-            display: block !important; /* Ensure it's visible for printing */
-          }
-          /* Specific overrides for elements within the report content */
-          #full-report-content .bg-glass-white-strong,
-          #full-report-content .shadow-cyber-card,
-          #full-report-content .bg-clip-text,
-          #full-report-content .badge {
-            background-color: #fff !important;
-            box-shadow: none !important;
-            border-color: #ccc !important;
-            background-image: none !important;
-            color: #000 !important;
-          }
-          #full-report-content .badge {
-            background-color: #f0f0f0 !important;
-            color: #333 !important;
-          }
-          #full-report-content .text-cyber-slate-200,
-          #full-report-content .text-cyber-slate-300,
-          #full-report-content .text-cyber-slate-400,
-          #full-report-content .text-brand-red-200,
-          #full-report-content .text-brand-red-300,
-          #full-report-content .text-brand-red-400,
-          #full-report-content .text-cyber-green-200,
-          #full-report-content .text-cyber-green-300,
-          #full-report-content .text-cyber-green-400,
-          #full-report-content .text-cyber-blue-200,
-          #full-report-content .text-cyber-blue-300,
-          #full-report-content .text-cyber-blue-400,
-          #full-report-content .text-cyber-purple-200,
-          #full-report-content .text-cyber-purple-300,
-          #full-report-content .text-cyber-purple-400 {
-            color: #000 !important;
-          }
-          #full-report-content .bg-gradient-to-r,
-          #full-report-content .bg-gradient-to-br {
-            background-image: none !important;
-          }
-          #full-report-content .bg-cyber-slate-700\/50 {
-            background-color: #e0e0e0 !important;
-          }
-          #full-report-content .bg-brand-red-500\/30,
-          #full-report-content .bg-cyber-green-500\/30,
-          #full-report-content .bg-cyber-yellow-500\/30 {
-            background-color: #f0f0f0 !important;
-          }
-        }
-      `}</style>
-    </div>
-  )
-}
+                  <CardTitle className="text-white text-xl font-bold">Hall Performance</CardTitle>\
+                  <

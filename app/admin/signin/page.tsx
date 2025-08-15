@@ -4,6 +4,7 @@ import type React from "react"
 
 import { useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -24,6 +25,7 @@ interface FormErrors {
 }
 
 export default function AdminSigninPage() {
+  const router = useRouter()
   const [formData, setFormData] = useState<FormData>({
     email: "",
     password: "",
@@ -76,18 +78,27 @@ export default function AdminSigninPage() {
     setErrors({})
 
     try {
-      // Simulate API call - replace with actual admin signin endpoint
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      const response = await fetch("/api/admin/signin", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      })
 
-      // For now, just show success message
-      // In a real implementation, you would call your admin signin API here
-      console.log("[v0] Admin signin attempt:", { email: formData.email })
-
-      setIsSuccess(true)
-      setFormData({ email: "", password: "" })
+      if (response.ok) {
+        setIsSuccess(true)
+        // Redirect to admin dashboard after successful authentication
+        setTimeout(() => {
+          router.push("/admin")
+        }, 2000)
+      } else {
+        const errorData = await response.json()
+        setErrors({ general: errorData.message || "Invalid email or password. Please try again." })
+      }
     } catch (error) {
       console.error("[v0] Signin error:", error)
-      setErrors({ general: "Invalid email or password. Please try again." })
+      setErrors({ general: "Authentication failed. Please try again." })
     } finally {
       setIsLoading(false)
     }
@@ -147,10 +158,10 @@ export default function AdminSigninPage() {
       <header className="relative backdrop-blur-xl bg-glass-white border-b border-white/10 shadow-cyber-card z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center h-20">
-            <Link href="/admin">
+            <Link href="/">
               <Button variant="ghost" size="sm" className="mr-4 text-cyber-slate-300 hover:bg-glass-white group">
                 <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
-                Back to Admin
+                Back to Home
               </Button>
             </Link>
             <div className="flex items-center space-x-4">
