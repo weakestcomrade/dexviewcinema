@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { verifyToken } from "@/lib/auth"
 
-export async function middleware(request: NextRequest) {
+export function middleware(request: NextRequest) {
   console.log("[v0] Middleware running for:", request.nextUrl.pathname)
 
   // Check if the request is for admin routes (except login and signup)
@@ -20,8 +20,7 @@ export async function middleware(request: NextRequest) {
     }
 
     try {
-      // Verify the token
-      const payload = await verifyToken(token)
+      const payload = verifyToken(token)
       console.log("[v0] Token payload:", payload)
 
       if (!payload || payload.role !== "admin") {
