@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -415,6 +417,14 @@ export default function AdminDashboard() {
   const [isPrintReceiptOpen, setIsPrintReceiptOpen] = useState(false)
   const [isCreateBookingOpen, setIsCreateBookingOpen] = useState(false) // New state for create booking dialog
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null) // Use Booking type
+
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false)
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  })
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
 
   const [newEvent, setNewEvent] = useState<NewEventData>(initialNewEventState)
   const [newBooking, setNewBooking] = useState<CreateBookingData>(initialNewBookingState) // New state for new booking form
@@ -1009,6 +1019,68 @@ export default function AdminDashboard() {
     return acc
   }, {})
 
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast({
+        title: "Error",
+        description: "New passwords don't match",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (passwordData.newPassword.length < 8) {
+      toast({
+        title: "Error",
+        description: "New password must be at least 8 characters long",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsChangingPassword(true)
+
+    try {
+      const response = await fetch("/api/admin/change-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Password changed successfully",
+        })
+        setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" })
+        setIsChangePasswordOpen(false)
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to change password",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An error occurred while changing password",
+        variant: "destructive",
+      })
+    } finally {
+      setIsChangingPassword(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 relative overflow-hidden">
       {/* Cyber-Glassmorphism background elements */}
@@ -1144,7 +1216,7 @@ export default function AdminDashboard() {
 
         {/* Main Content */}
         <Tabs defaultValue="events" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-4 bg-glass-white-strong backdrop-blur-xl border border-white/20 rounded-3xl h-auto sm:h-10">
+          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-6 bg-glass-white-strong backdrop-blur-xl border border-white/20 rounded-3xl h-auto sm:h-10">
             <TabsTrigger
               value="events"
               className="data-[state=active]:bg-brand-red-500/30 data-[state=active]:text-white text-cyber-slate-300 font-semibold rounded-2xl h-10 sm:h-8 text-sm sm:text-base"
@@ -1184,6 +1256,14 @@ export default function AdminDashboard() {
               <Sparkles className="w-4 h-4 mr-2" />
               <span className="hidden sm:inline">Analytics</span>
               <span className="sm:hidden">Stats</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="settings"
+              className="data-[state=active]:bg-brand-red-500/30 data-[state=active]:text-white text-cyber-slate-300 font-semibold rounded-2xl h-10 sm:h-8 text-sm sm:text-base"
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              <span className="hidden sm:inline">Settings</span>
+              <span className="sm:hidden">Settings</span>
             </TabsTrigger>
           </TabsList>
 
@@ -2025,6 +2105,88 @@ export default function AdminDashboard() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="settings">
+            <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card rounded-3xl">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-xl font-bold text-white flex items-center">
+                  <Settings className="w-5 h-5 mr-2 text-brand-red-400" />
+                  Account Settings
+                </CardTitle>
+                <CardDescription className="text-cyber-slate-300">
+                  Manage your admin account settings and security
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-white">Change Password</h3>
+                  <form onSubmit={handleChangePassword} className="space-y-4">
+                    <div className="space-y-2">
+                      <label htmlFor="currentPassword" className="text-sm font-medium text-cyber-slate-300">
+                        Current Password
+                      </label>
+                      <Input
+                        id="currentPassword"
+                        type="password"
+                        value={passwordData.currentPassword}
+                        onChange={(e) => setPasswordData((prev) => ({ ...prev, currentPassword: e.target.value }))}
+                        className="bg-glass-white border-white/20 text-white placeholder-cyber-slate-400 rounded-2xl focus:border-brand-red-400 focus:ring-brand-red-400/20"
+                        placeholder="Enter current password"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label htmlFor="newPassword" className="text-sm font-medium text-cyber-slate-300">
+                        New Password
+                      </label>
+                      <Input
+                        id="newPassword"
+                        type="password"
+                        value={passwordData.newPassword}
+                        onChange={(e) => setPasswordData((prev) => ({ ...prev, newPassword: e.target.value }))}
+                        className="bg-glass-white border-white/20 text-white placeholder-cyber-slate-400 rounded-2xl focus:border-brand-red-400 focus:ring-brand-red-400/20"
+                        placeholder="Enter new password"
+                        required
+                        minLength={8}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label htmlFor="confirmPassword" className="text-sm font-medium text-cyber-slate-300">
+                        Confirm New Password
+                      </label>
+                      <Input
+                        id="confirmPassword"
+                        type="password"
+                        value={passwordData.confirmPassword}
+                        onChange={(e) => setPasswordData((prev) => ({ ...prev, confirmPassword: e.target.value }))}
+                        className="bg-glass-white border-white/20 text-white placeholder-cyber-slate-400 rounded-2xl focus:border-brand-red-400 focus:ring-brand-red-400/20"
+                        placeholder="Confirm new password"
+                        required
+                        minLength={8}
+                      />
+                    </div>
+                    <Button
+                      type="submit"
+                      disabled={isChangingPassword}
+                      className="bg-gradient-to-r from-brand-red-500 to-brand-red-600 hover:from-brand-red-600 hover:to-brand-red-700 text-white font-semibold rounded-2xl shadow-cyber-card hover:shadow-cyber-hover transition-all duration-300"
+                    >
+                      {isChangingPassword ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                          Changing Password...
+                        </>
+                      ) : (
+                        <>
+                          <Shield className="w-4 h-4 mr-2" />
+                          Change Password
+                        </>
+                      )}
+                    </Button>
+                  </form>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
