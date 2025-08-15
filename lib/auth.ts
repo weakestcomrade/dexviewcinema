@@ -7,15 +7,20 @@ export interface AdminUser {
 
 // Simulate authentication - replace with real implementation
 export const authenticateAdmin = async (email: string, password: string): Promise<AdminUser | null> => {
-  // TODO: Replace with actual authentication logic
-  // This should validate against your database
-  if (email && password) {
+  // Hardcoded admin credentials - in production, this should be stored securely in environment variables
+  const ADMIN_EMAIL = "admin@dexviewcinema.com"
+  const ADMIN_PASSWORD = "DexCinema2025!"
+
+  // Validate credentials against hardcoded admin account
+  if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
     return {
-      id: "1",
-      email,
+      id: "admin-1",
+      email: ADMIN_EMAIL,
       isAuthenticated: true,
     }
   }
+
+  // Return null for invalid credentials
   return null
 }
 
