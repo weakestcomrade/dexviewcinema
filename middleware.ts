@@ -1,46 +1,37 @@
+import { withAuth } from "next-auth/middleware"
 import { NextResponse } from "next/server"
-import type { NextRequest } from "next/server"
-import { verifyToken } from "@/lib/auth"
 
-export function middleware(request: NextRequest) {
-  console.log("[v0] Middleware running for:", request.nextUrl.pathname)
+export default withAuth(
+  function middleware(req) {
+    console.log("[v0] NextAuth middleware running for:", req.nextUrl.pathname)
+    console.log("[v0] User token:", req.nextauth.token)
 
-  // Check if the request is for admin routes (except login and signup)
-  if (
-    request.nextUrl.pathname.startsWith("/admin") &&
-    !request.nextUrl.pathname.startsWith("/admin/login") &&
-    !request.nextUrl.pathname.startsWith("/admin/signup")
-  ) {
-    const token = request.cookies.get("auth-token")?.value
-    console.log("[v0] Token found:", !!token)
-
-    if (!token) {
-      console.log("[v0] No token, redirecting to login")
-      return NextResponse.redirect(new URL("/admin/login", request.url))
+    // Check if user has admin role
+    if (req.nextauth.token?.role !== "admin") {
+      console.log("[v0] Access denied - not admin role")
+      return NextResponse.redirect(new URL("/admin/login", req.url))
     }
 
-    try {
-      const payload = verifyToken(token)
-      console.log("[v0] Token payload:", payload)
+    console.log("[v0] Admin access granted")
+    return NextResponse.next()
+  },
+  {
+    callbacks: {
+      authorized: ({ token, req }) => {
+        console.log("[v0] Authorization check for:", req.nextUrl.pathname)
+        console.log("[v0] Token exists:", !!token)
 
-      if (!payload || payload.role !== "admin") {
-        console.log("[v0] Invalid token or not admin, redirecting to login")
-        const response = NextResponse.redirect(new URL("/admin/login", request.url))
-        response.cookies.delete("auth-token")
-        return response
-      }
+        // Allow access to login and signup pages without authentication
+        if (req.nextUrl.pathname.startsWith("/admin/login") || req.nextUrl.pathname.startsWith("/admin/signup")) {
+          return true
+        }
 
-      console.log("[v0] Token valid, allowing access")
-    } catch (error) {
-      console.log("[v0] Token verification failed:", error)
-      const response = NextResponse.redirect(new URL("/admin/login", request.url))
-      response.cookies.delete("auth-token")
-      return response
-    }
-  }
-
-  return NextResponse.next()
-}
+        // For other admin routes, require authentication
+        return !!token
+      },
+    },
+  },
+)
 
 export const config = {
   matcher: ["/admin/:path*"],

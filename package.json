@@ -9,9 +9,11 @@
     "start": "next start"
   },
   "dependencies": {
+    "@auth/core": "latest",
     "@aws-sdk/credential-providers": "latest",
     "@hookform/resolvers": "^3.9.1",
     "@mongodb-js/zstd": "latest",
+    "@next-auth/mongodb-adapter": "latest",
     "@radix-ui/react-accordion": "latest",
     "@radix-ui/react-alert-dialog": "latest",
     "@radix-ui/react-aspect-ratio": "latest",
@@ -58,7 +60,9 @@
     "mongodb": "latest",
     "mongodb-client-encryption": "latest",
     "next": "14.2.16",
+    "next-auth": "latest",
     "next-themes": "latest",
+    "nodemailer": "latest",
     "react": "^18",
     "react-day-picker": "latest",
     "react-dom": "^18",

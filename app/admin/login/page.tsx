@@ -1,8 +1,9 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
+import { signIn, getSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -19,6 +20,7 @@ export default function AdminLoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
+  const router = useRouter()
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -54,35 +56,38 @@ export default function AdminLoginPage() {
     setError("")
 
     try {
-      console.log("[v0] Starting login request...")
+      console.log("[v0] Starting NextAuth login...")
 
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-        credentials: "include",
-        redirect: "manual", // Handle redirect manually
+      const result = await signIn("credentials", {
+        email: formData.email,
+        password: formData.password,
+        redirect: false,
       })
 
-      console.log("[v0] Login response status:", response.status)
+      console.log("[v0] NextAuth result:", result)
 
-      // If it's a redirect (302), the login was successful
-      if (response.status === 0 || response.type === "opaqueredirect") {
-        console.log("[v0] Login successful, redirecting...")
-        window.location.href = "/admin"
+      if (result?.error) {
+        setError("Invalid email or password")
+        setIsLoading(false)
         return
       }
 
-      // Handle error responses
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.message || data.error || "Login failed")
+      if (result?.ok) {
+        // Verify the session and role
+        const session = await getSession()
+        console.log("[v0] Session after login:", session)
+
+        if (session?.user?.role === "admin") {
+          console.log("[v0] Admin login successful, redirecting...")
+          router.push("/admin")
+        } else {
+          setError("Access denied. Admin privileges required.")
+          setIsLoading(false)
+        }
       }
     } catch (err) {
       console.error("[v0] Login error:", err)
-      setError(err instanceof Error ? err.message : "An unexpected error occurred")
+      setError("An unexpected error occurred")
       setIsLoading(false)
     }
   }
