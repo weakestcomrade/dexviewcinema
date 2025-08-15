@@ -1,7 +1,7 @@
 import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
-import bcrypt from "bcryptjs"
 import { connectToDatabase } from "@/lib/mongodb"
+import bcrypt from "bcryptjs"
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -36,7 +36,7 @@ export const authOptions: NextAuthOptions = {
             id: admin._id.toString(),
             email: admin.email,
             name: admin.name,
-            role: "admin",
+            role: admin.role || "admin",
           }
         } catch (error) {
           console.error("Auth error:", error)
@@ -47,6 +47,10 @@ export const authOptions: NextAuthOptions = {
   ],
   session: {
     strategy: "jwt",
+  },
+  pages: {
+    signIn: "/admin/login",
+    error: "/admin/login",
   },
   callbacks: {
     async jwt({ token, user }) {
@@ -62,10 +66,6 @@ export const authOptions: NextAuthOptions = {
       }
       return session
     },
-  },
-  pages: {
-    signIn: "/admin/login",
-    error: "/admin/login",
   },
   secret: process.env.NEXTAUTH_SECRET,
 }

@@ -1,53 +1,66 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createAdmin } from "@/lib/admin"
+import { createAdmin } from "@/lib/admin-auth"
+import { z } from "zod"
+
+const signupSchema = z
+  .object({
+    name: z.string().min(2, "Name must be at least 2 characters"),
+    email: z.string().email("Invalid email address"),
+    password: z.string().min(8, "Password must be at least 8 characters"),
+    confirmPassword: z.string(),
+    role: z.enum(["admin", "super-admin"]),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  })
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { name, email, password, role } = body
 
-    // Validate required fields
-    if (!name || !email || !password) {
-      return NextResponse.json({ error: "Name, email, and password are required" }, { status: 400 })
-    }
+    // Validate the request body
+    const validatedData = signupSchema.parse(body)
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
-      return NextResponse.json({ error: "Please provide a valid email address" }, { status: 400 })
-    }
-
-    // Validate password length
-    if (password.length < 6) {
-      return NextResponse.json({ error: "Password must be at least 6 characters long" }, { status: 400 })
-    }
-
-    // Validate role
-    if (role && !["admin", "super_admin"].includes(role)) {
-      return NextResponse.json({ error: "Invalid role specified" }, { status: 400 })
-    }
-
-    // Create admin account
-    const result = await createAdmin({
-      name: name.trim(),
-      email: email.trim().toLowerCase(),
-      password,
-      role: role || "admin",
+    // Create the admin user
+    const newAdmin = await createAdmin({
+      name: validatedData.name,
+      email: validatedData.email,
+      password: validatedData.password,
+      role: validatedData.role,
     })
-
-    if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 400 })
-    }
 
     return NextResponse.json(
       {
         message: "Admin account created successfully",
-        adminId: result.adminId,
+        admin: {
+          id: newAdmin.id,
+          name: newAdmin.name,
+          email: newAdmin.email,
+          role: newAdmin.role,
+        },
       },
       { status: 201 },
     )
   } catch (error) {
-    console.error("Admin signup error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("Signup error:", error)
+
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        {
+          message: "Validation error",
+          errors: error.errors,
+        },
+        { status: 400 },
+      )
+    }
+
+    if (error instanceof Error) {
+      if (error.message.includes("already exists")) {
+        return NextResponse.json({ message: "An admin with this email already exists" }, { status: 409 })
+      }
+    }
+
+    return NextResponse.json({ message: "Internal server error" }, { status: 500 })
   }
 }
