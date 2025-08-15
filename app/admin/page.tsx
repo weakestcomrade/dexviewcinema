@@ -1441,6 +1441,64 @@ export default function AdminDashboard() {
     return matchesEvent && matchesSearch
   })
 
+  // Function to handle hall change in the create event form
+  const handleHallChange = (hallId: string) => {
+    const selectedHall = halls.find((hall) => hall._id === hallId)
+    if (selectedHall) {
+      setNewEvent((prev) => ({
+        ...prev,
+        hall_id: hallId,
+        total_seats: selectedHall.capacity,
+        pricing: selectedHall.type === "vip" ? defaultVipMoviePricing : defaultStandardMoviePricingHallA, // Default pricing based on hall type
+      }))
+    }
+  }
+
+  // Function to handle event selection for booking
+  const handleEventSelectionForBooking = (eventId: string) => {
+    handleNewBookingEventChange(eventId)
+  }
+
+  // Function to render seat map
+  const renderSeatMap = (
+    seats: Seat[],
+    selectedSeats: string[],
+    onSeatClick: (seatId: string, seatType: string, isBooked: boolean, seatPrice: number) => void,
+  ) => {
+    return (
+      <div className="grid grid-cols-10 gap-1">
+        {seats.map((seat) => (
+          <Button
+            key={seat.id}
+            size="sm"
+            variant="outline"
+            className={`w-8 h-8 flex items-center justify-center rounded-md text-xs ${
+              seat.isBooked
+                ? "bg-brand-red-500/50 text-white cursor-not-allowed"
+                : selectedSeats.includes(seat.id)
+                  ? "bg-cyber-green-500/50 text-white"
+                  : "border-white/30 text-cyber-slate-300 hover:bg-glass-white"
+            } bg-transparent backdrop-blur-sm`}
+            disabled={seat.isBooked}
+            onClick={() => onSeatClick(seat.id, seat.type, seat.isBooked, seat.price)}
+          >
+            {seat.id}
+          </Button>
+        ))}
+      </div>
+    )
+  }
+
+  // Function to handle seat selection for admin booking
+  const handleSeatSelectionForAdminBooking = (
+    seatId: string,
+    seatType: string,
+    isBooked: boolean,
+    seatPrice: number,
+  ) => {
+    handleAdminSeatClick(seatId, seatType, isBooked, seatPrice)
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 relative overflow-hidden">
       {/* Cyber-Glassmorphism background elements */}
@@ -1605,10 +1663,175 @@ export default function AdminDashboard() {
           <TabsContent value="events">
             <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card">
               <CardHeader>
-                <CardTitle className="text-white text-xl font-bold">Upcoming Shows Management</CardTitle>
-                <CardDescription className="text-cyber-slate-300">
-                  Manage your movies and sports events with detailed seating arrangements and pricing
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-white text-xl font-bold">Upcoming Shows Management</CardTitle>
+                    <CardDescription className="text-cyber-slate-300">
+                      Manage your movies and sports events with detailed seating arrangements and pricing
+                    </CardDescription>
+                  </div>
+                  <Dialog open={isCreateEventOpen} onOpenChange={setIsCreateEventOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        size="sm"
+                        className="bg-gradient-to-r from-cyber-purple-500 via-cyber-purple-600 to-cyber-purple-700 hover:from-cyber-purple-600 hover:via-cyber-purple-700 hover:to-cyber-purple-800 shadow-glow-purple text-white group rounded-2xl"
+                        onClick={() => setNewEvent(initialNewEventState)}
+                      >
+                        <Plus className="w-4 h-4 mr-2 group-hover:rotate-180 transition-transform duration-300" />
+                        Create Event
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[600px] bg-glass-dark-strong backdrop-blur-xl border border-white/20 text-white shadow-cyber-hover rounded-4xl max-h-[90vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle className="text-white text-xl font-bold bg-gradient-to-r from-white to-cyber-purple-200 bg-clip-text text-transparent">
+                          Create New Event
+                        </DialogTitle>
+                        <DialogDescription className="text-cyber-slate-300">
+                          Add a new movie or sports event to your cinema schedule.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid gap-3">
+                          <Label htmlFor="event-title" className="text-cyber-slate-200 font-semibold">
+                            Event Title
+                          </Label>
+                          <Input
+                            id="event-title"
+                            value={newEvent.title}
+                            onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
+                            placeholder="e.g., Avengers: Endgame, Champions League Final"
+                            className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="grid gap-3">
+                            <Label htmlFor="event-type" className="text-cyber-slate-200 font-semibold">
+                              Event Type
+                            </Label>
+                            <Select
+                              value={newEvent.event_type}
+                              onValueChange={(value: EventType) => handleEventTypeChange(value)}
+                            >
+                              <SelectTrigger className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl">
+                                <SelectValue placeholder="Select type" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-glass-dark-strong border-white/20 backdrop-blur-xl rounded-2xl">
+                                <SelectItem value="movie">Movie</SelectItem>
+                                <SelectItem value="match">Sports Match</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="grid gap-3">
+                            <Label htmlFor="event-category" className="text-cyber-slate-200 font-semibold">
+                              Category
+                            </Label>
+                            <Input
+                              id="event-category"
+                              value={newEvent.category}
+                              onChange={(e) => setNewEvent({ ...newEvent, category: e.target.value })}
+                              placeholder="e.g., Action, Comedy, Football"
+                              className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="grid gap-3">
+                            <Label htmlFor="event-date" className="text-cyber-slate-200 font-semibold">
+                              Event Date
+                            </Label>
+                            <Input
+                              id="event-date"
+                              type="date"
+                              value={newEvent.event_date}
+                              onChange={(e) => setNewEvent({ ...newEvent, event_date: e.target.value })}
+                              className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl"
+                            />
+                          </div>
+                          <div className="grid gap-3">
+                            <Label htmlFor="event-time" className="text-cyber-slate-200 font-semibold">
+                              Event Time
+                            </Label>
+                            <Input
+                              id="event-time"
+                              type="time"
+                              value={newEvent.event_time}
+                              onChange={(e) => setNewEvent({ ...newEvent, event_time: e.target.value })}
+                              className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid gap-3">
+                          <Label htmlFor="event-hall" className="text-cyber-slate-200 font-semibold">
+                            Hall
+                          </Label>
+                          <Select value={newEvent.hall_id} onValueChange={(value: string) => handleHallChange(value)}>
+                            <SelectTrigger className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl">
+                              <SelectValue placeholder="Select hall" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-glass-dark-strong border-white/20 backdrop-blur-xl rounded-2xl">
+                              {halls.map((hall) => (
+                                <SelectItem key={hall._id} value={hall._id}>
+                                  {hall.name} ({hall.capacity} seats, {hall.type})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="grid gap-3">
+                          <Label htmlFor="event-description" className="text-cyber-slate-200 font-semibold">
+                            Description
+                          </Label>
+                          <Input
+                            id="event-description"
+                            value={newEvent.description}
+                            onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
+                            placeholder="Brief description of the event"
+                            className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
+                          />
+                        </div>
+                        <div className="grid gap-3">
+                          <Label htmlFor="event-duration" className="text-cyber-slate-200 font-semibold">
+                            Duration
+                          </Label>
+                          <Input
+                            id="event-duration"
+                            value={newEvent.duration}
+                            onChange={(e) => setNewEvent({ ...newEvent, duration: e.target.value })}
+                            placeholder="e.g., 120 minutes, 90 minutes"
+                            className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
+                          />
+                        </div>
+                        <div className="grid gap-3">
+                          <Label htmlFor="event-image" className="text-cyber-slate-200 font-semibold">
+                            Image URL
+                          </Label>
+                          <Input
+                            id="event-image"
+                            value={newEvent.image_url}
+                            onChange={(e) => setNewEvent({ ...newEvent, image_url: e.target.value })}
+                            placeholder="https://example.com/poster.jpg"
+                            className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
+                          />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button
+                          variant="outline"
+                          onClick={() => setIsCreateEventOpen(false)}
+                          className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleCreateEvent}
+                          className="bg-gradient-to-r from-cyber-purple-500 via-cyber-purple-600 to-cyber-purple-700 hover:from-cyber-purple-600 hover:via-cyber-purple-700 hover:to-cyber-purple-800 text-white rounded-2xl"
+                        >
+                          Create Event
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
@@ -1789,10 +2012,217 @@ export default function AdminDashboard() {
           <TabsContent value="bookings">
             <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card">
               <CardHeader>
-                <CardTitle className="text-white text-xl font-bold">Customer Bookings</CardTitle>
-                <CardDescription className="text-cyber-slate-300">
-                  View and manage customer bookings with receipt printing capability
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-white text-xl font-bold">Customer Bookings</CardTitle>
+                    <CardDescription className="text-cyber-slate-300">
+                      View and manage customer bookings with receipt printing capability
+                    </CardDescription>
+                  </div>
+                  <Dialog open={isCreateBookingOpen} onOpenChange={setIsCreateBookingOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        size="sm"
+                        className="bg-gradient-to-r from-cyber-purple-500 via-cyber-purple-600 to-cyber-purple-700 hover:from-cyber-purple-600 hover:via-cyber-purple-700 hover:to-cyber-purple-800 shadow-glow-purple text-white group rounded-2xl"
+                        onClick={() => setNewBooking(initialNewBookingState)}
+                      >
+                        <Plus className="w-4 h-4 mr-2 group-hover:rotate-180 transition-transform duration-300" />
+                        Create Booking
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[800px] bg-glass-dark-strong backdrop-blur-xl border border-white/20 text-white shadow-cyber-hover rounded-4xl max-h-[90vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle className="text-white text-xl font-bold bg-gradient-to-r from-white to-cyber-purple-200 bg-clip-text text-transparent">
+                          Create New Booking
+                        </DialogTitle>
+                        <DialogDescription className="text-cyber-slate-300">
+                          Create a manual booking for a customer.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="grid gap-3">
+                            <Label htmlFor="customer-name" className="text-cyber-slate-200 font-semibold">
+                              Customer Name
+                            </Label>
+                            <Input
+                              id="customer-name"
+                              value={newBooking.customerName}
+                              onChange={(e) => setNewBooking({ ...newBooking, customerName: e.target.value })}
+                              placeholder="John Doe"
+                              className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
+                            />
+                          </div>
+                          <div className="grid gap-3">
+                            <Label htmlFor="customer-email" className="text-cyber-slate-200 font-semibold">
+                              Customer Email
+                            </Label>
+                            <Input
+                              id="customer-email"
+                              type="email"
+                              value={newBooking.customerEmail}
+                              onChange={(e) => setNewBooking({ ...newBooking, customerEmail: e.target.value })}
+                              placeholder="john@example.com"
+                              className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid gap-3">
+                          <Label htmlFor="customer-phone" className="text-cyber-slate-200 font-semibold">
+                            Customer Phone
+                          </Label>
+                          <Input
+                            id="customer-phone"
+                            value={newBooking.customerPhone}
+                            onChange={(e) => setNewBooking({ ...newBooking, customerPhone: e.target.value })}
+                            placeholder="+234 123 456 7890"
+                            className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
+                          />
+                        </div>
+                        <div className="grid gap-3">
+                          <Label htmlFor="booking-event" className="text-cyber-slate-200 font-semibold">
+                            Select Event
+                          </Label>
+                          <Select
+                            value={selectedEventForBooking?._id || ""}
+                            onValueChange={(value: string) => handleEventSelectionForBooking(value)}
+                          >
+                            <SelectTrigger className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl">
+                              <SelectValue placeholder="Choose an event" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-glass-dark-strong border-white/20 backdrop-blur-xl rounded-2xl">
+                              {events.map((event) => (
+                                <SelectItem key={event._id} value={event._id}>
+                                  {event.title} - {new Date(event.event_date).toLocaleDateString()} at{" "}
+                                  {event.event_time}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {selectedEventForBooking && (
+                          <div className="grid gap-3">
+                            <Label className="text-cyber-slate-200 font-semibold">
+                              Select Seats ({selectedSeatsForAdminBooking.length} selected)
+                            </Label>
+                            <div className="bg-glass-dark/50 p-4 rounded-2xl border border-white/10">
+                              <div className="grid gap-4">
+                                {currentEventSeats.length > 0 && (
+                                  <div className="grid gap-2">
+                                    {renderSeatMap(
+                                      currentEventSeats,
+                                      selectedSeatsForAdminBooking,
+                                      handleSeatSelectionForAdminBooking,
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        <div className="grid grid-cols-3 gap-4">
+                          <div className="grid gap-3">
+                            <Label htmlFor="booking-amount" className="text-cyber-slate-200 font-semibold">
+                              Amount (₦)
+                            </Label>
+                            <Input
+                              id="booking-amount"
+                              type="number"
+                              value={newBooking.amount}
+                              readOnly
+                              className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl"
+                            />
+                          </div>
+                          <div className="grid gap-3">
+                            <Label htmlFor="processing-fee" className="text-cyber-slate-200 font-semibold">
+                              Processing Fee (₦)
+                            </Label>
+                            <Input
+                              id="processing-fee"
+                              type="number"
+                              value={newBooking.processingFee}
+                              onChange={(e) =>
+                                setNewBooking({
+                                  ...newBooking,
+                                  processingFee: Number(e.target.value),
+                                  totalAmount: newBooking.amount + Number(e.target.value),
+                                })
+                              }
+                              className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl"
+                            />
+                          </div>
+                          <div className="grid gap-3">
+                            <Label htmlFor="total-amount" className="text-cyber-slate-200 font-semibold">
+                              Total Amount (₦)
+                            </Label>
+                            <Input
+                              id="total-amount"
+                              type="number"
+                              value={newBooking.totalAmount}
+                              readOnly
+                              className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl font-bold"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="grid gap-3">
+                            <Label htmlFor="payment-method" className="text-cyber-slate-200 font-semibold">
+                              Payment Method
+                            </Label>
+                            <Select
+                              value={newBooking.paymentMethod}
+                              onValueChange={(value: string) => setNewBooking({ ...newBooking, paymentMethod: value })}
+                            >
+                              <SelectTrigger className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl">
+                                <SelectValue placeholder="Select payment method" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-glass-dark-strong border-white/20 backdrop-blur-xl rounded-2xl">
+                                <SelectItem value="Cash">Cash</SelectItem>
+                                <SelectItem value="Card">Card</SelectItem>
+                                <SelectItem value="Transfer">Bank Transfer</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="grid gap-3">
+                            <Label htmlFor="booking-status" className="text-cyber-slate-200 font-semibold">
+                              Status
+                            </Label>
+                            <Select
+                              value={newBooking.status}
+                              onValueChange={(value: "confirmed" | "pending" | "cancelled") =>
+                                setNewBooking({ ...newBooking, status: value })
+                              }
+                            >
+                              <SelectTrigger className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl">
+                                <SelectValue placeholder="Select status" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-glass-dark-strong border-white/20 backdrop-blur-xl rounded-2xl">
+                                <SelectItem value="confirmed">Confirmed</SelectItem>
+                                <SelectItem value="pending">Pending</SelectItem>
+                                <SelectItem value="cancelled">Cancelled</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button
+                          variant="outline"
+                          onClick={() => setIsCreateBookingOpen(false)}
+                          className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleCreateBooking}
+                          className="bg-gradient-to-r from-cyber-purple-500 via-cyber-purple-600 to-cyber-purple-700 hover:from-cyber-purple-600 hover:via-cyber-purple-700 hover:to-cyber-purple-800 text-white rounded-2xl"
+                        >
+                          Create Booking
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
