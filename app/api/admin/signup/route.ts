@@ -1,66 +1,49 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createAdmin } from "@/lib/admin-auth"
-import { z } from "zod"
-
-const signupSchema = z
-  .object({
-    name: z.string().min(2, "Name must be at least 2 characters"),
-    email: z.string().email("Invalid email address"),
-    password: z.string().min(8, "Password must be at least 8 characters"),
-    confirmPassword: z.string(),
-    role: z.enum(["admin", "super-admin"]),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords don't match",
-    path: ["confirmPassword"],
-  })
+import { connectToDatabase } from "@/lib/mongodb"
+import bcrypt from "bcryptjs"
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
+    const { name, email, password } = await request.json()
 
-    // Validate the request body
-    const validatedData = signupSchema.parse(body)
+    if (!name || !email || !password) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    }
 
-    // Create the admin user
-    const newAdmin = await createAdmin({
-      name: validatedData.name,
-      email: validatedData.email,
-      password: validatedData.password,
-      role: validatedData.role,
+    if (password.length < 6) {
+      return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 })
+    }
+
+    const { db } = await connectToDatabase()
+
+    // Check if admin already exists
+    const existingAdmin = await db.collection("admins").findOne({ email })
+    if (existingAdmin) {
+      return NextResponse.json({ error: "Admin with this email already exists" }, { status: 400 })
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 12)
+
+    // Create admin
+    const result = await db.collection("admins").insertOne({
+      name,
+      email,
+      password: hashedPassword,
+      role: "admin",
+      createdAt: new Date(),
+      updatedAt: new Date(),
     })
 
     return NextResponse.json(
       {
-        message: "Admin account created successfully",
-        admin: {
-          id: newAdmin.id,
-          name: newAdmin.name,
-          email: newAdmin.email,
-          role: newAdmin.role,
-        },
+        message: "Admin created successfully",
+        adminId: result.insertedId,
       },
       { status: 201 },
     )
   } catch (error) {
     console.error("Signup error:", error)
-
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        {
-          message: "Validation error",
-          errors: error.errors,
-        },
-        { status: 400 },
-      )
-    }
-
-    if (error instanceof Error) {
-      if (error.message.includes("already exists")) {
-        return NextResponse.json({ message: "An admin with this email already exists" }, { status: 409 })
-      }
-    }
-
-    return NextResponse.json({ message: "Internal server error" }, { status: 500 })
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

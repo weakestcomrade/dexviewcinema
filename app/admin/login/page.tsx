@@ -5,29 +5,26 @@ import type React from "react"
 import { useState } from "react"
 import { signIn, getSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Eye, EyeOff, Shield, Lock, Mail, ArrowRight, Film } from "lucide-react"
-import Link from "next/link"
-import Image from "next/image"
 import { useToast } from "@/components/ui/use-toast"
+import { Eye, EyeOff, Shield, ArrowLeft, Loader2 } from "lucide-react"
+import Image from "next/image"
 
-export default function AdminLogin() {
+export default function AdminLoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
   const router = useRouter()
   const { toast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    setError("")
 
     try {
       const result = await signIn("credentials", {
@@ -37,14 +34,13 @@ export default function AdminLogin() {
       })
 
       if (result?.error) {
-        setError("Invalid email or password. Please try again.")
         toast({
           title: "Login Failed",
           description: "Invalid email or password. Please try again.",
           variant: "destructive",
         })
       } else {
-        // Check if user is authenticated and has admin role
+        // Check if login was successful by getting session
         const session = await getSession()
         if (session?.user?.role === "admin") {
           toast({
@@ -53,17 +49,14 @@ export default function AdminLogin() {
           })
           router.push("/admin")
         } else {
-          setError("Access denied. Admin privileges required.")
           toast({
             title: "Access Denied",
-            description: "Admin privileges required to access this area.",
+            description: "You don't have admin privileges.",
             variant: "destructive",
           })
         }
       }
     } catch (error) {
-      console.error("Login error:", error)
-      setError("An unexpected error occurred. Please try again.")
       toast({
         title: "Login Error",
         description: "An unexpected error occurred. Please try again.",
@@ -75,7 +68,7 @@ export default function AdminLogin() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 relative overflow-hidden flex items-center justify-center">
+    <div className="min-h-screen bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 relative overflow-hidden">
       {/* Cyber-Glassmorphism background elements */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-brand-red-500/20 to-cyber-purple-500/20 rounded-full blur-3xl animate-float"></div>
@@ -88,96 +81,77 @@ export default function AdminLogin() {
       </div>
 
       {/* Header */}
-      <div className="absolute top-0 left-0 right-0 backdrop-blur-xl bg-glass-white border-b border-white/10 shadow-cyber-card z-50">
+      <header className="relative backdrop-blur-xl bg-glass-white border-b border-white/10 shadow-cyber-card z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-20">
-            <Link href="/" className="flex items-center space-x-4 group">
-              <div className="relative">
+          <div className="flex items-center justify-between h-20">
+            <Link href="/" className="flex items-center space-x-4">
+              <Button variant="ghost" size="sm" className="text-cyber-slate-300 hover:bg-glass-white group">
+                <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
+                Back to Home
+              </Button>
+            </Link>
+            <div className="flex items-center space-x-4">
+              <div className="relative group">
                 <Image
                   src="/dexcinema-logo.jpeg"
                   alt="Dex View Cinema Logo"
-                  width={56}
-                  height={56}
-                  className="w-14 h-14 rounded-4xl shadow-glow-red transform group-hover:scale-110 transition-all duration-300"
+                  width={48}
+                  height={48}
+                  className="w-12 h-12 rounded-4xl shadow-glow-red transform group-hover:scale-110 transition-all duration-300"
                   priority
                 />
-                <div className="absolute -top-1 -right-1 w-5 h-5 bg-white rounded-full flex items-center justify-center shadow-lg">
-                  <div className="w-2.5 h-2.5 bg-brand-red-500 rounded-full animate-pulse"></div>
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center shadow-lg">
+                  <div className="w-2 h-2 bg-brand-red-500 rounded-full animate-pulse"></div>
                 </div>
-                <div className="absolute inset-0 bg-gradient-to-br from-brand-red-500/30 to-brand-red-600/30 rounded-4xl blur-xl animate-glow"></div>
               </div>
               <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-white via-brand-red-200 to-white bg-clip-text text-transparent">
-                  Dex View Cinema
-                </h1>
-                <p className="text-sm font-medium bg-gradient-to-r from-brand-red-400 to-brand-red-300 bg-clip-text text-transparent">
+                <h1 className="text-lg font-bold bg-gradient-to-r from-white via-brand-red-200 to-white bg-clip-text text-transparent">
                   Admin Portal
-                </p>
+                </h1>
+                <p className="text-xs text-brand-red-400 font-medium">Secure Access</p>
               </div>
-            </Link>
-            <Link href="/">
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-brand-red-500/50 text-brand-red-300 hover:bg-brand-red-500/20 bg-glass-white backdrop-blur-sm shadow-cyber-card hover:shadow-cyber-hover transition-all duration-300 group rounded-2xl"
-              >
-                <Film className="w-4 h-4 mr-2 group-hover:rotate-12 transition-transform" />
-                Back to Site
-              </Button>
-            </Link>
+            </div>
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* Login Form */}
-      <div className="relative z-10 w-full max-w-md mx-auto px-4">
-        <Card className="bg-glass-white-strong backdrop-blur-xl shadow-cyber-card border border-white/20 rounded-3xl overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-brand-red-500/10 to-transparent opacity-50 rounded-3xl"></div>
-
-          <CardHeader className="relative z-10 text-center pb-8">
-            <div className="w-20 h-20 bg-gradient-to-br from-brand-red-500/20 to-brand-red-600/20 rounded-full flex items-center justify-center border border-brand-red-500/30 mb-6 mx-auto group">
-              <Shield className="w-10 h-10 text-brand-red-400 group-hover:rotate-12 transition-transform duration-300" />
+      {/* Main Content */}
+      <div className="relative flex items-center justify-center min-h-[calc(100vh-80px)] px-4 py-12">
+        <Card className="w-full max-w-md bg-glass-white-strong backdrop-blur-xl shadow-cyber-card border border-white/20 rounded-3xl">
+          <CardHeader className="text-center pb-6">
+            <div className="flex justify-center mb-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-brand-red-500/20 to-brand-red-600/20 rounded-full flex items-center justify-center border border-brand-red-500/30 shadow-glow-red">
+                <Shield className="w-8 h-8 text-brand-red-400" />
+              </div>
             </div>
-            <CardTitle className="text-2xl font-bold text-white mb-2">Admin Login</CardTitle>
-            <CardDescription className="text-cyber-slate-300 text-lg">
-              Access the admin dashboard to manage events and bookings
+            <CardTitle className="text-2xl font-bold bg-gradient-to-r from-white via-brand-red-200 to-white bg-clip-text text-transparent">
+              Admin Login
+            </CardTitle>
+            <CardDescription className="text-cyber-slate-300 text-base">
+              Sign in to access the admin dashboard
             </CardDescription>
           </CardHeader>
-
-          <CardContent className="relative z-10 space-y-6">
-            {error && (
-              <Alert className="bg-red-500/10 border-red-500/30 text-red-300">
-                <Lock className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
+          <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-white font-medium">
+                <Label htmlFor="email" className="text-cyber-slate-200 font-medium">
                   Email Address
                 </Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-cyber-slate-400 w-5 h-5" />
-                  <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="admin@dexviewcinema.com"
-                    required
-                    disabled={isLoading}
-                    className="pl-12 bg-glass-white border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-500/50 focus:ring-brand-red-500/20 rounded-2xl h-12"
-                  />
-                </div>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="admin@dexviewcinema.com"
+                  required
+                  className="bg-glass-white border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-500/50 focus:ring-brand-red-500/20 rounded-2xl h-12"
+                />
               </div>
-
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-white font-medium">
+                <Label htmlFor="password" className="text-cyber-slate-200 font-medium">
                   Password
                 </Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-cyber-slate-400 w-5 h-5" />
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
@@ -185,45 +159,43 @@ export default function AdminLogin() {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
                     required
-                    disabled={isLoading}
-                    className="pl-12 pr-12 bg-glass-white border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-500/50 focus:ring-brand-red-500/20 rounded-2xl h-12"
+                    className="bg-glass-white border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-500/50 focus:ring-brand-red-500/20 rounded-2xl h-12 pr-12"
                   />
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0 text-cyber-slate-400 hover:text-white"
                     onClick={() => setShowPassword(!showPassword)}
-                    disabled={isLoading}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-cyber-slate-400 hover:text-white transition-colors"
                   >
-                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                  </button>
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </Button>
                 </div>
               </div>
-
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 text-white shadow-glow-red rounded-2xl h-12 font-semibold text-lg group relative overflow-hidden"
+                className="w-full bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 text-white shadow-glow-red rounded-2xl h-12 font-bold text-lg"
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-brand-red-400/20 to-brand-red-600/20 rounded-2xl blur-xl group-hover:blur-2xl transition-all duration-500"></div>
-                <div className="relative flex items-center justify-center">
-                  {isLoading ? (
-                    <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <>
-                      Sign In
-                      <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
-                    </>
-                  )}
-                </div>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Signing In...
+                  </>
+                ) : (
+                  <>
+                    <Shield className="w-5 h-5 mr-2" />
+                    Sign In
+                  </>
+                )}
               </Button>
             </form>
-
-            <div className="text-center pt-4">
-              <p className="text-cyber-slate-400 text-sm">
-                Need an admin account?{" "}
+            <div className="mt-6 text-center">
+              <p className="text-cyber-slate-300">
+                Don't have an admin account?{" "}
                 <Link
                   href="/admin/signup"
-                  className="text-brand-red-400 hover:text-brand-red-300 transition-colors font-medium hover:underline"
+                  className="text-brand-red-400 hover:text-brand-red-300 font-medium hover:underline transition-colors"
                 >
                   Create Account
                 </Link>
@@ -231,11 +203,6 @@ export default function AdminLogin() {
             </div>
           </CardContent>
         </Card>
-
-        {/* Additional Security Notice */}
-        <div className="mt-6 text-center">
-          <p className="text-cyber-slate-400 text-sm">This is a secure admin area. All login attempts are monitored.</p>
-        </div>
       </div>
     </div>
   )

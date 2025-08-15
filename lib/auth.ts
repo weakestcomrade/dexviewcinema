@@ -36,7 +36,7 @@ export const authOptions: NextAuthOptions = {
             id: admin._id.toString(),
             email: admin.email,
             name: admin.name,
-            role: admin.role || "admin",
+            role: "admin",
           }
         } catch (error) {
           console.error("Auth error:", error)
@@ -50,7 +50,7 @@ export const authOptions: NextAuthOptions = {
   },
   pages: {
     signIn: "/admin/login",
-    error: "/admin/login",
+    signUp: "/admin/signup",
   },
   callbacks: {
     async jwt({ token, user }) {
@@ -61,8 +61,8 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (token) {
-        session.user.id = token.sub!
-        session.user.role = token.role as string
+        session.user.id = token.sub
+        session.user.role = token.role
       }
       return session
     },
