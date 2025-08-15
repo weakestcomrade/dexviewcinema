@@ -6,6 +6,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { CheckCircle, XCircle, Loader2 } from "lucide-react"
 
+export const dynamic = "force-dynamic"
+
 export default function PaymentCallbackPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
