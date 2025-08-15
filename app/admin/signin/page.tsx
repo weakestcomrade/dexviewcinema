@@ -295,15 +295,6 @@ export default function AdminSigninPage() {
 
             {/* Additional Links */}
             <div className="text-center space-y-3 pt-4 border-t border-white/10">
-              <p className="text-cyber-slate-400 text-sm">
-                Don't have an admin account?{" "}
-                <Link
-                  href="/admin/signup"
-                  className="text-brand-red-400 hover:text-brand-red-300 font-medium hover:underline transition-colors"
-                >
-                  Create Account
-                </Link>
-              </p>
               <Link href="/" className="block">
                 <Button
                   variant="outline"
