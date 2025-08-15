@@ -12,6 +12,7 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ["next-auth"]
   },
+  output: 'standalone',
   // Additional configurations can be added here
 }
 
