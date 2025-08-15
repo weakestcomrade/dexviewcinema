@@ -2,13 +2,17 @@ import { NextResponse } from "next/server"
 import { PaystackService } from "@/lib/paystack"
 import { connectToDatabase } from "@/lib/mongodb"
 
+export const dynamic = "force-dynamic"
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const reference = searchParams.get("reference")
 
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
+
     if (!reference) {
-      return NextResponse.redirect(new URL("/payment/failed?error=missing-reference", request.url))
+      return NextResponse.redirect(new URL("/payment/failed?error=missing-reference", baseUrl))
     }
 
     const { db } = await connectToDatabase()
@@ -18,23 +22,21 @@ export async function GET(request: Request) {
     const paystackResponse = await paystack.verifyPayment(reference)
 
     if (!paystackResponse.status || paystackResponse.data.status !== "success") {
-      return NextResponse.redirect(new URL(`/payment/failed?reference=${reference}`, request.url))
+      return NextResponse.redirect(new URL(`/payment/failed?reference=${reference}`, baseUrl))
     }
 
     // Find payment record
     const paymentRecord = await db.collection("payments").findOne({ reference })
 
     if (!paymentRecord) {
-      return NextResponse.redirect(
-        new URL(`/payment/failed?reference=${reference}&error=record-not-found`, request.url),
-      )
+      return NextResponse.redirect(new URL(`/payment/failed?reference=${reference}&error=record-not-found`, baseUrl))
     }
 
     // Check if already processed
     if (paymentRecord.status === "confirmed") {
       const booking = await db.collection("bookings").findOne({ paymentReference: reference })
       if (booking) {
-        return NextResponse.redirect(new URL(`/receipt/${booking._id}`, request.url))
+        return NextResponse.redirect(new URL(`/receipt/${booking._id}`, baseUrl))
       }
     }
 
@@ -94,9 +96,10 @@ export async function GET(request: Request) {
     )
 
     // Redirect to receipt page
-    return NextResponse.redirect(new URL(`/receipt/${bookingResult.insertedId}`, request.url))
+    return NextResponse.redirect(new URL(`/receipt/${bookingResult.insertedId}`, baseUrl))
   } catch (error) {
     console.error("Payment callback error:", error)
-    return NextResponse.redirect(new URL(`/payment/failed?error=processing-failed`, request.url))
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
+    return NextResponse.redirect(new URL(`/payment/failed?error=processing-failed`, baseUrl))
   }
 }
