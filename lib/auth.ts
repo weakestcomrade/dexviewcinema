@@ -1,3 +1,7 @@
+import { connectToDatabase } from "@/lib/mongodb"
+import bcrypt from "bcryptjs"
+import jwt from "jsonwebtoken"
+
 // Authentication utilities for admin users
 export interface AdminUser {
   id: string
@@ -5,29 +9,54 @@ export interface AdminUser {
   isAuthenticated: boolean
 }
 
-// Simulate authentication - replace with real implementation
+// Database-based authentication with bcrypt password verification
 export const authenticateAdmin = async (email: string, password: string): Promise<AdminUser | null> => {
-  // Hardcoded admin credentials - in production, this should be stored securely in environment variables
-  const ADMIN_EMAIL = "admin@dexviewcinema.com"
-  const ADMIN_PASSWORD = "DexCinema2025!"
+  try {
+    const { db } = await connectToDatabase()
 
-  // Validate credentials against hardcoded admin account
-  if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+    // Find admin user by email
+    const adminUser = await db.collection("admins").findOne({ email })
+
+    if (!adminUser) {
+      return null
+    }
+
+    // Verify password using bcrypt
+    const isPasswordValid = await bcrypt.compare(password, adminUser.password)
+
+    if (!isPasswordValid) {
+      return null
+    }
+
+    // Return authenticated user data
     return {
-      id: "admin-1",
-      email: ADMIN_EMAIL,
+      id: adminUser._id.toString(),
+      email: adminUser.email,
       isAuthenticated: true,
     }
+  } catch (error) {
+    console.error("Authentication error:", error)
+    return null
   }
-
-  // Return null for invalid credentials
-  return null
 }
 
-// Set authentication cookie
-export const setAuthCookie = (response: Response) => {
-  // TODO: Generate actual JWT token
-  const token = "admin-authenticated-" + Date.now()
+// Generate JWT token for authenticated admin
+const generateJWTToken = (adminUser: AdminUser): string => {
+  const secret = process.env.NEXTAUTH_SECRET || "fallback-secret-key"
+  return jwt.sign(
+    {
+      id: adminUser.id,
+      email: adminUser.email,
+      role: "admin",
+    },
+    secret,
+    { expiresIn: "24h" },
+  )
+}
+
+// Set authentication cookie with JWT token
+export const setAuthCookie = (response: Response, adminUser: AdminUser) => {
+  const token = generateJWTToken(adminUser)
 
   // Set cookie with proper security settings
   const cookie = `admin-auth-token=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=86400`
@@ -38,4 +67,21 @@ export const setAuthCookie = (response: Response) => {
 export const clearAuthCookie = (response: Response) => {
   const cookie = `admin-auth-token=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`
   response.headers.set("Set-Cookie", cookie)
+}
+
+// Verify JWT token from cookie
+export const verifyAuthToken = (token: string): AdminUser | null => {
+  try {
+    const secret = process.env.NEXTAUTH_SECRET || "fallback-secret-key"
+    const decoded = jwt.verify(token, secret) as any
+
+    return {
+      id: decoded.id,
+      email: decoded.email,
+      isAuthenticated: true,
+    }
+  } catch (error) {
+    console.error("Token verification error:", error)
+    return null
+  }
 }

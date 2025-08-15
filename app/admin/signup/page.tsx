@@ -95,13 +95,25 @@ export default function AdminSignupPage() {
     setErrors({})
 
     try {
-      // Simulate API call - replace with actual admin signup endpoint
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      const response = await fetch("/api/admin/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+        }),
+      })
 
-      // For now, just show success message
-      // In a real implementation, you would call your admin signup API here
-      console.log("[v0] Admin signup attempt:", { email: formData.email })
+      const data = await response.json()
 
+      if (!response.ok) {
+        setErrors({ general: data.error || "Failed to create admin account" })
+        return
+      }
+
+      console.log("[v0] Admin account created successfully:", data.message)
       setIsSuccess(true)
       setFormData({ email: "", password: "", confirmPassword: "" })
     } catch (error) {
