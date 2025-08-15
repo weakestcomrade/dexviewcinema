@@ -2,16 +2,13 @@ import { NextResponse } from "next/server"
 import { PaystackService } from "@/lib/paystack"
 import { connectToDatabase } from "@/lib/mongodb"
 
-export const dynamic = "force-dynamic"
-
 export async function GET(request: Request) {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://dexviewcinema.vercel.app"
     const { searchParams } = new URL(request.url)
     const reference = searchParams.get("reference")
 
     if (!reference) {
-      return NextResponse.redirect(new URL("/payment/failed?error=missing-reference", baseUrl))
+      return NextResponse.redirect(new URL("/payment/failed?error=missing-reference", request.url))
     }
 
     const { db } = await connectToDatabase()
@@ -21,21 +18,23 @@ export async function GET(request: Request) {
     const paystackResponse = await paystack.verifyPayment(reference)
 
     if (!paystackResponse.status || paystackResponse.data.status !== "success") {
-      return NextResponse.redirect(new URL(`/payment/failed?reference=${reference}`, baseUrl))
+      return NextResponse.redirect(new URL(`/payment/failed?reference=${reference}`, request.url))
     }
 
     // Find payment record
     const paymentRecord = await db.collection("payments").findOne({ reference })
 
     if (!paymentRecord) {
-      return NextResponse.redirect(new URL(`/payment/failed?reference=${reference}&error=record-not-found`, baseUrl))
+      return NextResponse.redirect(
+        new URL(`/payment/failed?reference=${reference}&error=record-not-found`, request.url),
+      )
     }
 
     // Check if already processed
     if (paymentRecord.status === "confirmed") {
       const booking = await db.collection("bookings").findOne({ paymentReference: reference })
       if (booking) {
-        return NextResponse.redirect(new URL(`/receipt/${booking._id}`, baseUrl))
+        return NextResponse.redirect(new URL(`/receipt/${booking._id}`, request.url))
       }
     }
 
@@ -95,10 +94,9 @@ export async function GET(request: Request) {
     )
 
     // Redirect to receipt page
-    return NextResponse.redirect(new URL(`/receipt/${bookingResult.insertedId}`, baseUrl))
+    return NextResponse.redirect(new URL(`/receipt/${bookingResult.insertedId}`, request.url))
   } catch (error) {
     console.error("Payment callback error:", error)
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://dexviewcinema.vercel.app"
-    return NextResponse.redirect(new URL(`/payment/failed?error=processing-failed`, baseUrl))
+    return NextResponse.redirect(new URL(`/payment/failed?error=processing-failed`, request.url))
   }
 }
