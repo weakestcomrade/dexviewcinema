@@ -10,7 +10,7 @@ export function middleware(request: NextRequest) {
     }
 
     // Check for authentication token in cookies
-    const authToken = request.cookies.get("admin-auth-token")
+    const authToken = request.cookies.get("admin-token")
 
     if (!authToken) {
       // Redirect to signin page if not authenticated

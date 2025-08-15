@@ -42,7 +42,7 @@ export const authenticateAdmin = async (email: string, password: string): Promis
 
 // Generate JWT token for authenticated admin
 const generateJWTToken = (adminUser: AdminUser): string => {
-  const secret = process.env.NEXTAUTH_SECRET || "fallback-secret-key"
+  const secret = process.env.JWT_SECRET || "fallback-secret"
   return jwt.sign(
     {
       id: adminUser.id,
@@ -58,21 +58,20 @@ const generateJWTToken = (adminUser: AdminUser): string => {
 export const setAuthCookie = (response: Response, adminUser: AdminUser) => {
   const token = generateJWTToken(adminUser)
 
-  // Set cookie with proper security settings
-  const cookie = `admin-auth-token=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=86400`
+  const cookie = `admin-token=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=86400`
   response.headers.set("Set-Cookie", cookie)
 }
 
 // Clear authentication cookie
 export const clearAuthCookie = (response: Response) => {
-  const cookie = `admin-auth-token=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`
+  const cookie = `admin-token=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`
   response.headers.set("Set-Cookie", cookie)
 }
 
 // Verify JWT token from cookie
 export const verifyAuthToken = (token: string): AdminUser | null => {
   try {
-    const secret = process.env.NEXTAUTH_SECRET || "fallback-secret-key"
+    const secret = process.env.JWT_SECRET || "fallback-secret"
     const decoded = jwt.verify(token, secret) as any
 
     return {
