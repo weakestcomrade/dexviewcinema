@@ -57,16 +57,9 @@ export async function POST(request: NextRequest) {
     }
 
     const token = generateToken(userWithoutPassword)
-    console.log("[v0] Token generated, setting cookie...")
+    console.log("[v0] Token generated, creating redirect response...")
 
-    // Create response with token in cookie
-    const response = NextResponse.json(
-      {
-        message: "Login successful",
-        user: userWithoutPassword,
-      },
-      { status: 200 },
-    )
+    const response = NextResponse.redirect(new URL("/admin", request.url))
 
     response.cookies.set("auth-token", token, {
       httpOnly: true,
@@ -74,19 +67,9 @@ export async function POST(request: NextRequest) {
       sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60, // 7 days
       path: "/",
-      domain: process.env.NODE_ENV === "production" ? undefined : "localhost",
     })
 
-    console.log("[v0] Cookie set with settings:", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60,
-      path: "/",
-      domain: process.env.NODE_ENV === "production" ? undefined : "localhost",
-    })
-
-    console.log("[v0] Cookie set, returning response")
+    console.log("[v0] Cookie set with redirect response")
 
     return response
   } catch (error) {

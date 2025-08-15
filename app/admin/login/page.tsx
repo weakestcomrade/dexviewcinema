@@ -3,14 +3,13 @@
 import type React from "react"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Eye, EyeOff, LogIn, ArrowLeft, Shield, Loader2, AlertCircle, CheckCircle } from "lucide-react"
+import { Eye, EyeOff, LogIn, ArrowLeft, Shield, Loader2, AlertCircle } from "lucide-react"
 
 export default function AdminLoginPage() {
   const [formData, setFormData] = useState({
@@ -20,8 +19,6 @@ export default function AdminLoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
-  const [success, setSuccess] = useState("")
-  const router = useRouter()
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -55,7 +52,6 @@ export default function AdminLoginPage() {
 
     setIsLoading(true)
     setError("")
-    setSuccess("")
 
     try {
       console.log("[v0] Starting login request...")
@@ -67,28 +63,26 @@ export default function AdminLoginPage() {
         },
         body: JSON.stringify(formData),
         credentials: "include",
+        redirect: "manual", // Handle redirect manually
       })
 
       console.log("[v0] Login response status:", response.status)
 
-      const data = await response.json()
-      console.log("[v0] Login response data:", data)
-
-      if (!response.ok) {
-        throw new Error(data.message || data.error || "Login failed")
+      // If it's a redirect (302), the login was successful
+      if (response.status === 0 || response.type === "opaqueredirect") {
+        console.log("[v0] Login successful, redirecting...")
+        window.location.href = "/admin"
+        return
       }
 
-      setSuccess("Login successful! Redirecting to admin dashboard...")
-      console.log("[v0] Login successful, attempting redirect...")
-
-      setTimeout(() => {
-        console.log("[v0] Executing redirect...")
-        router.replace("/admin")
-      }, 1500)
+      // Handle error responses
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.message || data.error || "Login failed")
+      }
     } catch (err) {
       console.error("[v0] Login error:", err)
       setError(err instanceof Error ? err.message : "An unexpected error occurred")
-    } finally {
       setIsLoading(false)
     }
   }
@@ -159,13 +153,6 @@ export default function AdminLoginPage() {
               <Alert className="bg-red-500/10 border-red-500/30 text-red-300">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
-            {success && (
-              <Alert className="bg-green-500/10 border-green-500/30 text-green-300">
-                <CheckCircle className="h-4 w-4" />
-                <AlertDescription>{success}</AlertDescription>
               </Alert>
             )}
 
