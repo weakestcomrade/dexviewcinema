@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
     const body: LoginData = await request.json()
     const { email, password } = body
 
-    console.log("[v0] Login attempt for email:", email) // Add debug logging
+    console.log("[v0] Login attempt for email:", email)
 
     // Validation
     if (!email || !password) {
@@ -25,25 +25,25 @@ export async function POST(request: NextRequest) {
     // Find user
     const user = await db.collection("users").findOne({ email })
     if (!user) {
-      console.log("[v0] User not found for email:", email) // Add debug logging
+      console.log("[v0] User not found for email:", email)
       return NextResponse.json({ message: "Invalid email or password" }, { status: 401 })
     }
 
-    console.log("[v0] User found, verifying password...") // Add debug logging
+    console.log("[v0] User found, verifying password...")
 
     // Verify password
     const isPasswordValid = await verifyPassword(password, user.password)
     if (!isPasswordValid) {
-      console.log("[v0] Invalid password for user:", email) // Add debug logging
+      console.log("[v0] Invalid password for user:", email)
       return NextResponse.json({ message: "Invalid email or password" }, { status: 401 })
     }
 
     if (user.role !== "admin") {
-      console.log("[v0] User is not admin:", email, "Role:", user.role) // Add debug logging
+      console.log("[v0] User is not admin:", email, "Role:", user.role)
       return NextResponse.json({ message: "Access denied. Admin privileges required." }, { status: 403 })
     }
 
-    console.log("[v0] Password verified, generating token...") // Add debug logging
+    console.log("[v0] Password verified, generating token...")
 
     // Generate token
     const userWithoutPassword = {
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     }
 
     const token = generateToken(userWithoutPassword)
-    console.log("[v0] Token generated, setting cookie...") // Add debug logging
+    console.log("[v0] Token generated, setting cookie...")
 
     // Create response with token in cookie
     const response = NextResponse.json(
@@ -71,16 +71,26 @@ export async function POST(request: NextRequest) {
     response.cookies.set("auth-token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax", // Changed from "strict" to "lax" for better compatibility
+      sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60, // 7 days
-      path: "/", // Explicitly set path
+      path: "/",
+      domain: process.env.NODE_ENV === "production" ? undefined : "localhost",
     })
 
-    console.log("[v0] Cookie set, returning response") // Add debug logging
+    console.log("[v0] Cookie set with settings:", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60,
+      path: "/",
+      domain: process.env.NODE_ENV === "production" ? undefined : "localhost",
+    })
+
+    console.log("[v0] Cookie set, returning response")
 
     return response
   } catch (error) {
-    console.error("[v0] Login error:", error) // Add debug logging
+    console.error("[v0] Login error:", error)
     return NextResponse.json({ message: "Internal server error" }, { status: 500 })
   }
 }

@@ -66,7 +66,7 @@ export default function AdminLoginPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(formData),
-        credentials: "include", // Ensure cookies are included in the request
+        credentials: "include",
       })
 
       console.log("[v0] Login response status:", response.status)
@@ -81,19 +81,10 @@ export default function AdminLoginPage() {
       setSuccess("Login successful! Redirecting to admin dashboard...")
       console.log("[v0] Login successful, attempting redirect...")
 
-      // Also reduce timeout and add fallback
       setTimeout(() => {
         console.log("[v0] Executing redirect...")
-        window.location.href = "/admin"
-      }, 1000)
-
-      setTimeout(() => {
-        if (window.location.pathname === "/admin/login") {
-          console.log("[v0] Fallback redirect executing...")
-          router.push("/admin")
-          router.refresh()
-        }
-      }, 2000)
+        router.replace("/admin")
+      }, 1500)
     } catch (err) {
       console.error("[v0] Login error:", err)
       setError(err instanceof Error ? err.message : "An unexpected error occurred")

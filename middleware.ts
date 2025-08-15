@@ -3,6 +3,8 @@ import type { NextRequest } from "next/server"
 import { verifyToken } from "@/lib/auth"
 
 export async function middleware(request: NextRequest) {
+  console.log("[v0] Middleware running for:", request.nextUrl.pathname)
+
   // Check if the request is for admin routes (except login and signup)
   if (
     request.nextUrl.pathname.startsWith("/admin") &&
@@ -10,24 +12,28 @@ export async function middleware(request: NextRequest) {
     !request.nextUrl.pathname.startsWith("/admin/signup")
   ) {
     const token = request.cookies.get("auth-token")?.value
+    console.log("[v0] Token found:", !!token)
 
     if (!token) {
-      // Redirect to login if no token
+      console.log("[v0] No token, redirecting to login")
       return NextResponse.redirect(new URL("/admin/login", request.url))
     }
 
     try {
       // Verify the token
       const payload = await verifyToken(token)
+      console.log("[v0] Token payload:", payload)
 
       if (!payload || payload.role !== "admin") {
-        // Invalid token or not admin, redirect to login
+        console.log("[v0] Invalid token or not admin, redirecting to login")
         const response = NextResponse.redirect(new URL("/admin/login", request.url))
         response.cookies.delete("auth-token")
         return response
       }
+
+      console.log("[v0] Token valid, allowing access")
     } catch (error) {
-      // Token verification failed, redirect to login
+      console.log("[v0] Token verification failed:", error)
       const response = NextResponse.redirect(new URL("/admin/login", request.url))
       response.cookies.delete("auth-token")
       return response
