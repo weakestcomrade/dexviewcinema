@@ -58,27 +58,44 @@ export default function AdminLoginPage() {
     setSuccess("")
 
     try {
+      console.log("[v0] Starting login request...")
+
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(formData),
+        credentials: "include", // Ensure cookies are included in the request
       })
 
+      console.log("[v0] Login response status:", response.status)
+
       const data = await response.json()
+      console.log("[v0] Login response data:", data)
 
       if (!response.ok) {
-        throw new Error(data.error || "Login failed")
+        throw new Error(data.message || data.error || "Login failed")
       }
 
       setSuccess("Login successful! Redirecting to admin dashboard...")
+      console.log("[v0] Login successful, attempting redirect...")
 
-      // Redirect to admin dashboard after successful login
+      // Also reduce timeout and add fallback
       setTimeout(() => {
-        router.push("/admin")
-      }, 1500)
+        console.log("[v0] Executing redirect...")
+        window.location.href = "/admin"
+      }, 1000)
+
+      setTimeout(() => {
+        if (window.location.pathname === "/admin/login") {
+          console.log("[v0] Fallback redirect executing...")
+          router.push("/admin")
+          router.refresh()
+        }
+      }, 2000)
     } catch (err) {
+      console.error("[v0] Login error:", err)
       setError(err instanceof Error ? err.message : "An unexpected error occurred")
     } finally {
       setIsLoading(false)
