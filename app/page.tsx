@@ -124,15 +124,7 @@ export default async function Home() {
                   My Bookings
                 </Button>
               </Link>
-              <Link href="/admin" className="w-full sm:w-auto">
-                <Button
-                  size="sm"
-                  className="bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 shadow-glow-red text-white group rounded-2xl w-full sm:w-auto h-10 sm:h-9"
-                >
-                  <Users className="w-4 h-4 mr-2 group-hover:rotate-180 transition-transform duration-300" />
-                  Admin Dashboard
-                </Button>
-              </Link>
+              {/* Removed public admin dashboard link for security */}
             </div>
           </div>
         </div>
@@ -156,7 +148,7 @@ export default async function Home() {
                 className="bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 text-white shadow-glow-red rounded-3xl transform hover:scale-105 transition-all duration-300 group font-bold text-lg py-3 sm:py-4 h-auto"
               >
                 Explore Events
-                <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform duration-300" />
                 <div className="absolute inset-0 bg-gradient-to-r from-brand-red-400/20 to-brand-red-600/20 rounded-3xl blur-xl group-hover:blur-2xl transition-all duration-500"></div>
               </Button>
             </Link>
@@ -167,7 +159,7 @@ export default async function Home() {
                 className="border-brand-red-500/50 text-brand-red-300 hover:bg-brand-red-500/20 bg-glass-white backdrop-blur-sm shadow-cyber-card hover:shadow-cyber-hover transition-all duration-300 group rounded-3xl font-bold text-lg py-3 sm:py-4 h-auto"
               >
                 My Bookings
-                <Calendar className="w-5 h-5 ml-2 group-hover:rotate-12 transition-transform" />
+                <Calendar className="w-5 h-5 ml-2 group-hover:rotate-12 transition-transform duration-300" />
               </Button>
             </Link>
           </div>
