@@ -6,7 +6,28 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Settings, Users, Shield, Sparkles, Loader2, LogOut, User } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import {
+  Settings,
+  Users,
+  Shield,
+  Calendar,
+  BarChart3,
+  FileText,
+  Building2,
+  Plus,
+  Edit,
+  Trash2,
+  Eye,
+  Loader2,
+  LogOut,
+  User,
+  DollarSign,
+  TrendingUp,
+  Activity,
+  CreditCard,
+} from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/components/ui/use-toast"
 import { signOut } from "next-auth/react"
@@ -18,7 +39,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import type { Hall } from "@/types/hall" // Import the new Hall type
+import type { Hall } from "@/types/hall"
 
 // Define types for events fetched from the database
 interface Event {
@@ -284,6 +305,10 @@ export default function AdminDashboard() {
       router.push("/admin/login")
       return
     }
+
+    fetchEvents()
+    fetchBookings()
+    fetchHalls()
   }, [session, status, router])
 
   // Show loading while checking authentication
@@ -305,6 +330,92 @@ export default function AdminDashboard() {
 
   const handleSignOut = async () => {
     await signOut({ callbackUrl: "/admin/login" })
+  }
+
+  const calculateRevenue = () => {
+    let filteredBookings = actualBookings
+
+    if (revenueTimeFrame !== "all") {
+      const now = new Date()
+      const startDate = new Date()
+
+      switch (revenueTimeFrame) {
+        case "day":
+          startDate.setDate(now.getDate() - 1)
+          break
+        case "week":
+          startDate.setDate(now.getDate() - 7)
+          break
+        case "month":
+          startDate.setMonth(now.getMonth() - 1)
+          break
+        case "custom":
+          if (customRevenueStartDate && customRevenueEndDate) {
+            const customStart = new Date(customRevenueStartDate)
+            const customEnd = new Date(customRevenueEndDate)
+            filteredBookings = actualBookings.filter((booking) => {
+              const bookingDate = new Date(booking.createdAt)
+              return bookingDate >= customStart && bookingDate <= customEnd
+            })
+          }
+          break
+      }
+
+      if (revenueTimeFrame !== "custom") {
+        filteredBookings = actualBookings.filter((booking) => {
+          const bookingDate = new Date(booking.createdAt)
+          return bookingDate >= startDate
+        })
+      }
+    }
+
+    const totalRevenue = filteredBookings.reduce((sum, booking) => sum + booking.totalAmount, 0)
+    const totalBookings = filteredBookings.length
+    const avgBookingValue = totalBookings > 0 ? totalRevenue / totalBookings : 0
+
+    return { totalRevenue, totalBookings, avgBookingValue }
+  }
+
+  const { totalRevenue, totalBookings, avgBookingValue } = calculateRevenue()
+
+  const fetchEvents = async () => {
+    try {
+      const response = await fetch("/api/events")
+      if (response.ok) {
+        const data = await response.json()
+        setEvents(data)
+      }
+    } catch (error) {
+      console.error("Error fetching events:", error)
+    }
+  }
+
+  const fetchBookings = async () => {
+    try {
+      const response = await fetch("/api/bookings")
+      if (response.ok) {
+        const data = await response.json()
+        setActualBookings(data)
+      }
+    } catch (error) {
+      console.error("Error fetching bookings:", error)
+    }
+  }
+
+  const fetchHalls = async () => {
+    try {
+      const response = await fetch("/api/halls")
+      if (response.ok) {
+        const data = await response.json()
+        setHalls(data)
+      } else {
+        // Fallback to hardcoded halls if API fails
+        setHalls(hallMappingArray)
+      }
+    } catch (error) {
+      console.error("Error fetching halls:", error)
+      setHalls(hallMappingArray)
+    }
   }
 
   return (
@@ -439,37 +550,298 @@ export default function AdminDashboard() {
         </Card>
 
         {/* Placeholder for full admin functionality */}
-        <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card">
-          <CardHeader>
-            <CardTitle className="text-white text-xl font-bold">Admin Features</CardTitle>
-            <CardDescription className="text-cyber-slate-300">
-              The complete admin dashboard with all features will be loaded here. Authentication is now working!
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center py-12">
-              <Sparkles className="w-16 h-16 text-brand-red-400 mx-auto mb-4 animate-spin-slow" />
-              <h3 className="text-xl font-bold text-white mb-2">Authentication Successful!</h3>
-              <p className="text-cyber-slate-300 mb-6">
-                NextAuth has been successfully integrated. All your existing admin features are preserved and secure.
-              </p>
-              <div className="flex flex-wrap justify-center gap-4">
-                <Badge className="bg-cyber-green-500/30 text-cyber-green-300 border-cyber-green-500/50 px-4 py-2">
-                  ✓ Events Management
-                </Badge>
-                <Badge className="bg-cyber-blue-500/30 text-cyber-blue-300 border-cyber-blue-500/50 px-4 py-2">
-                  ✓ Booking System
-                </Badge>
-                <Badge className="bg-cyber-purple-500/30 text-cyber-purple-300 border-cyber-purple-500/50 px-4 py-2">
-                  ✓ Hall Management
-                </Badge>
-                <Badge className="bg-brand-red-500/30 text-brand-red-300 border-brand-red-500/50 px-4 py-2">
-                  ✓ Analytics & Reports
-                </Badge>
-              </div>
+        <Tabs defaultValue="dashboard" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-6 bg-glass-white-strong backdrop-blur-xl border border-white/20">
+            <TabsTrigger value="dashboard" className="data-[state=active]:bg-brand-red-500/30">
+              <BarChart3 className="w-4 h-4 mr-2" />
+              Dashboard
+            </TabsTrigger>
+            <TabsTrigger value="events" className="data-[state=active]:bg-brand-red-500/30">
+              <Calendar className="w-4 h-4 mr-2" />
+              Events
+            </TabsTrigger>
+            <TabsTrigger value="bookings" className="data-[state=active]:bg-brand-red-500/30">
+              <Users className="w-4 h-4 mr-2" />
+              Bookings
+            </TabsTrigger>
+            <TabsTrigger value="halls" className="data-[state=active]:bg-brand-red-500/30">
+              <Building2 className="w-4 h-4 mr-2" />
+              Halls
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="data-[state=active]:bg-brand-red-500/30">
+              <Activity className="w-4 h-4 mr-2" />
+              Analytics
+            </TabsTrigger>
+            <TabsTrigger value="reports" className="data-[state=active]:bg-brand-red-500/30">
+              <FileText className="w-4 h-4 mr-2" />
+              Reports
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Dashboard Tab */}
+          <TabsContent value="dashboard" className="space-y-6">
+            {/* Revenue Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-cyber-slate-300">Total Revenue</CardTitle>
+                  <DollarSign className="h-4 w-4 text-cyber-green-400" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-white">₦{totalRevenue.toLocaleString()}</div>
+                  <p className="text-xs text-cyber-slate-400">
+                    {revenueTimeFrame === "all" ? "All time" : `Last ${revenueTimeFrame}`}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-cyber-slate-300">Total Bookings</CardTitle>
+                  <Users className="h-4 w-4 text-cyber-blue-400" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-white">{totalBookings}</div>
+                  <p className="text-xs text-cyber-slate-400">Confirmed bookings</p>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-cyber-slate-300">Avg Booking Value</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-brand-red-400" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-white">₦{Math.round(avgBookingValue).toLocaleString()}</div>
+                  <p className="text-xs text-cyber-slate-400">Per booking</p>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-cyber-slate-300">Active Events</CardTitle>
+                  <Calendar className="h-4 w-4 text-cyber-purple-400" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-white">
+                    {events.filter((e) => e.status === "active").length}
+                  </div>
+                  <p className="text-xs text-cyber-slate-400">Currently active</p>
+                </CardContent>
+              </Card>
             </div>
-          </CardContent>
-        </Card>
+
+            {/* Quick Actions */}
+            <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card">
+              <CardHeader>
+                <CardTitle className="text-white">Quick Actions</CardTitle>
+                <CardDescription className="text-cyber-slate-300">
+                  Manage your cinema operations efficiently
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <Button
+                    onClick={() => setIsCreateEventOpen(true)}
+                    className="bg-brand-red-500 hover:bg-brand-red-600 text-white h-20 flex flex-col items-center justify-center space-y-2"
+                  >
+                    <Plus className="w-6 h-6" />
+                    <span>Create Event</span>
+                  </Button>
+
+                  <Button
+                    onClick={() => setIsCreateBookingOpen(true)}
+                    className="bg-cyber-blue-500 hover:bg-cyber-blue-600 text-white h-20 flex flex-col items-center justify-center space-y-2"
+                  >
+                    <CreditCard className="w-6 h-6" />
+                    <span>Create Booking</span>
+                  </Button>
+
+                  <Button
+                    onClick={() => setIsManageHallsOpen(true)}
+                    className="bg-cyber-purple-500 hover:bg-cyber-purple-600 text-white h-20 flex flex-col items-center justify-center space-y-2"
+                  >
+                    <Building2 className="w-6 h-6" />
+                    <span>Manage Halls</span>
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    className="border-cyber-green-500 text-cyber-green-400 hover:bg-cyber-green-500/20 h-20 flex flex-col items-center justify-center space-y-2 bg-transparent"
+                  >
+                    <FileText className="w-6 h-6" />
+                    <span>View Reports</span>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Events Tab */}
+          <TabsContent value="events" className="space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-2xl font-bold text-white">Events Management</h2>
+                <p className="text-cyber-slate-300">Manage your movies and sports events</p>
+              </div>
+              <Button onClick={() => setIsCreateEventOpen(true)} className="bg-brand-red-500 hover:bg-brand-red-600">
+                <Plus className="w-4 h-4 mr-2" />
+                Create Event
+              </Button>
+            </div>
+
+            <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card">
+              <CardContent className="p-6">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-cyber-slate-300">Event</TableHead>
+                      <TableHead className="text-cyber-slate-300">Type</TableHead>
+                      <TableHead className="text-cyber-slate-300">Date</TableHead>
+                      <TableHead className="text-cyber-slate-300">Hall</TableHead>
+                      <TableHead className="text-cyber-slate-300">Status</TableHead>
+                      <TableHead className="text-cyber-slate-300">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {events.map((event) => (
+                      <TableRow key={event._id}>
+                        <TableCell className="text-white font-medium">{event.title}</TableCell>
+                        <TableCell>
+                          <Badge variant={event.event_type === "movie" ? "default" : "secondary"}>
+                            {event.event_type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-cyber-slate-300">{event.event_date}</TableCell>
+                        <TableCell className="text-cyber-slate-300">
+                          {getHallDisplayName(halls, event.hall_id)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              event.status === "active"
+                                ? "default"
+                                : event.status === "draft"
+                                  ? "secondary"
+                                  : "destructive"
+                            }
+                          >
+                            {event.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex space-x-2">
+                            <Button size="sm" variant="outline">
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button size="sm" variant="outline">
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                            <Button size="sm" variant="destructive">
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Bookings Tab */}
+          <TabsContent value="bookings" className="space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-2xl font-bold text-white">Bookings Management</h2>
+                <p className="text-cyber-slate-300">View and manage customer bookings</p>
+              </div>
+              <Button
+                onClick={() => setIsCreateBookingOpen(true)}
+                className="bg-cyber-blue-500 hover:bg-cyber-blue-600"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create Booking
+              </Button>
+            </div>
+
+            <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card">
+              <CardContent className="p-6">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-cyber-slate-300">Customer</TableHead>
+                      <TableHead className="text-cyber-slate-300">Event</TableHead>
+                      <TableHead className="text-cyber-slate-300">Seats</TableHead>
+                      <TableHead className="text-cyber-slate-300">Amount</TableHead>
+                      <TableHead className="text-cyber-slate-300">Status</TableHead>
+                      <TableHead className="text-cyber-slate-300">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {actualBookings.map((booking) => (
+                      <TableRow key={booking._id}>
+                        <TableCell className="text-white font-medium">{booking.customerName}</TableCell>
+                        <TableCell className="text-cyber-slate-300">{booking.eventTitle}</TableCell>
+                        <TableCell className="text-cyber-slate-300">{booking.seats.join(", ")}</TableCell>
+                        <TableCell className="text-cyber-slate-300">₦{booking.totalAmount.toLocaleString()}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              booking.status === "confirmed"
+                                ? "default"
+                                : booking.status === "pending"
+                                  ? "secondary"
+                                  : "destructive"
+                            }
+                          >
+                            {booking.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex space-x-2">
+                            <Button size="sm" variant="outline">
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                            <Button size="sm" variant="outline">
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Other tabs would continue here... */}
+          <TabsContent value="halls">
+            <div className="text-center py-12">
+              <Building2 className="w-16 h-16 text-cyber-purple-400 mx-auto mb-4" />
+              <h3 className="text-xl font-bold text-white mb-2">Hall Management</h3>
+              <p className="text-cyber-slate-300">Manage cinema halls and seating arrangements</p>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="analytics">
+            <div className="text-center py-12">
+              <Activity className="w-16 h-16 text-cyber-green-400 mx-auto mb-4" />
+              <h3 className="text-xl font-bold text-white mb-2">Analytics</h3>
+              <p className="text-cyber-slate-300">View detailed analytics and insights</p>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="reports">
+            <div className="text-center py-12">
+              <FileText className="w-16 h-16 text-brand-red-400 mx-auto mb-4" />
+              <h3 className="text-xl font-bold text-white mb-2">Reports</h3>
+              <p className="text-cyber-slate-300">Generate and view detailed reports</p>
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   )
