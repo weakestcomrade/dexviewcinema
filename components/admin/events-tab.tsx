@@ -127,8 +127,12 @@ export function EventsTab({
                         </TableCell>
                         <TableCell>
                           <div className="text-cyber-slate-200 text-sm">
-                            {event.pricing.vip && <div>VIP: ₦{event.pricing.vip.toLocaleString()}</div>}
-                            {event.pricing.standard && <div>Standard: ₦{event.pricing.standard.toLocaleString()}</div>}
+                            {event.pricing.vip !== null && event.pricing.vip !== undefined && (
+                              <div>VIP: ₦{event.pricing.vip.toLocaleString()}</div>
+                            )}
+                            {event.pricing.standard !== null && event.pricing.standard !== undefined && (
+                              <div>Standard: ₦{event.pricing.standard.toLocaleString()}</div>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell>
