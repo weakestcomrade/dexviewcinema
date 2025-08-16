@@ -12,6 +12,9 @@ import { Label } from "@/components/ui/label"
 import { Shield, Eye, EyeOff, Loader2 } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 
+export const dynamic = "force-dynamic"
+export const runtime = "nodejs"
+
 export default function AdminLogin() {
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
