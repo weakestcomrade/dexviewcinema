@@ -2,7 +2,19 @@
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Monitor, Users, Building, Filter, Sparkles, TrendingUp, Activity, BarChart3, ArrowRight } from "lucide-react"
+import {
+  Monitor,
+  Users,
+  Building,
+  Filter,
+  Sparkles,
+  TrendingUp,
+  Activity,
+  BarChart3,
+  ArrowRight,
+  Plus,
+  Calendar,
+} from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/components/ui/use-toast"
 
@@ -87,12 +99,28 @@ export default function AdminDashboard() {
       stats: `${stats.totalEvents} Events`,
     },
     {
+      title: "Create Event",
+      description: "Add new movies or sports events with pricing and seating configuration",
+      icon: Plus,
+      href: "/admin/events/create",
+      color: "from-cyber-orange-500 to-cyber-orange-600",
+      stats: "Quick Add",
+    },
+    {
       title: "Customer Bookings",
       description: "View and manage customer bookings with receipt printing capability",
       icon: Users,
       href: "/admin/bookings",
       color: "from-cyber-blue-500 to-cyber-blue-600",
       stats: `${stats.totalBookings} Bookings`,
+    },
+    {
+      title: "Create Booking",
+      description: "Manually create bookings for customers with seat selection and payment",
+      icon: Calendar,
+      href: "/admin/bookings/create",
+      color: "from-cyber-teal-500 to-cyber-teal-600",
+      stats: "Manual Entry",
     },
     {
       title: "Halls Management",
