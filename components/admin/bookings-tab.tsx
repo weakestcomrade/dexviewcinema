@@ -17,10 +17,10 @@ interface Booking {
   customer_email: string
   customer_phone: string
   seats: string[]
-  total_amount: number
+  total_amount: number | null
   payment_method: string
   status: "confirmed" | "pending" | "cancelled"
-  booking_date: string
+  booking_date: string | null
 }
 
 interface Event {
@@ -164,7 +164,9 @@ export function BookingsTab({
                           <div className="text-cyber-slate-200 text-sm">{booking.seats.join(", ")}</div>
                         </TableCell>
                         <TableCell>
-                          <div className="text-white font-semibold">₦{booking.total_amount.toLocaleString()}</div>
+                          <div className="text-white font-semibold">
+                            ₦{booking.total_amount ? booking.total_amount.toLocaleString() : "0"}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <span className="text-cyber-slate-200 capitalize">{booking.payment_method}</span>
@@ -191,7 +193,7 @@ export function BookingsTab({
                         </TableCell>
                         <TableCell>
                           <span className="text-cyber-slate-200 text-sm">
-                            {new Date(booking.booking_date).toLocaleDateString()}
+                            {booking.booking_date ? new Date(booking.booking_date).toLocaleDateString() : "N/A"}
                           </span>
                         </TableCell>
                         <TableCell>
