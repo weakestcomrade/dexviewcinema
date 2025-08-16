@@ -4,54 +4,59 @@ import type React from "react"
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Eye, EyeOff, Film, ArrowLeft } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
+import { Eye, EyeOff, LogIn, Lock, Mail } from "lucide-react"
 import Link from "next/link"
 
+interface AdminSigninData {
+  email: string
+  password: string
+}
+
+const initialSigninState: AdminSigninData = {
+  email: "",
+  password: "",
+}
+
 export default function AdminSignIn() {
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-  })
+  const { toast } = useToast()
+  const [signinData, setSigninData] = useState<AdminSigninData>(initialSigninState)
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [errors, setErrors] = useState<{ [key: string]: string }>({})
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({
+  const handleInputChange = (field: keyof AdminSigninData, value: string) => {
+    setSigninData((prev) => ({
       ...prev,
-      [name]: value,
+      [field]: value,
     }))
-    // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors((prev) => ({
-        ...prev,
-        [name]: "",
-      }))
-    }
   }
 
-  const validateForm = () => {
-    const newErrors: { [key: string]: string } = {}
-
-    if (!formData.email) {
-      newErrors.email = "Email is required"
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = "Please enter a valid email address"
+  const validateForm = (): boolean => {
+    if (!signinData.email.trim() || !/\S+@\S+\.\S+/.test(signinData.email)) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter a valid email address",
+        variant: "destructive",
+      })
+      return false
     }
 
-    if (!formData.password) {
-      newErrors.password = "Password is required"
+    if (!signinData.password.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Password is required",
+        variant: "destructive",
+      })
+      return false
     }
 
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    return true
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSignin = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!validateForm()) return
@@ -59,127 +64,144 @@ export default function AdminSignIn() {
     setIsLoading(true)
 
     try {
-      // TODO: Implement actual authentication logic
-      console.log("Admin signin attempt:", { email: formData.email })
+      // TODO: Implement actual signin API call
+      // This is a placeholder for future authentication integration
+      console.log("[v0] Admin signin data:", signinData)
 
       // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      await new Promise((resolve) => setTimeout(resolve, 2000))
 
-      // For now, just log the attempt
-      alert("Sign in functionality will be implemented with authentication system")
+      toast({
+        title: "Sign In Successful!",
+        description: "Welcome back to the admin dashboard.",
+        variant: "default",
+      })
+
+      // Reset form
+      setSigninData(initialSigninState)
+
+      // TODO: Redirect to admin dashboard after successful signin
     } catch (error) {
-      console.error("Signin error:", error)
-      setErrors({ general: "Sign in failed. Please try again." })
+      console.error("[v0] Signin error:", error)
+      toast({
+        title: "Sign In Failed",
+        description: "Invalid credentials. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
-      {/* Background decoration */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"></div>
+    <div className="min-h-screen bg-gradient-to-br from-cyber-dark-900 via-cyber-dark-800 to-cyber-dark-900 flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Background Effects */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-brand-red-500/20 to-cyber-purple-500/20 rounded-full blur-3xl animate-float"></div>
+        <div className="absolute top-1/2 -left-40 w-80 h-80 bg-gradient-to-br from-cyber-blue-500/15 to-brand-red-500/15 rounded-full blur-3xl animate-float delay-1000"></div>
+        <div className="absolute -bottom-40 right-1/3 w-72 h-72 bg-gradient-to-br from-cyber-green-500/15 to-cyber-purple-500/15 rounded-full blur-3xl animate-float delay-2000"></div>
       </div>
 
-      <div className="relative w-full max-w-md">
-        {/* Back to home link */}
-        <Link href="/" className="inline-flex items-center text-white/70 hover:text-white mb-6 transition-colors">
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Home
-        </Link>
-
-        <Card className="bg-white/10 backdrop-blur-md border-white/20 shadow-2xl">
-          <CardHeader className="text-center pb-6">
-            <div className="flex justify-center mb-4">
-              <div className="p-3 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full">
-                <Film className="w-8 h-8 text-white" />
+      <div className="w-full max-w-md relative z-10">
+        <Card className="bg-glass-dark-strong backdrop-blur-xl border border-white/20 shadow-cyber-hover rounded-4xl">
+          <CardHeader className="text-center space-y-4">
+            <div className="flex justify-center">
+              <div className="relative group">
+                <div className="w-16 h-16 bg-gradient-to-br from-brand-red-500 via-brand-red-600 to-brand-red-700 rounded-4xl flex items-center justify-center shadow-glow-red transform group-hover:scale-110 transition-all duration-300">
+                  <LogIn className="w-8 h-8 text-white group-hover:rotate-12 transition-transform duration-500" />
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-br from-brand-red-500/30 to-brand-red-600/30 rounded-4xl blur-xl animate-glow"></div>
               </div>
             </div>
-            <CardTitle className="text-2xl font-bold text-white">Admin Sign In</CardTitle>
-            <CardDescription className="text-white/70">Access the cinema management dashboard</CardDescription>
+            <CardTitle className="text-2xl font-bold bg-gradient-to-r from-white via-brand-red-200 to-white bg-clip-text text-transparent">
+              Admin Sign In
+            </CardTitle>
+            <CardDescription className="text-cyber-slate-300">
+              Access your admin account for Dex View Cinema Management System
+            </CardDescription>
           </CardHeader>
 
           <CardContent className="space-y-6">
-            {errors.general && (
-              <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-200 text-sm">
-                {errors.general}
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSignin} className="space-y-4">
               {/* Email Field */}
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-white/90">
+                <Label htmlFor="email" className="text-cyber-slate-200 font-medium">
                   Email Address
                 </Label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  className="bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:border-purple-400 focus:ring-purple-400/20"
-                  placeholder="admin@cinema.com"
-                />
-                {errors.email && <p className="text-red-400 text-sm">{errors.email}</p>}
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-cyber-slate-400" />
+                  <Input
+                    id="email"
+                    type="email"
+                    value={signinData.email}
+                    onChange={(e) => handleInputChange("email", e.target.value)}
+                    className="pl-10 bg-glass-white border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-500 rounded-2xl"
+                    placeholder="admin@dexviewcinema.com"
+                    required
+                  />
+                </div>
               </div>
 
               {/* Password Field */}
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-white/90">
+                <Label htmlFor="password" className="text-cyber-slate-200 font-medium">
                   Password
                 </Label>
                 <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-cyber-slate-400" />
                   <Input
                     id="password"
-                    name="password"
                     type={showPassword ? "text" : "password"}
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    className="bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:border-purple-400 focus:ring-purple-400/20 pr-10"
+                    value={signinData.password}
+                    onChange={(e) => handleInputChange("password", e.target.value)}
+                    className="pl-10 pr-10 bg-glass-white border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-500 rounded-2xl"
                     placeholder="Enter your password"
+                    required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/70 transition-colors"
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-cyber-slate-400 hover:text-white transition-colors"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-                {errors.password && <p className="text-red-400 text-sm">{errors.password}</p>}
               </div>
 
               {/* Submit Button */}
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white font-semibold py-2.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 shadow-glow-red text-white font-semibold rounded-2xl h-12 group"
               >
                 {isLoading ? (
-                  <div className="flex items-center justify-center">
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
-                    Signing In...
+                  <div className="flex items-center space-x-2">
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    <span>Signing In...</span>
                   </div>
                 ) : (
-                  "Sign In"
+                  <>
+                    <LogIn className="w-4 h-4 mr-2 group-hover:rotate-12 transition-transform duration-300" />
+                    Sign In to Dashboard
+                  </>
                 )}
               </Button>
             </form>
 
-            {/* Sign Up Link */}
-            <div className="text-center pt-4 border-t border-white/10">
-              <p className="text-white/70 text-sm">
-                Don't have an admin account?{" "}
-                <Link
-                  href="/admin/signup"
-                  className="text-purple-400 hover:text-purple-300 font-medium transition-colors"
-                >
-                  Sign up here
+            {/* Footer Links */}
+            <div className="text-center space-y-4 pt-4 border-t border-white/10">
+              <div className="flex flex-col space-y-2 text-sm">
+                <Link href="/admin/signup" className="text-cyber-slate-300 hover:text-brand-red-400 transition-colors">
+                  Don't have an account? Sign up
                 </Link>
-              </p>
+                <Link
+                  href="/"
+                  className="text-cyber-slate-400 hover:text-white transition-colors flex items-center justify-center space-x-1"
+                >
+                  <LogIn className="w-3 h-3" />
+                  <span>Back to Main Site</span>
+                </Link>
+              </div>
             </div>
           </CardContent>
         </Card>
