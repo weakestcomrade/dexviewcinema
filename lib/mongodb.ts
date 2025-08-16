@@ -28,6 +28,7 @@ if (process.env.NODE_ENV === "development") {
 
 export async function connectToDatabase(): Promise<{ client: MongoClient; db: Db }> {
   const connectedClient = await clientPromise
-  const db = connectedClient.db("cinema_db") // Replace with your database name
+  const dbName = process.env.MONGODB_DB || "cinema_db"
+  const db = connectedClient.db(dbName)
   return { client: connectedClient, db }
 }

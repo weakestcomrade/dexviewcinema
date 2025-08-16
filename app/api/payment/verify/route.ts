@@ -138,18 +138,40 @@ export async function POST(request: Request) {
   try {
     console.log("[v0] Starting payment verification process")
 
+    console.log("[v0] Environment check:", {
+      hasMongoUri: !!process.env.MONGODB_URI,
+      hasMongoDb: !!process.env.MONGODB_DB,
+      mongoDb: process.env.MONGODB_DB,
+      hasPaystackSecret: !!process.env.PAYSTACK_SECRET_KEY,
+      nodeEnv: process.env.NODE_ENV,
+    })
+
     let db
     try {
+      console.log("[v0] Attempting database connection...")
       const connection = await connectToDatabase()
       db = connection.db
-      console.log("[v0] Database connected successfully")
+      console.log("[v0] Database connected successfully to:", db.databaseName)
+
+      await db.admin().ping()
+      console.log("[v0] Database ping successful")
     } catch (dbError) {
       console.error("[v0] Database connection failed:", dbError)
+      console.error("[v0] Database error details:", {
+        name: (dbError as Error).name,
+        message: (dbError as Error).message,
+        stack: (dbError as Error).stack,
+      })
       return NextResponse.json(
         {
           status: false,
           message: "Database connection failed",
           error: (dbError as Error).message,
+          details: {
+            hasMongoUri: !!process.env.MONGODB_URI,
+            hasMongoDb: !!process.env.MONGODB_DB,
+            mongoDb: process.env.MONGODB_DB,
+          },
         },
         { status: 500 },
       )
@@ -171,7 +193,23 @@ export async function POST(request: Request) {
       )
     }
 
-    const { reference } = await request.json()
+    let requestBody
+    try {
+      requestBody = await request.json()
+      console.log("[v0] Request body parsed:", requestBody)
+    } catch (parseError) {
+      console.error("[v0] Failed to parse request body:", parseError)
+      return NextResponse.json(
+        {
+          status: false,
+          message: "Invalid request body",
+          error: (parseError as Error).message,
+        },
+        { status: 400 },
+      )
+    }
+
+    const { reference } = requestBody
     console.log("[v0] Received reference:", reference)
 
     if (!reference) {
@@ -208,8 +246,19 @@ export async function POST(request: Request) {
     console.log("[v0] Step 2: Loading payment record...")
     let payment
     try {
+      const collections = await db.listCollections({ name: "payments" }).toArray()
+      console.log("[v0] Payments collection exists:", collections.length > 0)
+
       payment = await db.collection("payments").findOne({ reference })
       console.log("[v0] Payment record found:", payment ? "YES" : "NO")
+      if (payment) {
+        console.log("[v0] Payment record details:", {
+          id: payment._id,
+          status: payment.status,
+          amount: payment.amount,
+          hasMetadata: !!payment.metadata,
+        })
+      }
     } catch (paymentFindError) {
       console.error("[v0] Error finding payment record:", paymentFindError)
       return NextResponse.json(
@@ -408,8 +457,18 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     console.error("[v0] Payment verification error:", error)
+    console.error("[v0] Error details:", {
+      name: (error as Error).name,
+      message: (error as Error).message,
+      stack: (error as Error).stack,
+    })
     return NextResponse.json(
-      { status: false, message: "Payment verification failed", error: (error as Error).message },
+      {
+        status: false,
+        message: "Payment verification failed",
+        error: (error as Error).message,
+        errorName: (error as Error).name,
+      },
       { status: 500 },
     )
   }
