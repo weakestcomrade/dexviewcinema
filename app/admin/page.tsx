@@ -212,21 +212,21 @@ const initialNewEventState: NewEventData = {
   image_url: "",
 }
 
-const initialNewBookingState: CreateBookingData = {
+const initialNewBookingState = {
   customerName: "",
   customerEmail: "",
   customerPhone: "",
   eventId: "",
   eventTitle: "",
-  eventType: "movie" | "match",
-  seats: [],
+  eventType: "movie" as "movie" | "match",
+  seats: [] as string[],
   seatType: "",
   amount: 0,
   processingFee: 500,
-  totalAmount: 0,
-  status: "confirmed",
+  totalAmount: 500,
+  status: "confirmed" as "confirmed" | "pending" | "cancelled",
   bookingDate: new Date().toISOString().split("T")[0],
-  bookingTime: new Date().toTimeString().split(" ")[0].substring(0, 5),
+  bookingTime: new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" }),
   paymentMethod: "Cash",
 }
 
@@ -269,6 +269,8 @@ export default function AdminDashboard() {
   const [revenueTimeFrame, setRevenueTimeFrame] = useState<RevenueTimeFrame>("all")
   const [customRevenueStartDate, setCustomRevenueStartDate] = useState<string>("")
   const [customRevenueEndDate, setCustomRevenueEndDate] = useState<string>("")
+  const [selectedSeats, setSelectedSeats] = useState<string[]>([])
+  const [availableSeats, setAvailableSeats] = useState<string[]>([])
 
   const fetchHalls = useCallback(async () => {
     try {
@@ -434,32 +436,98 @@ export default function AdminDashboard() {
     [toast, fetchEvents],
   )
 
+  const generateAvailableSeats = useCallback((seatType: string, eventId: string) => {
+    let seats: string[] = []
+
+    switch (seatType) {
+      case "vipSingle":
+        seats = Array.from({ length: 20 }, (_, i) => `S${i + 1}`)
+        break
+      case "vipCouple":
+        seats = Array.from({ length: 10 }, (_, i) => `C${i + 1}`)
+        break
+      case "vipFamily":
+        seats = Array.from({ length: 5 }, (_, i) => `F${i + 1}`)
+        break
+      case "standardSingle":
+        seats = Array.from({ length: 50 }, (_, i) => `HALL${eventId.slice(-1)}-${i + 1}`)
+        break
+      case "standardCouple":
+        seats = Array.from({ length: 20 }, (_, i) => `HALL${eventId.slice(-1)}-C${i + 1}`)
+        break
+      case "standardFamily":
+        seats = Array.from({ length: 10 }, (_, i) => `HALL${eventId.slice(-1)}-F${i + 1}`)
+        break
+      default:
+        seats = []
+    }
+
+    setAvailableSeats(seats)
+    setSelectedSeats([])
+  }, [])
+
   const createBooking = useCallback(async () => {
     try {
+      if (!newBooking.customerName || !newBooking.customerEmail || !newBooking.customerPhone) {
+        toast({
+          title: "Validation Error",
+          description: "Please fill in all customer details.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (!newBooking.eventId || selectedSeats.length === 0) {
+        toast({
+          title: "Validation Error",
+          description: "Please select an event and at least one seat.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const bookingData = {
+        ...newBooking,
+        seats: selectedSeats,
+        bookingDate: new Date().toISOString().split("T")[0],
+        bookingTime: new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" }),
+      }
+
+      console.log("[v0] Creating booking with data:", bookingData)
+
       const res = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newBooking),
+        body: JSON.stringify(bookingData),
       })
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
+
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.message || `HTTP error! status: ${res.status}`)
+      }
+
+      const createdBooking = await res.json()
+      console.log("[v0] Booking created successfully:", createdBooking)
 
       toast({
         title: "Booking created successfully",
-        description: `Booking for ${newBooking.customerName} has been created.`,
+        description: `Booking for ${newBooking.customerName} has been created and confirmation email sent.`,
       })
 
       setNewBooking(initialNewBookingState)
+      setSelectedSeats([])
+      setAvailableSeats([])
       setIsCreateBookingOpen(false)
       fetchBookings()
     } catch (error) {
-      console.error("Failed to create booking:", error)
+      console.error("[v0] Failed to create booking:", error)
       toast({
         title: "Error creating booking",
-        description: "Could not create the booking. Please try again.",
+        description: error instanceof Error ? error.message : "Could not create the booking. Please try again.",
         variant: "destructive",
       })
     }
-  }, [newBooking, toast, fetchBookings])
+  }, [newBooking, selectedSeats, toast, fetchBookings])
 
   const updateBookingStatus = useCallback(
     async (bookingId: string, status: Booking["status"]) => {
@@ -1364,6 +1432,9 @@ export default function AdminDashboard() {
                                     eventTitle: selectedEvent.title,
                                     eventType: selectedEvent.event_type,
                                   }))
+                                  if (newBooking.seatType) {
+                                    generateAvailableSeats(newBooking.seatType, value)
+                                  }
                                 }
                               }}
                             >
@@ -1388,7 +1459,12 @@ export default function AdminDashboard() {
                             </Label>
                             <Select
                               value={newBooking.seatType}
-                              onValueChange={(value) => setNewBooking((prev) => ({ ...prev, seatType: value }))}
+                              onValueChange={(value) => {
+                                setNewBooking((prev) => ({ ...prev, seatType: value }))
+                                if (newBooking.eventId) {
+                                  generateAvailableSeats(value, newBooking.eventId)
+                                }
+                              }}
                             >
                               <SelectTrigger className="bg-glass-white border-white/20 text-white">
                                 <SelectValue placeholder="Select seat type" />
@@ -1424,6 +1500,36 @@ export default function AdminDashboard() {
                             />
                           </div>
                         </div>
+
+                        {availableSeats.length > 0 && (
+                          <div>
+                            <Label className="text-cyber-slate-200">
+                              Select Seats ({selectedSeats.length} selected)
+                            </Label>
+                            <div className="grid grid-cols-8 gap-2 p-4 bg-glass-white/10 rounded-lg max-h-40 overflow-y-auto">
+                              {availableSeats.map((seat) => (
+                                <Button
+                                  key={seat}
+                                  type="button"
+                                  variant={selectedSeats.includes(seat) ? "default" : "outline"}
+                                  size="sm"
+                                  className={`text-xs ${
+                                    selectedSeats.includes(seat)
+                                      ? "bg-brand-red-500 text-white"
+                                      : "bg-glass-white border-white/20 text-cyber-slate-300"
+                                  }`}
+                                  onClick={() => {
+                                    setSelectedSeats((prev) =>
+                                      prev.includes(seat) ? prev.filter((s) => s !== seat) : [...prev, seat],
+                                    )
+                                  }}
+                                >
+                                  {seat}
+                                </Button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
 
                         <div className="grid grid-cols-2 gap-4">
                           <div>
