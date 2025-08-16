@@ -9,10 +9,6 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  experimental: {
-    serverComponentsExternalPackages: ["next-auth"]
-  },
-  output: 'standalone',
   // Additional configurations can be added here
 }
 

@@ -1,20 +1,21 @@
 "use client"
 
 import type React from "react"
+
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { UserPlus, Eye, EyeOff, Loader2, Mail, User } from "lucide-react"
-import Image from "next/image"
 import { useToast } from "@/components/ui/use-toast"
+import { Eye, EyeOff, Loader2, UserPlus } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 
 export default function AdminSignup() {
   const [formData, setFormData] = useState({
-    username: "",
+    name: "",
     email: "",
     password: "",
     confirmPassword: "",
@@ -25,31 +26,31 @@ export default function AdminSignup() {
   const router = useRouter()
   const { toast } = useToast()
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }))
   }
 
-  const handleSignup = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
 
-    // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
       toast({
         title: "Password Mismatch",
-        description: "Passwords do not match",
+        description: "Passwords do not match. Please try again.",
         variant: "destructive",
       })
       setIsLoading(false)
       return
     }
 
-    // Validate password strength
-    if (formData.password.length < 8) {
+    if (formData.password.length < 6) {
       toast({
-        title: "Weak Password",
-        description: "Password must be at least 8 characters long",
+        title: "Password Too Short",
+        description: "Password must be at least 6 characters long.",
         variant: "destructive",
       })
       setIsLoading(false)
@@ -63,31 +64,27 @@ export default function AdminSignup() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          username: formData.username,
+          name: formData.name,
           email: formData.email,
           password: formData.password,
         }),
       })
 
-      const result = await response.json()
+      const data = await response.json()
 
-      if (response.ok) {
-        toast({
-          title: "Account Created",
-          description: "Admin account created successfully. Please login.",
-        })
-        router.push("/admin/login")
-      } else {
-        toast({
-          title: "Signup Failed",
-          description: result.message || "Failed to create account",
-          variant: "destructive",
-        })
+      if (!response.ok) {
+        throw new Error(data.message || "Signup failed")
       }
+
+      toast({
+        title: "Account Created Successfully!",
+        description: "You can now sign in with your credentials.",
+      })
+      router.push("/admin/login")
     } catch (error) {
       toast({
-        title: "Signup Error",
-        description: "An error occurred during signup",
+        title: "Signup Failed",
+        description: (error as Error).message,
         variant: "destructive",
       })
     } finally {
@@ -97,165 +94,159 @@ export default function AdminSignup() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 relative overflow-hidden flex items-center justify-center">
-      {/* Background elements */}
+      {/* Cyber-Glassmorphism background elements */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-brand-red-500/20 to-cyber-purple-500/20 rounded-full blur-3xl animate-float"></div>
         <div className="absolute top-1/2 -left-40 w-80 h-80 bg-gradient-to-br from-cyber-blue-500/15 to-brand-red-500/15 rounded-full blur-3xl animate-float delay-1000"></div>
+        <div className="absolute -bottom-40 right-1/3 w-72 h-72 bg-gradient-to-br from-cyber-green-500/15 to-cyber-purple-500/15 rounded-full blur-3xl animate-float delay-2000"></div>
       </div>
 
-      <Card className="w-full max-w-md bg-glass-white-strong backdrop-blur-xl shadow-cyber-card border border-white/20 rounded-3xl relative z-10">
-        <CardHeader className="text-center pb-6">
-          <div className="flex justify-center mb-4">
-            <div className="relative group">
-              <Image
-                src="/dexcinema-logo.jpeg"
-                alt="Dex View Cinema Logo"
-                width={80}
-                height={80}
-                className="rounded-2xl shadow-glow-red"
-              />
-              <div className="absolute -top-1 -right-1 w-6 h-6 bg-white rounded-full flex items-center justify-center shadow-lg">
-                <UserPlus className="w-3 h-3 text-brand-red-500" />
+      <div className="relative z-10 w-full max-w-md px-4">
+        <Card className="bg-glass-white-strong backdrop-blur-xl shadow-cyber-card border border-white/20 rounded-3xl">
+          <CardHeader className="text-center pb-6">
+            <div className="flex justify-center mb-4">
+              <div className="relative group">
+                <Image
+                  src="/dexcinema-logo.jpeg"
+                  alt="Dex View Cinema Logo"
+                  width={80}
+                  height={80}
+                  className="w-20 h-20 rounded-2xl shadow-glow-red transform group-hover:scale-110 transition-all duration-300"
+                  priority
+                />
+                <div className="absolute -top-1 -right-1 w-6 h-6 bg-white rounded-full flex items-center justify-center shadow-lg">
+                  <UserPlus className="w-3 h-3 text-brand-red-500" />
+                </div>
               </div>
             </div>
-          </div>
-          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-white via-brand-red-200 to-white bg-clip-text text-transparent">
-            Create Admin Account
-          </CardTitle>
-          <CardDescription className="text-cyber-slate-300">Register a new admin account</CardDescription>
-        </CardHeader>
-
-        <CardContent>
-          <form onSubmit={handleSignup} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="username" className="text-white font-medium">
-                Username
-              </Label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-cyber-slate-400" />
+            <CardTitle className="text-2xl font-bold bg-gradient-to-r from-white via-brand-red-200 to-white bg-clip-text text-transparent">
+              Create Admin Account
+            </CardTitle>
+            <CardDescription className="text-cyber-slate-300">
+              Set up your admin access for Dex View Cinema
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="name" className="text-cyber-slate-200 font-medium">
+                  Full Name
+                </Label>
                 <Input
-                  id="username"
-                  name="username"
+                  id="name"
+                  name="name"
                   type="text"
-                  value={formData.username}
-                  onChange={handleInputChange}
-                  placeholder="Enter username"
+                  value={formData.name}
+                  onChange={handleChange}
+                  placeholder="Enter your full name"
                   required
-                  className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-400 focus:ring-brand-red-400 rounded-2xl pl-10"
+                  className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-400 focus:ring-brand-red-400 rounded-2xl"
                 />
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-white font-medium">
-                Email
-              </Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-cyber-slate-400" />
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-cyber-slate-200 font-medium">
+                  Email Address
+                </Label>
                 <Input
                   id="email"
                   name="email"
                   type="email"
                   value={formData.email}
-                  onChange={handleInputChange}
-                  placeholder="Enter email address"
+                  onChange={handleChange}
+                  placeholder="admin@dexviewcinema.com"
                   required
-                  className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-400 focus:ring-brand-red-400 rounded-2xl pl-10"
+                  className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-400 focus:ring-brand-red-400 rounded-2xl"
                 />
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-white font-medium">
-                Password
-              </Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  placeholder="Enter password (min 8 characters)"
-                  required
-                  className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-400 focus:ring-brand-red-400 rounded-2xl pr-10"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4 text-cyber-slate-400" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-cyber-slate-400" />
-                  )}
-                </Button>
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-cyber-slate-200 font-medium">
+                  Password
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder="Create a strong password"
+                    required
+                    className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-400 focus:ring-brand-red-400 rounded-2xl pr-12"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0 text-cyber-slate-400 hover:text-white"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword" className="text-white font-medium">
-                Confirm Password
-              </Label>
-              <div className="relative">
-                <Input
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  type={showConfirmPassword ? "text" : "password"}
-                  value={formData.confirmPassword}
-                  onChange={handleInputChange}
-                  placeholder="Confirm your password"
-                  required
-                  className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-400 focus:ring-brand-red-400 rounded-2xl pr-10"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                >
-                  {showConfirmPassword ? (
-                    <EyeOff className="h-4 w-4 text-cyber-slate-400" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-cyber-slate-400" />
-                  )}
-                </Button>
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword" className="text-cyber-slate-200 font-medium">
+                  Confirm Password
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    placeholder="Confirm your password"
+                    required
+                    className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-400 focus:ring-brand-red-400 rounded-2xl pr-12"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0 text-cyber-slate-400 hover:text-white"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
               </div>
-            </div>
-
-            <Button
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 text-white rounded-2xl shadow-glow-red h-12 font-semibold"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating Account...
-                </>
-              ) : (
-                <>
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  Create Account
-                </>
-              )}
-            </Button>
-
-            <div className="text-center pt-4">
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="w-full bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 text-white shadow-glow-red rounded-2xl font-bold py-3 h-auto"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating Account...
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    Create Admin Account
+                  </>
+                )}
+              </Button>
+            </form>
+            <div className="mt-6 text-center">
               <p className="text-cyber-slate-300 text-sm">
-                Already have an account?{" "}
-                <Link href="/admin/login" className="text-brand-red-400 hover:text-brand-red-300 font-medium">
-                  Sign in here
+                Already have an admin account?{" "}
+                <Link
+                  href="/admin/login"
+                  className="text-brand-red-400 hover:text-brand-red-300 font-medium hover:underline"
+                >
+                  Sign In
                 </Link>
               </p>
             </div>
-          </form>
-        </CardContent>
-      </Card>
+            <div className="mt-4 text-center">
+              <Link href="/" className="text-cyber-slate-400 hover:text-cyber-slate-300 text-sm hover:underline">
+                ← Back to Home
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
