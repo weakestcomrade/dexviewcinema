@@ -218,7 +218,7 @@ const initialNewBookingState: CreateBookingData = {
   customerPhone: "",
   eventId: "",
   eventTitle: "",
-  eventType: "movie",
+  eventType: "movie" | "match",
   seats: [],
   seatType: "",
   amount: 0,
@@ -910,7 +910,226 @@ export default function AdminDashboard() {
                             />
                           </div>
                         </div>
+
+                        {newEvent.hall_id && (
+                          <div className="space-y-4">
+                            <div className="border-t border-white/20 pt-4">
+                              <Label className="text-cyber-slate-200 text-lg font-semibold">
+                                Pricing Configuration
+                              </Label>
+                              <p className="text-cyber-slate-400 text-sm mt-1">
+                                Set prices for different seat types in {getHallDisplayName(halls, newEvent.hall_id)}
+                              </p>
+                            </div>
+
+                            {/* VIP Hall Pricing */}
+                            {getHallType(halls, newEvent.hall_id) === "vip" && (
+                              <div className="space-y-4">
+                                {newEvent.event_type === "match" ? (
+                                  // VIP Match Pricing
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                      <Label htmlFor="vip_sofa_price" className="text-cyber-slate-200">
+                                        VIP Sofa Seats Price (₦)
+                                      </Label>
+                                      <Input
+                                        id="vip_sofa_price"
+                                        type="number"
+                                        value={newEvent.pricing.vipSofaSeats?.price || ""}
+                                        onChange={(e) =>
+                                          setNewEvent((prev) => ({
+                                            ...prev,
+                                            pricing: {
+                                              ...prev.pricing,
+                                              vipSofaSeats: {
+                                                price: Number(e.target.value) || 0,
+                                                count: 10,
+                                              },
+                                            },
+                                          }))
+                                        }
+                                        className="bg-glass-white border-white/20 text-white"
+                                        placeholder="Enter sofa seat price"
+                                      />
+                                      <p className="text-xs text-cyber-slate-400 mt-1">10 sofa seats available</p>
+                                    </div>
+                                    <div>
+                                      <Label htmlFor="vip_regular_price" className="text-cyber-slate-200">
+                                        VIP Regular Seats Price (₦)
+                                      </Label>
+                                      <Input
+                                        id="vip_regular_price"
+                                        type="number"
+                                        value={newEvent.pricing.vipRegularSeats?.price || ""}
+                                        onChange={(e) =>
+                                          setNewEvent((prev) => ({
+                                            ...prev,
+                                            pricing: {
+                                              ...prev.pricing,
+                                              vipRegularSeats: {
+                                                price: Number(e.target.value) || 0,
+                                                count: 12,
+                                              },
+                                            },
+                                          }))
+                                        }
+                                        className="bg-glass-white border-white/20 text-white"
+                                        placeholder="Enter regular seat price"
+                                      />
+                                      <p className="text-xs text-cyber-slate-400 mt-1">12 regular seats available</p>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  // VIP Movie Pricing
+                                  <div className="grid grid-cols-3 gap-4">
+                                    <div>
+                                      <Label htmlFor="vip_single_price" className="text-cyber-slate-200">
+                                        VIP Single Price (₦)
+                                      </Label>
+                                      <Input
+                                        id="vip_single_price"
+                                        type="number"
+                                        value={newEvent.pricing.vipSingle?.price || ""}
+                                        onChange={(e) =>
+                                          setNewEvent((prev) => ({
+                                            ...prev,
+                                            pricing: {
+                                              ...prev.pricing,
+                                              vipSingle: {
+                                                price: Number(e.target.value) || 0,
+                                                count: 20,
+                                              },
+                                            },
+                                          }))
+                                        }
+                                        className="bg-glass-white border-white/20 text-white"
+                                        placeholder="Single seat price"
+                                      />
+                                      <p className="text-xs text-cyber-slate-400 mt-1">20 single seats</p>
+                                    </div>
+                                    <div>
+                                      <Label htmlFor="vip_couple_price" className="text-cyber-slate-200">
+                                        VIP Couple Price (₦)
+                                      </Label>
+                                      <Input
+                                        id="vip_couple_price"
+                                        type="number"
+                                        value={newEvent.pricing.vipCouple?.price || ""}
+                                        onChange={(e) =>
+                                          setNewEvent((prev) => ({
+                                            ...prev,
+                                            pricing: {
+                                              ...prev.pricing,
+                                              vipCouple: {
+                                                price: Number(e.target.value) || 0,
+                                                count: 14,
+                                              },
+                                            },
+                                          }))
+                                        }
+                                        className="bg-glass-white border-white/20 text-white"
+                                        placeholder="Couple seat price"
+                                      />
+                                      <p className="text-xs text-cyber-slate-400 mt-1">14 couple seats</p>
+                                    </div>
+                                    <div>
+                                      <Label htmlFor="vip_family_price" className="text-cyber-slate-200">
+                                        VIP Family Price (₦)
+                                      </Label>
+                                      <Input
+                                        id="vip_family_price"
+                                        type="number"
+                                        value={newEvent.pricing.vipFamily?.price || ""}
+                                        onChange={(e) =>
+                                          setNewEvent((prev) => ({
+                                            ...prev,
+                                            pricing: {
+                                              ...prev.pricing,
+                                              vipFamily: {
+                                                price: Number(e.target.value) || 0,
+                                                count: 14,
+                                              },
+                                            },
+                                          }))
+                                        }
+                                        className="bg-glass-white border-white/20 text-white"
+                                        placeholder="Family seat price"
+                                      />
+                                      <p className="text-xs text-cyber-slate-400 mt-1">14 family seats</p>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Standard Hall Pricing */}
+                            {getHallType(halls, newEvent.hall_id) === "standard" && (
+                              <div className="space-y-4">
+                                {newEvent.event_type === "match" ? (
+                                  // Standard Match Pricing
+                                  <div>
+                                    <Label htmlFor="standard_match_price" className="text-cyber-slate-200">
+                                      Standard Match Seats Price (₦)
+                                    </Label>
+                                    <Input
+                                      id="standard_match_price"
+                                      type="number"
+                                      value={newEvent.pricing.standardMatchSeats?.price || ""}
+                                      onChange={(e) =>
+                                        setNewEvent((prev) => ({
+                                          ...prev,
+                                          pricing: {
+                                            ...prev.pricing,
+                                            standardMatchSeats: {
+                                              price: Number(e.target.value) || 0,
+                                              count: getHallTotalSeats(halls, newEvent.hall_id),
+                                            },
+                                          },
+                                        }))
+                                      }
+                                      className="bg-glass-white border-white/20 text-white"
+                                      placeholder="Enter match seat price"
+                                    />
+                                    <p className="text-xs text-cyber-slate-400 mt-1">
+                                      {getHallTotalSeats(halls, newEvent.hall_id)} seats available
+                                    </p>
+                                  </div>
+                                ) : (
+                                  // Standard Movie Pricing
+                                  <div>
+                                    <Label htmlFor="standard_single_price" className="text-cyber-slate-200">
+                                      Standard Single Seats Price (₦)
+                                    </Label>
+                                    <Input
+                                      id="standard_single_price"
+                                      type="number"
+                                      value={newEvent.pricing.standardSingle?.price || ""}
+                                      onChange={(e) =>
+                                        setNewEvent((prev) => ({
+                                          ...prev,
+                                          pricing: {
+                                            ...prev.pricing,
+                                            standardSingle: {
+                                              price: Number(e.target.value) || 0,
+                                              count: getHallTotalSeats(halls, newEvent.hall_id),
+                                            },
+                                          },
+                                        }))
+                                      }
+                                      className="bg-glass-white border-white/20 text-white"
+                                      placeholder="Enter single seat price"
+                                    />
+                                    <p className="text-xs text-cyber-slate-400 mt-1">
+                                      {getHallTotalSeats(halls, newEvent.hall_id)} seats available
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
+
                       <div className="flex justify-end gap-2">
                         <Button
                           variant="outline"
