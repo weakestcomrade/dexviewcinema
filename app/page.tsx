@@ -339,7 +339,7 @@ export default async function Home() {
                             <div className="flex items-center gap-1 text-lg font-semibold text-white">
                               <span className="text-brand-red-300 capitalize">Ticket Price:</span>
                               <span className="bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
-                                ₦{(event.pricing.ticket_price || 0).toLocaleString()}
+                                ₦{event.pricing.ticket_price.toLocaleString()}
                               </span>
                             </div>
                           )}

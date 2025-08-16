@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { ArrowLeft, XCircle, Info, Loader2, Sparkles, Trophy, Star } from "lucide-react"
+import { ArrowLeft, XCircle, Info, Loader2, Sparkles, Trophy, Star } from 'lucide-react'
 import Link from "next/link"
 import type { Hall } from "@/types/hall" // Import the Hall type
 
@@ -92,12 +92,7 @@ const generateVipMatchSeats = (eventPricing: Event["pricing"], bookedSeats: stri
 }
 
 // Seat layout for Standard Hall A or Hall B matches (all single seats)
-const generateStandardMatchSeats = (
-  eventPricing: Event["pricing"],
-  hallId: string,
-  halls: Hall[],
-  bookedSeats: string[] = [],
-) => {
+const generateStandardMatchSeats = (eventPricing: Event["pricing"], hallId: string, halls: Hall[], bookedSeats: string[] = []) => {
   const seats: Seat[] = []
   const totalSeats = getHallTotalSeats(halls, hallId)
   for (let i = 1; i <= totalSeats; i++) {
@@ -113,12 +108,7 @@ const generateStandardMatchSeats = (
 }
 
 // Seat layout for movies based on hall type
-const generateMovieSeats = (
-  eventPricing: Event["pricing"],
-  hallId: string,
-  halls: Hall[],
-  bookedSeats: string[] = [],
-) => {
+const generateMovieSeats = (eventPricing: Event["pricing"], hallId: string, halls: Hall[], bookedSeats: string[] = []) => {
   const seats: Seat[] = []
   const hallType = getHallType(halls, hallId)
   const totalSeats = getHallTotalSeats(halls, hallId)
@@ -199,7 +189,7 @@ export default function AdminSeatsPage({ params }: { params: { id: string } }) {
   }, []) // Fetch halls once on component mount
 
   useEffect(() => {
-    if (halls.length === 0) return // Wait for halls to be loaded before fetching event
+    if (halls.length === 0) return; // Wait for halls to be loaded before fetching event
 
     const fetchEvent = async () => {
       try {
@@ -214,14 +204,12 @@ export default function AdminSeatsPage({ params }: { params: { id: string } }) {
         let calculatedPricing = data.pricing || {}
 
         if (data.event_type === "match") {
-          if (getHallType(halls, data.hall_id) === "vip") {
-            // Use fetched halls
+          if (getHallType(halls, data.hall_id) === "vip") { // Use fetched halls
             calculatedPricing = {
               vipSofaSeats: { price: calculatedPricing.vipSofaSeats?.price || 0, count: 10 },
               vipRegularSeats: { price: calculatedPricing.vipRegularSeats?.price || 0, count: 12 },
             }
-          } else {
-            // Standard halls for matches
+          } else { // Standard halls for matches
             calculatedPricing = {
               standardMatchSeats: {
                 price: calculatedPricing.standardMatchSeats?.price || 0,
@@ -229,8 +217,7 @@ export default function AdminSeatsPage({ params }: { params: { id: string } }) {
               },
             }
           }
-        } else if (hallType === "vip") {
-          // Use fetched halls
+        } else if (hallType === "vip") { // Use fetched halls
           calculatedPricing = {
             vipSingle: { price: calculatedPricing.vipSingle?.price || 0, count: 20 },
             vipCouple: { price: calculatedPricing.vipCouple?.price || 0, count: 14 },
@@ -619,19 +606,18 @@ export default function AdminSeatsPage({ params }: { params: { id: string } }) {
                   <h4 className="font-bold mb-3 sm:mb-4 text-cyber-slate-200 text-base sm:text-lg">Pricing Details</h4>
                   {event.event_type === "match" ? (
                     getHallType(halls, event.hall_id) === "vip" && // Use fetched halls
-                    event.pricing?.vipSofaSeats &&
-                    event.pricing?.vipRegularSeats ? (
+                    event.pricing?.vipSofaSeats && event.pricing?.vipRegularSeats ? (
                       <>
                         <div className="flex justify-between text-base sm:text-lg">
                           <span className="text-cyber-slate-300">VIP Sofa:</span>
                           <span className="text-white font-bold">
-                            ₦{(event.pricing.vipSofaSeats.price || 0).toLocaleString()}
+                            ₦{event.pricing.vipSofaSeats.price.toLocaleString()}
                           </span>
                         </div>
                         <div className="flex justify-between text-base sm:text-lg">
                           <span className="text-cyber-slate-300">VIP Regular:</span>
                           <span className="text-white font-bold">
-                            ₦{(event.pricing.vipRegularSeats.price || 0).toLocaleString()}
+                            ₦{event.pricing.vipRegularSeats.price.toLocaleString()}
                           </span>
                         </div>
                       </>
@@ -641,7 +627,7 @@ export default function AdminSeatsPage({ params }: { params: { id: string } }) {
                         <div className="flex justify-between text-base sm:text-lg">
                           <span className="text-cyber-slate-300">Standard Match:</span>
                           <span className="text-white font-bold">
-                            ₦{(event.pricing.standardMatchSeats.price || 0).toLocaleString()}
+                            ₦{event.pricing.standardMatchSeats.price.toLocaleString()}
                           </span>
                         </div>
                       )
@@ -652,7 +638,7 @@ export default function AdminSeatsPage({ params }: { params: { id: string } }) {
                         <div className="flex justify-between text-base sm:text-lg">
                           <span className="text-cyber-slate-300">VIP Single:</span>
                           <span className="text-white font-bold">
-                            ₦{(event.pricing.vipSingle.price || 0).toLocaleString()}
+                            ₦{event.pricing.vipSingle.price.toLocaleString()}
                           </span>
                         </div>
                       )}
@@ -660,7 +646,7 @@ export default function AdminSeatsPage({ params }: { params: { id: string } }) {
                         <div className="flex justify-between text-base sm:text-lg">
                           <span className="text-cyber-slate-300">VIP Couple:</span>
                           <span className="text-white font-bold">
-                            ₦{(event.pricing.vipCouple.price || 0).toLocaleString()}
+                            ₦{event.pricing.vipCouple.price.toLocaleString()}
                           </span>
                         </div>
                       )}
@@ -668,7 +654,7 @@ export default function AdminSeatsPage({ params }: { params: { id: string } }) {
                         <div className="flex justify-between text-base sm:text-lg">
                           <span className="text-cyber-slate-300">VIP Family:</span>
                           <span className="text-white font-bold">
-                            ₦{(event.pricing.vipFamily.price || 0).toLocaleString()}
+                            ₦{event.pricing.vipFamily.price.toLocaleString()}
                           </span>
                         </div>
                       )}
@@ -679,7 +665,7 @@ export default function AdminSeatsPage({ params }: { params: { id: string } }) {
                         <div className="flex justify-between text-base sm:text-lg">
                           <span className="text-cyber-slate-300">Standard Single:</span>
                           <span className="text-white font-bold">
-                            ₦{(event.pricing.standardSingle.price || 0).toLocaleString()}
+                            ₦{event.pricing.standardSingle.price.toLocaleString()}
                           </span>
                         </div>
                       )}
