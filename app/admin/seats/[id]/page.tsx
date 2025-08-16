@@ -4,9 +4,10 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { ArrowLeft, XCircle, Info, Loader2, Sparkles, Trophy, Star } from 'lucide-react'
+import { ArrowLeft, XCircle, Info, Loader2, Sparkles, Trophy, Star } from "lucide-react"
 import Link from "next/link"
 import type { Hall } from "@/types/hall" // Import the Hall type
+import AdminAuthWrapper from "@/components/admin-auth-wrapper"
 
 // Define types for event fetched from the database
 interface Event {
@@ -92,7 +93,12 @@ const generateVipMatchSeats = (eventPricing: Event["pricing"], bookedSeats: stri
 }
 
 // Seat layout for Standard Hall A or Hall B matches (all single seats)
-const generateStandardMatchSeats = (eventPricing: Event["pricing"], hallId: string, halls: Hall[], bookedSeats: string[] = []) => {
+const generateStandardMatchSeats = (
+  eventPricing: Event["pricing"],
+  hallId: string,
+  halls: Hall[],
+  bookedSeats: string[] = [],
+) => {
   const seats: Seat[] = []
   const totalSeats = getHallTotalSeats(halls, hallId)
   for (let i = 1; i <= totalSeats; i++) {
@@ -108,7 +114,12 @@ const generateStandardMatchSeats = (eventPricing: Event["pricing"], hallId: stri
 }
 
 // Seat layout for movies based on hall type
-const generateMovieSeats = (eventPricing: Event["pricing"], hallId: string, halls: Hall[], bookedSeats: string[] = []) => {
+const generateMovieSeats = (
+  eventPricing: Event["pricing"],
+  hallId: string,
+  halls: Hall[],
+  bookedSeats: string[] = [],
+) => {
   const seats: Seat[] = []
   const hallType = getHallType(halls, hallId)
   const totalSeats = getHallTotalSeats(halls, hallId)
@@ -189,7 +200,7 @@ export default function AdminSeatsPage({ params }: { params: { id: string } }) {
   }, []) // Fetch halls once on component mount
 
   useEffect(() => {
-    if (halls.length === 0) return; // Wait for halls to be loaded before fetching event
+    if (halls.length === 0) return // Wait for halls to be loaded before fetching event
 
     const fetchEvent = async () => {
       try {
@@ -204,12 +215,14 @@ export default function AdminSeatsPage({ params }: { params: { id: string } }) {
         let calculatedPricing = data.pricing || {}
 
         if (data.event_type === "match") {
-          if (getHallType(halls, data.hall_id) === "vip") { // Use fetched halls
+          if (getHallType(halls, data.hall_id) === "vip") {
+            // Use fetched halls
             calculatedPricing = {
               vipSofaSeats: { price: calculatedPricing.vipSofaSeats?.price || 0, count: 10 },
               vipRegularSeats: { price: calculatedPricing.vipRegularSeats?.price || 0, count: 12 },
             }
-          } else { // Standard halls for matches
+          } else {
+            // Standard halls for matches
             calculatedPricing = {
               standardMatchSeats: {
                 price: calculatedPricing.standardMatchSeats?.price || 0,
@@ -217,7 +230,8 @@ export default function AdminSeatsPage({ params }: { params: { id: string } }) {
               },
             }
           }
-        } else if (hallType === "vip") { // Use fetched halls
+        } else if (hallType === "vip") {
+          // Use fetched halls
           calculatedPricing = {
             vipSingle: { price: calculatedPricing.vipSingle?.price || 0, count: 20 },
             vipCouple: { price: calculatedPricing.vipCouple?.price || 0, count: 14 },
@@ -288,153 +302,259 @@ export default function AdminSeatsPage({ params }: { params: { id: string } }) {
   const availableSeatsCount = seats.length - bookedSeatsCount
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 relative overflow-hidden">
-      {/* Cyber-Glassmorphism background elements */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-brand-red-500/20 to-cyber-purple-500/20 rounded-full blur-3xl animate-float"></div>
-        <div className="absolute top-1/2 -left-40 w-80 h-80 bg-gradient-to-br from-cyber-blue-500/15 to-brand-red-500/15 rounded-full blur-3xl animate-float delay-1000"></div>
-        <div className="absolute -bottom-40 right-1/3 w-72 h-72 bg-gradient-to-br from-cyber-green-500/15 to-cyber-purple-500/15 rounded-full blur-3xl animate-float delay-2000"></div>
+    <AdminAuthWrapper>
+      <div className="min-h-screen bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 relative overflow-hidden">
+        {/* Cyber-Glassmorphism background elements */}
+        <div className="fixed inset-0 pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-brand-red-500/20 to-cyber-purple-500/20 rounded-full blur-3xl animate-float"></div>
+          <div className="absolute top-1/2 -left-40 w-80 h-80 bg-gradient-to-br from-cyber-blue-500/15 to-brand-red-500/15 rounded-full blur-3xl animate-float delay-1000"></div>
+          <div className="absolute -bottom-40 right-1/3 w-72 h-72 bg-gradient-to-br from-cyber-green-500/15 to-cyber-purple-500/15 rounded-full blur-3xl animate-float delay-2000"></div>
 
-        <div className="absolute top-20 right-20 w-32 h-32 border border-brand-red-500/20 rotate-45 animate-spin-slow"></div>
-        <div className="absolute bottom-40 left-20 w-24 h-24 border border-cyber-blue-500/30 rotate-12 animate-bounce-slow"></div>
-        <div className="absolute top-1/3 left-1/3 w-16 h-16 border border-cyber-purple-500/20 rounded-full animate-pulse-slow"></div>
-      </div>
+          <div className="absolute top-20 right-20 w-32 h-32 border border-brand-red-500/20 rotate-45 animate-spin-slow"></div>
+          <div className="absolute bottom-40 left-20 w-24 h-24 border border-cyber-blue-500/30 rotate-12 animate-bounce-slow"></div>
+          <div className="absolute top-1/3 left-1/3 w-16 h-16 border border-cyber-purple-500/20 rounded-full animate-pulse-slow"></div>
+        </div>
 
-      {/* Header with glassmorphism */}
-      <header className="relative backdrop-blur-xl bg-glass-white border-b border-white/10 shadow-cyber-card z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center h-20">
-            <Link href="/admin">
-              <Button variant="ghost" size="sm" className="mr-4 text-cyber-slate-300 hover:bg-glass-white group">
-                <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
-                Back to Admin
-              </Button>
-            </Link>
-            <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-white via-brand-red-300 to-white bg-clip-text text-transparent">
-                Seat Management
-              </h1>
-              <p className="text-sm text-brand-red-400 font-medium">
-                Manage seats for: {event.title} ({getHallDisplayName(halls, event.hall_id)})
-              </p>
+        {/* Header with glassmorphism */}
+        <header className="relative backdrop-blur-xl bg-glass-white border-b border-white/10 shadow-cyber-card z-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center h-20">
+              <Link href="/admin">
+                <Button variant="ghost" size="sm" className="mr-4 text-cyber-slate-300 hover:bg-glass-white group">
+                  <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
+                  Back to Admin
+                </Button>
+              </Link>
+              <div>
+                <h1 className="text-xl font-bold bg-gradient-to-r from-white via-brand-red-300 to-white bg-clip-text text-transparent">
+                  Seat Management
+                </h1>
+                <p className="text-sm text-brand-red-400 font-medium">
+                  Manage seats for: {event.title} ({getHallDisplayName(halls, event.hall_id)})
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 md:gap-8">
-          {/* Seat Map Section */}
-          <div className="xl:col-span-2 space-y-6">
-            <Card className="bg-glass-white-strong backdrop-blur-xl shadow-cyber-card border border-white/20">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center gap-3 text-2xl font-bold">
-                  Seat Map - {getHallDisplayName(halls, event.hall_id)}
-                </CardTitle>
-                <CardDescription className="text-cyber-slate-300 text-lg">
-                  Overview of seat availability and status
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-6">
-                {/* Screen/Field */}
-                <div className="mb-10">
-                  <div className="bg-gradient-to-r from-brand-red-100/20 via-brand-red-50/20 to-brand-red-100/20 text-white text-center py-6 rounded-5xl mb-8 border-2 border-brand-red-500/30 shadow-cyber-card backdrop-blur-sm">
-                    <span className="text-lg font-bold flex items-center justify-center gap-3">
-                      <Sparkles className="w-6 h-6 text-brand-red-400 animate-spin-slow" />
-                      {event.event_type === "match" ? "🏟️ FOOTBALL FIELD VIEW 🏟️" : "🎬 PREMIUM SCREEN VIEW 🎬"}
-                      <Sparkles className="w-6 h-6 text-brand-400 animate-spin-slow" />
-                    </span>
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 md:gap-8">
+            {/* Seat Map Section */}
+            <div className="xl:col-span-2 space-y-6">
+              <Card className="bg-glass-white-strong backdrop-blur-xl shadow-cyber-card border border-white/20">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center gap-3 text-2xl font-bold">
+                    Seat Map - {getHallDisplayName(halls, event.hall_id)}
+                  </CardTitle>
+                  <CardDescription className="text-cyber-slate-300 text-lg">
+                    Overview of seat availability and status
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-6">
+                  {/* Screen/Field */}
+                  <div className="mb-10">
+                    <div className="bg-gradient-to-r from-brand-red-100/20 via-brand-red-50/20 to-brand-red-100/20 text-white text-center py-6 rounded-5xl mb-8 border-2 border-brand-red-500/30 shadow-cyber-card backdrop-blur-sm">
+                      <span className="text-lg font-bold flex items-center justify-center gap-3">
+                        <Sparkles className="w-6 h-6 text-brand-red-400 animate-spin-slow" />
+                        {event.event_type === "match" ? "🏟️ FOOTBALL FIELD VIEW 🏟️" : "🎬 PREMIUM SCREEN VIEW 🎬"}
+                        <Sparkles className="w-6 h-6 text-brand-400 animate-spin-slow" />
+                      </span>
+                    </div>
                   </div>
-                </div>
 
-                {/* Seat Map */}
-                {event.event_type === "match" ? (
-                  getHallType(halls, event.hall_id) === "vip" ? (
+                  {/* Seat Map */}
+                  {event.event_type === "match" ? (
+                    getHallType(halls, event.hall_id) === "vip" ? (
+                      <div className="space-y-8">
+                        {/* VIP Sofa Seats */}
+                        <div>
+                          <h4 className="text-lg font-bold text-brand-red-300 mb-4 flex items-center gap-2">
+                            <Trophy className="w-5 h-5" />
+                            VIP Sofa Seats - Premium Comfort
+                          </h4>
+                          <div className="space-y-4">
+                            {["S1", "S2"].map((row) => (
+                              <div key={row} className="flex items-center gap-4">
+                                <div className="w-8 text-center font-bold text-brand-red-400 text-lg flex-shrink-0">
+                                  {row}
+                                </div>
+                                <div className="flex gap-4 flex-wrap justify-center sm:justify-start">
+                                  {seats
+                                    .filter((seat) => seat.row === row && seat.type === "sofa")
+                                    .map((seat) => (
+                                      <div
+                                        key={seat.id}
+                                        className={`
+                                          w-16 h-16 sm:w-20 sm:h-16 rounded-3xl border-3 text-sm font-bold transition-all duration-300 transform shadow-cyber-card flex items-center justify-center
+                                          ${
+                                            seat.isBooked
+                                              ? "bg-brand-red-100/20 text-brand-red-400/60 border-brand-red-300/30 cursor-not-allowed opacity-60"
+                                              : "bg-glass-white-strong text-cyber-slate-300 border-white/30"
+                                          }
+                                        `}
+                                      >
+                                        🛋️
+                                      </div>
+                                    ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* VIP Regular Seats */}
+                        <div>
+                          <h4 className="text-lg font-bold text-cyber-blue-300 mb-4 flex items-center gap-2">
+                            <Star className="w-5 h-5" />
+                            VIP Regular Seats
+                          </h4>
+                          <div className="space-y-4">
+                            {["A", "B"].map((row) => (
+                              <div key={row} className="flex items-center gap-4">
+                                <div className="w-8 text-center font-bold text-cyber-blue-400 text-lg flex-shrink-0">
+                                  {row}
+                                </div>
+                                <div className="flex gap-4 flex-wrap justify-center sm:justify-start">
+                                  {seats
+                                    .filter((seat) => seat.row === row && seat.type === "regular")
+                                    .map((seat) => (
+                                      <div
+                                        key={seat.id}
+                                        className={`
+                                          w-16 h-16 rounded-3xl border-3 text-lg font-bold transition-all duration-300 transform shadow-cyber-card
+                                          ${
+                                            seat.isBooked
+                                              ? "bg-brand-red-100/20 text-brand-red-400/60 border-brand-red-300/30 cursor-not-allowed opacity-60"
+                                              : "bg-glass-white-strong text-cyber-slate-300 border-white/30"
+                                          }
+                                        `}
+                                      >
+                                        {seat.number}
+                                      </div>
+                                    ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      // Standard Match Hall (Hall A or Hall B)
+                      <div className="space-y-8">
+                        <div>
+                          <h4 className="text-lg font-bold text-cyber-green-300 mb-4">Standard Match Seats</h4>
+                          <div
+                            className={`grid gap-3 ${
+                              event.hall_id === "hallA" ? "grid-cols-6 sm:grid-cols-8" : "grid-cols-6 sm:grid-cols-10"
+                            }`}
+                          >
+                            {seats
+                              .filter((seat) => seat.type === "standardMatch")
+                              .map((seat) => (
+                                <div
+                                  key={seat.id}
+                                  className={`
+                                    w-12 h-12 sm:w-14 sm:h-14 rounded-2xl border-2 text-xs font-bold transition-all duration-300 transform shadow-cyber-card flex items-center justify-center
+                                    ${
+                                      seat.isBooked
+                                        ? "bg-brand-red-100/20 text-brand-red-400/60 border-brand-red-300/30 cursor-not-allowed opacity-60"
+                                        : "bg-glass-white-strong text-cyber-slate-300 border-white/30"
+                                    }
+                                  `}
+                                >
+                                  {seat.id.split("-")[1]}
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  ) : getHallType(halls, event.hall_id) === "vip" ? (
                     <div className="space-y-8">
-                      {/* VIP Sofa Seats */}
+                      {/* VIP Single Seats */}
                       <div>
-                        <h4 className="text-lg font-bold text-brand-red-300 mb-4 flex items-center gap-2">
-                          <Trophy className="w-5 h-5" />
-                          VIP Sofa Seats - Premium Comfort
-                        </h4>
-                        <div className="space-y-4">
-                          {["S1", "S2"].map((row) => (
-                            <div key={row} className="flex items-center gap-4">
-                              <div className="w-8 text-center font-bold text-brand-red-400 text-lg flex-shrink-0">
-                                {row}
+                        <h4 className="text-lg font-bold text-cyber-green-300 mb-4">VIP Single Seats</h4>
+                        <div className="grid grid-cols-5 sm:grid-cols-10 gap-3">
+                          {seats
+                            .filter((seat) => seat.type === "vipSingle")
+                            .map((seat) => (
+                              <div
+                                key={seat.id}
+                                className={`
+                                  w-12 h-12 sm:w-14 sm:h-14 rounded-2xl border-2 text-xs font-bold transition-all duration-300 transform shadow-cyber-card
+                                  ${
+                                    seat.isBooked
+                                      ? "bg-brand-red-100/20 text-brand-red-400/60 border-brand-red-300/30 cursor-not-allowed opacity-60"
+                                      : "bg-glass-white-strong text-cyber-slate-300 border-white/30"
+                                  }
+                                `}
+                              >
+                                {seat.id}
                               </div>
-                              <div className="flex gap-4 flex-wrap justify-center sm:justify-start">
-                                {seats
-                                  .filter((seat) => seat.row === row && seat.type === "sofa")
-                                  .map((seat) => (
-                                    <div
-                                      key={seat.id}
-                                      className={`
-                                        w-16 h-16 sm:w-20 sm:h-16 rounded-3xl border-3 text-sm font-bold transition-all duration-300 transform shadow-cyber-card flex items-center justify-center
-                                        ${
-                                          seat.isBooked
-                                            ? "bg-brand-red-100/20 text-brand-red-400/60 border-brand-red-300/30 cursor-not-allowed opacity-60"
-                                            : "bg-glass-white-strong text-cyber-slate-300 border-white/30"
-                                        }
-                                      `}
-                                    >
-                                      🛋️
-                                    </div>
-                                  ))}
-                              </div>
-                            </div>
-                          ))}
+                            ))}
                         </div>
                       </div>
 
-                      {/* VIP Regular Seats */}
+                      {/* VIP Couple Seats */}
                       <div>
-                        <h4 className="text-lg font-bold text-cyber-blue-300 mb-4 flex items-center gap-2">
-                          <Star className="w-5 h-5" />
-                          VIP Regular Seats
-                        </h4>
-                        <div className="space-y-4">
-                          {["A", "B"].map((row) => (
-                            <div key={row} className="flex items-center gap-4">
-                              <div className="w-8 text-center font-bold text-cyber-blue-400 text-lg flex-shrink-0">
-                                {row}
+                        <h4 className="text-lg font-bold text-cyber-purple-300 mb-4">VIP Couple Seats</h4>
+                        <div className="grid grid-cols-3 sm:grid-cols-7 gap-4">
+                          {seats
+                            .filter((seat) => seat.type === "vipCouple")
+                            .map((seat) => (
+                              <div
+                                key={seat.id}
+                                className={`
+                                  w-16 h-12 sm:w-20 sm:h-14 rounded-3xl border-2 text-xs font-bold transition-all duration-300 transform shadow-cyber-card flex items-center justify-center
+                                  ${
+                                    seat.isBooked
+                                      ? "bg-brand-red-100/20 text-brand-red-400/60 border-brand-red-300/30 cursor-not-allowed opacity-60"
+                                      : "bg-glass-white-strong text-cyber-slate-300 border-white/30"
+                                  }
+                                `}
+                              >
+                                💕{seat.id.replace("C", "")}
                               </div>
-                              <div className="flex gap-4 flex-wrap justify-center sm:justify-start">
-                                {seats
-                                  .filter((seat) => seat.row === row && seat.type === "regular")
-                                  .map((seat) => (
-                                    <div
-                                      key={seat.id}
-                                      className={`
-                                        w-16 h-16 rounded-3xl border-3 text-lg font-bold transition-all duration-300 transform shadow-cyber-card
-                                        ${
-                                          seat.isBooked
-                                            ? "bg-brand-red-100/20 text-brand-red-400/60 border-brand-red-300/30 cursor-not-allowed opacity-60"
-                                            : "bg-glass-white-strong text-cyber-slate-300 border-white/30"
-                                        }
-                                      `}
-                                    >
-                                      {seat.number}
-                                    </div>
-                                  ))}
+                            ))}
+                        </div>
+                      </div>
+
+                      {/* VIP Family Seats */}
+                      <div>
+                        <h4 className="text-lg font-bold text-brand-red-300 mb-4">VIP Family Seats (4+ members)</h4>
+                        <div className="grid grid-cols-2 sm:grid-cols-7 gap-4">
+                          {seats
+                            .filter((seat) => seat.type === "vipFamily")
+                            .map((seat) => (
+                              <div
+                                key={seat.id}
+                                className={`
+                                  w-20 h-16 sm:w-24 sm:h-16 rounded-3xl border-2 text-xs font-bold transition-all duration-300 transform shadow-cyber-card flex items-center justify-center
+                                  ${
+                                    seat.isBooked
+                                      ? "bg-brand-red-100/20 text-brand-red-400/60 border-brand-red-300/30 cursor-not-allowed opacity-60"
+                                      : "bg-glass-white-strong text-cyber-slate-300 border-white/30"
+                                  }
+                                `}
+                              >
+                                👨‍👩‍👧‍👦{seat.id.replace("F", "")}
                               </div>
-                            </div>
-                          ))}
+                            ))}
                         </div>
                       </div>
                     </div>
                   ) : (
-                    // Standard Match Hall (Hall A or Hall B)
+                    // Standard Movie Halls (Hall A, Hall B)
                     <div className="space-y-8">
                       <div>
-                        <h4 className="text-lg font-bold text-cyber-green-300 mb-4">Standard Match Seats</h4>
+                        <h4 className="text-lg font-bold text-cyber-green-300 mb-4">Standard Seats</h4>
                         <div
                           className={`grid gap-3 ${
                             event.hall_id === "hallA" ? "grid-cols-6 sm:grid-cols-8" : "grid-cols-6 sm:grid-cols-10"
                           }`}
                         >
                           {seats
-                            .filter((seat) => seat.type === "standardMatch")
+                            .filter((seat) => seat.type === "standardSingle")
                             .map((seat) => (
                               <div
                                 key={seat.id}
@@ -453,244 +573,143 @@ export default function AdminSeatsPage({ params }: { params: { id: string } }) {
                         </div>
                       </div>
                     </div>
-                  )
-                ) : getHallType(halls, event.hall_id) === "vip" ? (
-                  <div className="space-y-8">
-                    {/* VIP Single Seats */}
-                    <div>
-                      <h4 className="text-lg font-bold text-cyber-green-300 mb-4">VIP Single Seats</h4>
-                      <div className="grid grid-cols-5 sm:grid-cols-10 gap-3">
-                        {seats
-                          .filter((seat) => seat.type === "vipSingle")
-                          .map((seat) => (
-                            <div
-                              key={seat.id}
-                              className={`
-                                w-12 h-12 sm:w-14 sm:h-14 rounded-2xl border-2 text-xs font-bold transition-all duration-300 transform shadow-cyber-card
-                                ${
-                                  seat.isBooked
-                                    ? "bg-brand-red-100/20 text-brand-red-400/60 border-brand-red-300/30 cursor-not-allowed opacity-60"
-                                    : "bg-glass-white-strong text-cyber-slate-300 border-white/30"
-                                }
-                              `}
-                            >
-                              {seat.id}
-                            </div>
-                          ))}
-                      </div>
-                    </div>
+                  )}
 
-                    {/* VIP Couple Seats */}
-                    <div>
-                      <h4 className="text-lg font-bold text-cyber-purple-300 mb-4">VIP Couple Seats</h4>
-                      <div className="grid grid-cols-3 sm:grid-cols-7 gap-4">
-                        {seats
-                          .filter((seat) => seat.type === "vipCouple")
-                          .map((seat) => (
-                            <div
-                              key={seat.id}
-                              className={`
-                                w-16 h-12 sm:w-20 sm:h-14 rounded-3xl border-2 text-xs font-bold transition-all duration-300 transform shadow-cyber-card flex items-center justify-center
-                                ${
-                                  seat.isBooked
-                                    ? "bg-brand-red-100/20 text-brand-red-400/60 border-brand-red-300/30 cursor-not-allowed opacity-60"
-                                    : "bg-glass-white-strong text-cyber-slate-300 border-white/30"
-                                }
-                              `}
-                            >
-                              💕{seat.id.replace("C", "")}
-                            </div>
-                          ))}
-                      </div>
+                  {/* Legend */}
+                  <div className="flex flex-col sm:flex-row justify-center gap-4 sm:gap-10 mt-8 sm:mt-10 text-base sm:text-lg">
+                    <div className="flex items-center justify-center gap-3">
+                      <div className="w-5 h-5 sm:w-6 sm:h-6 bg-glass-white-strong border-2 sm:border-3 border-white/30 rounded-xl sm:rounded-2xl shadow-cyber-card"></div>
+                      <span className="text-cyber-slate-300 font-semibold">Available</span>
                     </div>
-
-                    {/* VIP Family Seats */}
-                    <div>
-                      <h4 className="text-lg font-bold text-brand-red-300 mb-4">VIP Family Seats (4+ members)</h4>
-                      <div className="grid grid-cols-2 sm:grid-cols-7 gap-4">
-                        {seats
-                          .filter((seat) => seat.type === "vipFamily")
-                          .map((seat) => (
-                            <div
-                              key={seat.id}
-                              className={`
-                                w-20 h-16 sm:w-24 sm:h-16 rounded-3xl border-2 text-xs font-bold transition-all duration-300 transform shadow-cyber-card flex items-center justify-center
-                                ${
-                                  seat.isBooked
-                                    ? "bg-brand-red-100/20 text-brand-red-400/60 border-brand-red-300/30 cursor-not-allowed opacity-60"
-                                    : "bg-glass-white-strong text-cyber-slate-300 border-white/30"
-                                }
-                              `}
-                            >
-                              👨‍👩‍👧‍👦{seat.id.replace("F", "")}
-                            </div>
-                          ))}
-                      </div>
+                    <div className="flex items-center justify-center gap-3">
+                      <div className="w-5 h-5 sm:w-6 sm:h-6 bg-brand-red-100/20 border-2 sm:border-3 border-brand-red-300/30 rounded-xl sm:rounded-2xl shadow-cyber-card"></div>
+                      <span className="text-cyber-slate-300 font-semibold">Occupied</span>
                     </div>
                   </div>
-                ) : (
-                  // Standard Movie Halls (Hall A, Hall B)
-                  <div className="space-y-8">
-                    <div>
-                      <h4 className="text-lg font-bold text-cyber-green-300 mb-4">Standard Seats</h4>
-                      <div
-                        className={`grid gap-3 ${
-                          event.hall_id === "hallA" ? "grid-cols-6 sm:grid-cols-8" : "grid-cols-6 sm:grid-cols-10"
-                        }`}
-                      >
-                        {seats
-                          .filter((seat) => seat.type === "standardSingle")
-                          .map((seat) => (
-                            <div
-                              key={seat.id}
-                              className={`
-                                w-12 h-12 sm:w-14 sm:h-14 rounded-2xl border-2 text-xs font-bold transition-all duration-300 transform shadow-cyber-card flex items-center justify-center
-                                ${
-                                  seat.isBooked
-                                    ? "bg-brand-red-100/20 text-brand-red-400/60 border-brand-red-300/30 cursor-not-allowed opacity-60"
-                                    : "bg-glass-white-strong text-cyber-slate-300 border-white/30"
-                                }
-                              `}
-                            >
-                              {seat.id.split("-")[1]}
-                            </div>
-                          ))}
-                      </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Summary and Actions */}
+            <div className="space-y-6">
+              <Card className="sticky top-4 bg-glass-white-strong backdrop-blur-xl shadow-cyber-card border border-white/20">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center gap-3 text-lg sm:text-xl font-bold">
+                    <Info className="w-5 h-5 sm:w-6 sm:h-6 text-brand-red-400" />
+                    Event & Seat Summary
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 sm:space-y-6">
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-base sm:text-lg">
+                      <span className="text-cyber-slate-300">Total Seats:</span>
+                      <span className="text-white font-bold">{seats.length}</span>
+                    </div>
+                    <div className="flex justify-between text-base sm:text-lg">
+                      <span className="text-cyber-slate-300">Booked Seats:</span>
+                      <span className="text-brand-red-300 font-bold">{bookedSeatsCount}</span>
+                    </div>
+                    <div className="flex justify-between text-base sm:text-lg">
+                      <span className="text-cyber-slate-300">Available Seats:</span>
+                      <span className="text-cyber-green-300 font-bold">{availableSeatsCount}</span>
                     </div>
                   </div>
-                )}
 
-                {/* Legend */}
-                <div className="flex flex-col sm:flex-row justify-center gap-4 sm:gap-10 mt-8 sm:mt-10 text-base sm:text-lg">
-                  <div className="flex items-center justify-center gap-3">
-                    <div className="w-5 h-5 sm:w-6 sm:h-6 bg-glass-white-strong border-2 sm:border-3 border-white/30 rounded-xl sm:rounded-2xl shadow-cyber-card"></div>
-                    <span className="text-cyber-slate-300 font-semibold">Available</span>
-                  </div>
-                  <div className="flex items-center justify-center gap-3">
-                    <div className="w-5 h-5 sm:w-6 sm:h-6 bg-brand-red-100/20 border-2 sm:border-3 border-brand-red-300/30 rounded-xl sm:rounded-2xl shadow-cyber-card"></div>
-                    <span className="text-cyber-slate-300 font-semibold">Occupied</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                  <Separator className="bg-white/20" />
 
-          {/* Summary and Actions */}
-          <div className="space-y-6">
-            <Card className="sticky top-4 bg-glass-white-strong backdrop-blur-xl shadow-cyber-card border border-white/20">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center gap-3 text-lg sm:text-xl font-bold">
-                  <Info className="w-5 h-5 sm:w-6 sm:h-6 text-brand-red-400" />
-                  Event & Seat Summary
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 sm:space-y-6">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-base sm:text-lg">
-                    <span className="text-cyber-slate-300">Total Seats:</span>
-                    <span className="text-white font-bold">{seats.length}</span>
-                  </div>
-                  <div className="flex justify-between text-base sm:text-lg">
-                    <span className="text-cyber-slate-300">Booked Seats:</span>
-                    <span className="text-brand-red-300 font-bold">{bookedSeatsCount}</span>
-                  </div>
-                  <div className="flex justify-between text-base sm:text-lg">
-                    <span className="text-cyber-slate-300">Available Seats:</span>
-                    <span className="text-cyber-green-300 font-bold">{availableSeatsCount}</span>
-                  </div>
-                </div>
-
-                <Separator className="bg-white/20" />
-
-                <div className="space-y-3 sm:space-y-4">
-                  <h4 className="font-bold mb-3 sm:mb-4 text-cyber-slate-200 text-base sm:text-lg">Pricing Details</h4>
-                  {event.event_type === "match" ? (
-                    getHallType(halls, event.hall_id) === "vip" && // Use fetched halls
-                    event.pricing?.vipSofaSeats && event.pricing?.vipRegularSeats ? (
+                  <div className="space-y-3 sm:space-y-4">
+                    <h4 className="font-bold mb-3 sm:mb-4 text-cyber-slate-200 text-base sm:text-lg">
+                      Pricing Details
+                    </h4>
+                    {event.event_type === "match" ? (
+                      getHallType(halls, event.hall_id) === "vip" && // Use fetched halls
+                      event.pricing?.vipSofaSeats &&
+                      event.pricing?.vipRegularSeats ? (
+                        <>
+                          <div className="flex justify-between text-base sm:text-lg">
+                            <span className="text-cyber-slate-300">VIP Sofa:</span>
+                            <span className="text-white font-bold">
+                              ₦{event.pricing.vipSofaSeats.price.toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-base sm:text-lg">
+                            <span className="text-cyber-slate-300">VIP Regular:</span>
+                            <span className="text-white font-bold">
+                              ₦{event.pricing.vipRegularSeats.price.toLocaleString()}
+                            </span>
+                          </div>
+                        </>
+                      ) : (
+                        (event.hall_id === "hallA" || event.hall_id === "hallB") &&
+                        event.pricing?.standardMatchSeats && (
+                          <div className="flex justify-between text-base sm:text-lg">
+                            <span className="text-cyber-slate-300">Standard Match:</span>
+                            <span className="text-white font-bold">
+                              ₦{event.pricing.standardMatchSeats.price.toLocaleString()}
+                            </span>
+                          </div>
+                        )
+                      )
+                    ) : getHallType(halls, event.hall_id) === "vip" ? ( // Use fetched halls
                       <>
-                        <div className="flex justify-between text-base sm:text-lg">
-                          <span className="text-cyber-slate-300">VIP Sofa:</span>
-                          <span className="text-white font-bold">
-                            ₦{event.pricing.vipSofaSeats.price.toLocaleString()}
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-base sm:text-lg">
-                          <span className="text-cyber-slate-300">VIP Regular:</span>
-                          <span className="text-white font-bold">
-                            ₦{event.pricing.vipRegularSeats.price.toLocaleString()}
-                          </span>
-                        </div>
+                        {event.pricing?.vipSingle && (
+                          <div className="flex justify-between text-base sm:text-lg">
+                            <span className="text-cyber-slate-300">VIP Single:</span>
+                            <span className="text-white font-bold">
+                              ₦{event.pricing.vipSingle.price.toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                        {event.pricing?.vipCouple && (
+                          <div className="flex justify-between text-base sm:text-lg">
+                            <span className="text-cyber-slate-300">VIP Couple:</span>
+                            <span className="text-white font-bold">
+                              ₦{event.pricing.vipCouple.price.toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                        {event.pricing?.vipFamily && (
+                          <div className="flex justify-between text-base sm:text-lg">
+                            <span className="text-cyber-slate-300">VIP Family:</span>
+                            <span className="text-white font-bold">
+                              ₦{event.pricing.vipFamily.price.toLocaleString()}
+                            </span>
+                          </div>
+                        )}
                       </>
                     ) : (
-                      (event.hall_id === "hallA" || event.hall_id === "hallB") &&
-                      event.pricing?.standardMatchSeats && (
-                        <div className="flex justify-between text-base sm:text-lg">
-                          <span className="text-cyber-slate-300">Standard Match:</span>
-                          <span className="text-white font-bold">
-                            ₦{event.pricing.standardMatchSeats.price.toLocaleString()}
-                          </span>
-                        </div>
-                      )
-                    )
-                  ) : getHallType(halls, event.hall_id) === "vip" ? ( // Use fetched halls
-                    <>
-                      {event.pricing?.vipSingle && (
-                        <div className="flex justify-between text-base sm:text-lg">
-                          <span className="text-cyber-slate-300">VIP Single:</span>
-                          <span className="text-white font-bold">
-                            ₦{event.pricing.vipSingle.price.toLocaleString()}
-                          </span>
-                        </div>
-                      )}
-                      {event.pricing?.vipCouple && (
-                        <div className="flex justify-between text-base sm:text-lg">
-                          <span className="text-cyber-slate-300">VIP Couple:</span>
-                          <span className="text-white font-bold">
-                            ₦{event.pricing.vipCouple.price.toLocaleString()}
-                          </span>
-                        </div>
-                      )}
-                      {event.pricing?.vipFamily && (
-                        <div className="flex justify-between text-base sm:text-lg">
-                          <span className="text-cyber-slate-300">VIP Family:</span>
-                          <span className="text-white font-bold">
-                            ₦{event.pricing.vipFamily.price.toLocaleString()}
-                          </span>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      {event.pricing?.standardSingle && (
-                        <div className="flex justify-between text-base sm:text-lg">
-                          <span className="text-cyber-slate-300">Standard Single:</span>
-                          <span className="text-white font-bold">
-                            ₦{event.pricing.standardSingle.price.toLocaleString()}
-                          </span>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
+                      <>
+                        {event.pricing?.standardSingle && (
+                          <div className="flex justify-between text-base sm:text-lg">
+                            <span className="text-cyber-slate-300">Standard Single:</span>
+                            <span className="text-white font-bold">
+                              ₦{event.pricing.standardSingle.price.toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
 
-                <Separator className="bg-white/20" />
+                  <Separator className="bg-white/20" />
 
-                <div className="flex flex-col gap-3">
-                  <Button className="w-full bg-brand-red-500 hover:bg-brand-red-600 text-white font-bold py-3 rounded-lg shadow-lg transition-all duration-300 transform hover:scale-105">
-                    Manage Bookings
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full border-cyber-blue-500 text-cyber-blue-300 hover:bg-cyber-blue-900/20 hover:text-cyber-blue-200 font-bold py-3 rounded-lg shadow-lg transition-all duration-300 transform hover:scale-105 bg-transparent"
-                  >
-                    Edit Event Details
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                  <div className="flex flex-col gap-3">
+                    <Button className="w-full bg-brand-red-500 hover:bg-brand-red-600 text-white font-bold py-3 rounded-lg shadow-lg transition-all duration-300 transform hover:scale-105">
+                      Manage Bookings
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full border-cyber-blue-500 text-cyber-blue-300 hover:bg-cyber-blue-900/20 hover:text-cyber-blue-200 font-bold py-3 rounded-lg shadow-lg transition-all duration-300 transform hover:scale-105 bg-transparent"
+                    >
+                      Edit Event Details
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </AdminAuthWrapper>
   )
 }
