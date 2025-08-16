@@ -45,10 +45,14 @@ import {
   XCircle,
   AlertCircle,
   Printer,
+  Download,
+  Ticket,
+  CalendarIcon,
 } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/components/ui/use-toast"
 import type { Hall } from "@/types/hall"
+import Image from "next/image"
 
 // Define types for events fetched from the database
 interface Event {
@@ -108,6 +112,7 @@ interface Booking {
   paymentMethod: string
   createdAt: string
   updatedAt: string
+  bookingCode?: string
 }
 
 type EventType = "movie" | "match"
@@ -2430,73 +2435,198 @@ export default function AdminDashboard() {
 
         {/* Receipt Print Dialog */}
         <Dialog open={isPrintReceiptOpen} onOpenChange={setIsPrintReceiptOpen}>
-          <DialogContent className="bg-glass-white-strong backdrop-blur-xl border border-white/20 max-w-md">
-            <DialogHeader>
-              <DialogTitle className="text-white">Booking Receipt</DialogTitle>
+          <DialogContent className="bg-glass-white-strong backdrop-blur-xl border border-white/20 max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader className="print:hidden">
+              <DialogTitle className="text-white text-xl">Booking Receipt</DialogTitle>
             </DialogHeader>
             {selectedBooking && (
-              <div className="space-y-4 py-4">
-                <div className="text-center border-b border-white/20 pb-4">
-                  <h3 className="text-lg font-bold text-white">Dex View Cinema</h3>
-                  <p className="text-sm text-cyber-slate-400">Booking Confirmation</p>
+              <div className="py-4">
+                <div
+                  className="receipt-content bg-white text-black p-6 rounded-lg shadow-md print:shadow-none print:p-0 print:rounded-none"
+                  id="admin-receipt-print-area"
+                >
+                  <div className="text-center mb-6">
+                    <Image
+                      src="/dexcinema-logo.jpeg"
+                      alt="Dex View Cinema Logo"
+                      width={120}
+                      height={120}
+                      className="mx-auto mb-4 w-24 h-24"
+                      crossOrigin="anonymous"
+                    />
+                    <h1 className="text-2xl font-bold text-brand-red-600 mb-2">Dex View Cinema</h1>
+                    <p className="text-base text-gray-600">Premium Entertainment Experience</p>
+                    <div className="border-b-2 border-brand-red-600 mt-4"></div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <div>
+                      <h3 className="font-bold text-lg mb-3 text-brand-red-600">Customer Information</h3>
+                      <div className="space-y-2">
+                        <p className="break-words">
+                          <strong>Name:</strong> {selectedBooking.customerName}
+                        </p>
+                        <p className="break-all">
+                          <strong>Email:</strong> {selectedBooking.customerEmail}
+                        </p>
+                        <p>
+                          <strong>Phone:</strong> {selectedBooking.customerPhone}
+                        </p>
+                      </div>
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-lg mb-3 text-brand-red-600">Booking Details</h3>
+                      <div className="space-y-2">
+                        <p className="break-all">
+                          <strong>Booking Code:</strong> {selectedBooking.bookingCode || selectedBooking._id}
+                        </p>
+                        <p>
+                          <strong>Date:</strong> {selectedBooking.bookingDate}
+                        </p>
+                        <p>
+                          <strong>Time:</strong> {selectedBooking.bookingTime}
+                        </p>
+                        <p>
+                          <strong>Payment:</strong> {selectedBooking.paymentMethod}
+                        </p>
+                        <p>
+                          <strong>Status:</strong>{" "}
+                          <span
+                            className={`font-semibold ${
+                              selectedBooking.status === "confirmed" ? "text-green-600" : "text-yellow-600"
+                            }`}
+                          >
+                            {selectedBooking.status.toUpperCase()}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mb-6">
+                    <h3 className="font-bold text-lg mb-3 text-brand-red-600">Event Information</h3>
+                    <div className="space-y-3">
+                      <p className="flex items-start gap-2">
+                        <Ticket className="w-5 h-5 text-brand-red-500 mt-0.5 flex-shrink-0" />
+                        <span className="break-words">
+                          <strong>Event:</strong> {selectedBooking.eventTitle} (
+                          {selectedBooking.eventType === "match" ? "Sports Match" : "Movie"})
+                        </span>
+                      </p>
+                      <p className="flex items-start gap-2">
+                        <Ticket className="w-5 h-5 text-brand-red-500 mt-0.5 flex-shrink-0" />
+                        <span className="break-words">
+                          <strong>Seats:</strong>{" "}
+                          {selectedBooking.seats
+                            .map((seatId: string) => (seatId.includes("-") ? seatId.split("-")[1] : seatId))
+                            .join(", ")}{" "}
+                          ({selectedBooking.seatType})
+                        </span>
+                      </p>
+                      <p className="flex items-start gap-2">
+                        <CalendarIcon className="w-5 h-5 text-brand-red-500 mt-0.5 flex-shrink-0" />
+                        <span>
+                          <strong>Event Date:</strong> {new Date(selectedBooking.bookingDate).toLocaleDateString()}
+                        </span>
+                      </p>
+                      <p className="flex items-start gap-2">
+                        <Clock className="w-5 h-5 text-brand-red-500 mt-0.5 flex-shrink-0" />
+                        <span>
+                          <strong>Event Time:</strong> {selectedBooking.bookingTime}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="border-t-2 border-gray-300 pt-4 mb-6">
+                    <h3 className="font-bold text-lg mb-3 text-brand-red-600">Payment Summary</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span>Base Amount:</span>
+                        <span className="font-semibold">₦{selectedBooking.amount.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between font-bold text-lg border-t border-gray-300 pt-2">
+                        <span>Total Amount:</span>
+                        <span>₦{selectedBooking.totalAmount.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-center text-sm text-gray-500 border-t border-gray-300 pt-4">
+                    <p className="mb-1">Thank you for choosing Dex View Cinema!</p>
+                    <p className="mb-2">For support, email us at support@dexviewcinema.com or call 08139614950</p>
+                    <p>Developed by SydaTech - www.sydatech.com.ng</p>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-cyber-slate-300">Booking ID:</span>
-                    <span className="text-white font-mono text-sm">{selectedBooking._id.slice(-8)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-cyber-slate-300">Customer:</span>
-                    <span className="text-white">{selectedBooking.customerName}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-cyber-slate-300">Event:</span>
-                    <span className="text-white">{selectedBooking.eventTitle}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-cyber-slate-300">Seats:</span>
-                    <span className="text-white">{selectedBooking.seats.join(", ")}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-cyber-slate-300">Date:</span>
-                    <span className="text-white">{new Date(selectedBooking.bookingDate).toLocaleDateString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-cyber-slate-300">Time:</span>
-                    <span className="text-white">{selectedBooking.bookingTime}</span>
-                  </div>
-                </div>
+                <div className="flex justify-end gap-2 mt-6 print:hidden">
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsPrintReceiptOpen(false)}
+                    className="border-white/20 text-cyber-slate-300"
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    onClick={async () => {
+                      try {
+                        const element = document.getElementById("admin-receipt-print-area")
+                        if (!element) return
 
-                <div className="border-t border-white/20 pt-4">
-                  <div className="flex justify-between font-bold text-lg">
-                    <span className="text-white">Total:</span>
-                    <span className="text-cyber-green-400">₦{selectedBooking.totalAmount.toLocaleString()}</span>
-                  </div>
-                </div>
+                        const html2canvas = (await import("html2canvas")).default
+                        const jsPDF = (await import("jspdf")).default
 
-                <div className="text-center text-xs text-cyber-slate-400 border-t border-white/20 pt-4">
-                  <p>Thank you for choosing Dex View Cinema!</p>
-                  <p>Please arrive 15 minutes before showtime.</p>
+                        const canvas = await html2canvas(element, {
+                          scale: 2,
+                          useCORS: true,
+                          backgroundColor: "#ffffff",
+                          allowTaint: true,
+                          foreignObjectRendering: true,
+                          logging: false,
+                        })
+
+                        const imgData = canvas.toDataURL("image/png")
+                        const pdf = new jsPDF("p", "mm", "a4")
+                        const pdfWidth = pdf.internal.pageSize.getWidth()
+                        const pdfHeight = pdf.internal.pageSize.getHeight()
+
+                        const imgWidth = pdfWidth
+                        const imgHeight = (canvas.height * imgWidth) / canvas.width
+
+                        let heightLeft = imgHeight
+                        let position = 0
+
+                        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight)
+                        heightLeft -= pdfHeight
+
+                        while (heightLeft > 0) {
+                          position = heightLeft - imgHeight
+                          pdf.addPage()
+                          pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight)
+                          heightLeft -= pdfHeight
+                        }
+
+                        const fileName = `dex-view-cinema-${selectedBooking.bookingCode || selectedBooking._id}.pdf`
+                        pdf.save(fileName)
+                      } catch (error) {
+                        console.error("Failed to generate PDF:", error)
+                      }
+                    }}
+                    className="bg-gradient-to-r from-cyber-green-500 to-cyber-green-600 text-white"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download PDF
+                  </Button>
+                  <Button
+                    onClick={() => window.print()}
+                    className="bg-gradient-to-r from-cyber-blue-500 to-cyber-blue-600 text-white"
+                  >
+                    <Printer className="w-4 h-4 mr-2" />
+                    Print
+                  </Button>
                 </div>
               </div>
             )}
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setIsPrintReceiptOpen(false)}
-                className="border-white/20 text-cyber-slate-300"
-              >
-                Close
-              </Button>
-              <Button
-                onClick={() => window.print()}
-                className="bg-gradient-to-r from-cyber-blue-500 to-cyber-blue-600 text-white"
-              >
-                <Printer className="w-4 h-4 mr-2" />
-                Print
-              </Button>
-            </div>
           </DialogContent>
         </Dialog>
 
