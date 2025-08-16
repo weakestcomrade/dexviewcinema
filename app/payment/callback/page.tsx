@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { CheckCircle, XCircle, Loader2 } from "lucide-react"
 
-export default function PaymentCallbackPage() {
+function PaymentCallbackPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [status, setStatus] = useState<"loading" | "success" | "failed">("loading")
@@ -120,3 +120,7 @@ export default function PaymentCallbackPage() {
     </div>
   )
 }
+
+PaymentCallbackPage.displayName = "PaymentCallbackPage"
+
+export default PaymentCallbackPage
