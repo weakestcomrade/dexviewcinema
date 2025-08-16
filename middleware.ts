@@ -7,7 +7,11 @@ export default withAuth(
   {
     callbacks: {
       authorized: ({ token, req }) => {
-        // Protect admin routes
+        if (req.nextUrl.pathname === "/admin/login" || req.nextUrl.pathname === "/admin/signup") {
+          return true
+        }
+
+        // Protect other admin routes
         if (req.nextUrl.pathname.startsWith("/admin")) {
           return token?.role === "admin"
         }
