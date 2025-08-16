@@ -4,206 +4,6 @@ import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 import { getNextSequence, formatBookingCode } from "@/lib/sequences"
 
-/**
- * Verify Paystack payment and create booking.
- * Now resilient to payments document shape:
- * - Reads top-level fields first, then falls back to payment.metadata.
- * - Does NOT fail if event is missing in DB; proceeds with metadata values.
- * - processingFee removed (always 0). Totals match Paystack charge exactly.
- * - Generates a human-friendly bookingCode (e.g., DEX000123).
- */
-export async function POST(request: Request) {
-  try {
-    console.log("[v0] Starting payment verification process")
-
-    const { db } = await connectToDatabase()
-    console.log("[v0] Database connected successfully")
-
-    const paystack = new PaystackService()
-    console.log("[v0] PaystackService initialized")
-
-    const { reference } = await request.json()
-    console.log("[v0] Received reference:", reference)
-
-    if (!reference) {
-      console.log("[v0] ERROR: No reference provided")
-      return NextResponse.json({ status: false, message: "Payment reference is required" }, { status: 400 })
-    }
-
-    // 1) Verify with Paystack
-    console.log("[v0] Step 1: Verifying with Paystack...")
-    const pstack = await paystack.verifyPayment(reference)
-    console.log("[v0] Paystack response:", JSON.stringify(pstack, null, 2))
-
-    if (!pstack?.status || pstack.data?.status !== "success") {
-      console.log("[v0] ERROR: Paystack verification failed", pstack)
-      return NextResponse.json({ status: false, message: "Payment verification failed with Paystack" }, { status: 400 })
-    }
-    const paidAmountInNaira = (pstack.data.amount || 0) / 100
-    console.log("[v0] Paid amount in Naira:", paidAmountInNaira)
-
-    // 2) Load payment record
-    console.log("[v0] Step 2: Loading payment record...")
-    const payment = await db.collection("payments").findOne({ reference })
-    console.log("[v0] Payment record found:", payment ? "YES" : "NO")
-
-    if (!payment) {
-      console.log("[v0] ERROR: Payment record not found in database")
-      return NextResponse.json({ status: false, message: "Payment record not found" }, { status: 404 })
-    }
-
-    // If already processed, return existing booking
-    if (payment.status === "confirmed") {
-      console.log("[v0] Payment already confirmed, looking for existing booking...")
-      const existing = await db.collection("bookings").findOne({ paymentReference: reference })
-      if (existing) {
-        console.log("[v0] Found existing booking:", existing._id)
-        return NextResponse.json({
-          status: true,
-          message: "Payment already processed",
-          data: { bookingId: String(existing._id) },
-        })
-      }
-    }
-
-    // 3) Extract details with metadata fallback
-    console.log("[v0] Step 3: Extracting payment details...")
-    const meta = payment.metadata || {}
-    const eventIdStr: string | undefined = payment.eventId || meta.eventId
-    const eventTitle: string | undefined = payment.eventTitle || meta.eventTitle
-    const eventType: string | undefined = payment.eventType || meta.eventType || "movie"
-    const seats: string[] = payment.seats || meta.seats || []
-    const seatType: string | undefined = payment.seatType || meta.seatType || "Standard"
-    const customerName: string = payment.customerName || meta.customerName || "Valued Customer"
-    const customerEmail: string = payment.email || meta.email || ""
-    const customerPhone: string = payment.customerPhone || meta.customerPhone || ""
-    const baseAmount: number =
-      payment.baseAmount ?? meta.baseAmount ?? meta.amount ?? payment.amount ?? paidAmountInNaira
-    const totalAmount: number = payment.totalAmount ?? meta.totalAmount ?? payment.amount ?? paidAmountInNaira
-    const bookingDate: string = meta.bookingDate || new Date().toISOString().split("T")[0]
-    const bookingTime: string = meta.bookingTime || new Date().toTimeString().split(" ")[0].substring(0, 5)
-
-    console.log("[v0] Extracted details:", {
-      eventIdStr,
-      eventTitle,
-      eventType,
-      seats,
-      seatType,
-      customerName,
-      customerEmail,
-      baseAmount,
-      totalAmount,
-    })
-
-    // 4) Amount sanity check (allow tiny diff)
-    if (Math.abs(paidAmountInNaira - totalAmount) > 0.01) {
-      console.warn("[v0] WARNING: Amount mismatch; continuing with Paystack amount as source of truth", {
-        paidAmountInNaira,
-        totalAmount,
-      })
-    }
-
-    // 5) Fetch event if possible, but don't fail if not found
-    console.log("[v0] Step 4: Fetching event details...")
-    let event: any = null
-    if (eventIdStr && ObjectId.isValid(eventIdStr)) {
-      event = await db.collection("events").findOne({ _id: new ObjectId(eventIdStr) })
-      console.log("[v0] Event found:", event ? "YES" : "NO")
-    } else {
-      console.log("[v0] Invalid or missing eventId:", eventIdStr)
-    }
-
-    // Generate booking code
-    console.log("[v0] Step 5: Generating booking code...")
-    const seq = await getNextSequence(db, "booking")
-    const bookingCode = formatBookingCode(seq, "DEX", 6)
-    console.log("[v0] Generated booking code:", bookingCode)
-
-    // 6) Compose booking payload (fall back to metadata if event missing)
-    console.log("[v0] Step 6: Creating booking data...")
-    const bookingData: any = {
-      bookingCode,
-      customerName,
-      customerEmail,
-      customerPhone,
-      eventId: event?._id || (ObjectId.isValid(eventIdStr || "") ? new ObjectId(eventIdStr!) : eventIdStr || null),
-      eventTitle: event?.title || eventTitle || "Event",
-      eventType,
-      eventDate: event?.date || bookingDate,
-      eventTime: event?.time || bookingTime,
-      seats,
-      seatType,
-      amount: baseAmount, // per your data shape; total is below
-      processingFee: 0,
-      totalAmount: paidAmountInNaira, // source of truth: Paystack
-      status: "confirmed",
-      bookingDate,
-      bookingTime,
-      paymentMethod: "paystack",
-      paymentReference: reference,
-      paystackData: pstack.data,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }
-
-    console.log("[v0] Booking data prepared:", JSON.stringify(bookingData, null, 2))
-
-    // 7) Create booking
-    console.log("[v0] Step 7: Inserting booking into database...")
-    const bookingResult = await db.collection("bookings").insertOne(bookingData)
-    console.log("[v0] Booking created with ID:", bookingResult.insertedId)
-
-    // 8) Update payment & event
-    console.log("[v0] Step 8: Updating payment status...")
-    await db
-      .collection("payments")
-      .updateOne(
-        { reference },
-        { $set: { status: "confirmed", bookingId: bookingResult.insertedId, updatedAt: new Date() } },
-      )
-
-    if (event && Array.isArray(seats) && seats.length) {
-      console.log("[v0] Step 9: Updating event booked seats...")
-      await db.collection("events").updateOne({ _id: event._id }, { $addToSet: { bookedSeats: { $each: seats } } })
-    }
-
-    // 9) Try to send confirmation email (non-blocking on failure)
-    console.log("[v0] Step 10: Attempting to send confirmation email...")
-    try {
-      const hall =
-        event && event.hall_id && ObjectId.isValid(String(event.hall_id))
-          ? await db.collection("halls").findOne({ _id: new ObjectId(String(event.hall_id)) })
-          : null
-      const createdBooking = {
-        ...bookingData,
-        _id: String(bookingResult.insertedId),
-        eventId: String(bookingData.eventId ?? eventIdStr ?? ""),
-      }
-      await sendBookingConfirmationEmail(createdBooking, event, hall)
-      console.log("[v0] Confirmation email sent successfully")
-    } catch (e) {
-      console.error("[v0] Email send error (non-blocking):", e)
-    }
-
-    console.log("[v0] Payment verification completed successfully!")
-    return NextResponse.json({
-      status: true,
-      message: "Payment verified and booking confirmed",
-      data: {
-        bookingId: String(bookingResult.insertedId),
-        reference,
-        amount: paidAmountInNaira,
-      },
-    })
-  } catch (error) {
-    console.error("[v0] Payment verification error:", error)
-    return NextResponse.json(
-      { status: false, message: "Payment verification failed", error: (error as Error).message },
-      { status: 500 },
-    )
-  }
-}
-
 // ---------------- Email helpers ----------------
 
 function generateReceiptHtml(booking: any, event: any, hall: any) {
@@ -323,5 +123,294 @@ Total: ₦${Number(booking.totalAmount || 0).toLocaleString()}`
   } catch (err) {
     console.error("Error sending booking confirmation email:", err)
     return { success: false, error: err }
+  }
+}
+
+/**
+ * Verify Paystack payment and create booking.
+ * Now resilient to payments document shape:
+ * - Reads top-level fields first, then falls back to payment.metadata.
+ * - Does NOT fail if event is missing in DB; proceeds with metadata values.
+ * - processingFee removed (always 0). Totals match Paystack charge exactly.
+ * - Generates a human-friendly bookingCode (e.g., DEX000123).
+ */
+export async function POST(request: Request) {
+  try {
+    console.log("[v0] Starting payment verification process")
+
+    let db
+    try {
+      const connection = await connectToDatabase()
+      db = connection.db
+      console.log("[v0] Database connected successfully")
+    } catch (dbError) {
+      console.error("[v0] Database connection failed:", dbError)
+      return NextResponse.json(
+        {
+          status: false,
+          message: "Database connection failed",
+          error: (dbError as Error).message,
+        },
+        { status: 500 },
+      )
+    }
+
+    let paystack
+    try {
+      paystack = new PaystackService()
+      console.log("[v0] PaystackService initialized")
+    } catch (paystackError) {
+      console.error("[v0] PaystackService initialization failed:", paystackError)
+      return NextResponse.json(
+        {
+          status: false,
+          message: "Payment service initialization failed",
+          error: (paystackError as Error).message,
+        },
+        { status: 500 },
+      )
+    }
+
+    const { reference } = await request.json()
+    console.log("[v0] Received reference:", reference)
+
+    if (!reference) {
+      console.log("[v0] ERROR: No reference provided")
+      return NextResponse.json({ status: false, message: "Payment reference is required" }, { status: 400 })
+    }
+
+    // 1) Verify with Paystack
+    console.log("[v0] Step 1: Verifying with Paystack...")
+    let pstack
+    try {
+      pstack = await paystack.verifyPayment(reference)
+      console.log("[v0] Paystack response:", JSON.stringify(pstack, null, 2))
+    } catch (paystackVerifyError) {
+      console.error("[v0] Paystack verification API call failed:", paystackVerifyError)
+      return NextResponse.json(
+        {
+          status: false,
+          message: "Payment verification with Paystack failed",
+          error: (paystackVerifyError as Error).message,
+        },
+        { status: 500 },
+      )
+    }
+
+    if (!pstack?.status || pstack.data?.status !== "success") {
+      console.log("[v0] ERROR: Paystack verification failed", pstack)
+      return NextResponse.json({ status: false, message: "Payment verification failed with Paystack" }, { status: 400 })
+    }
+    const paidAmountInNaira = (pstack.data.amount || 0) / 100
+    console.log("[v0] Paid amount in Naira:", paidAmountInNaira)
+
+    // 2) Load payment record
+    console.log("[v0] Step 2: Loading payment record...")
+    let payment
+    try {
+      payment = await db.collection("payments").findOne({ reference })
+      console.log("[v0] Payment record found:", payment ? "YES" : "NO")
+    } catch (paymentFindError) {
+      console.error("[v0] Error finding payment record:", paymentFindError)
+      return NextResponse.json(
+        {
+          status: false,
+          message: "Error accessing payment records",
+          error: (paymentFindError as Error).message,
+        },
+        { status: 500 },
+      )
+    }
+
+    if (!payment) {
+      console.log("[v0] ERROR: Payment record not found in database")
+      return NextResponse.json({ status: false, message: "Payment record not found" }, { status: 404 })
+    }
+
+    // If already processed, return existing booking
+    if (payment.status === "confirmed") {
+      console.log("[v0] Payment already confirmed, looking for existing booking...")
+      try {
+        const existing = await db.collection("bookings").findOne({ paymentReference: reference })
+        if (existing) {
+          console.log("[v0] Found existing booking:", existing._id)
+          return NextResponse.json({
+            status: true,
+            message: "Payment already processed",
+            data: { bookingId: String(existing._id) },
+          })
+        }
+      } catch (existingBookingError) {
+        console.error("[v0] Error checking existing booking:", existingBookingError)
+        // Continue with processing instead of failing
+      }
+    }
+
+    // 3) Extract details with metadata fallback
+    console.log("[v0] Step 3: Extracting payment details...")
+    const meta = payment.metadata || {}
+    const eventIdStr: string | undefined = payment.eventId || meta.eventId
+    const eventTitle: string | undefined = payment.eventTitle || meta.eventTitle
+    const eventType: string | undefined = payment.eventType || meta.eventType || "movie"
+    const seats: string[] = payment.seats || meta.seats || []
+    const seatType: string | undefined = payment.seatType || meta.seatType || "Standard"
+    const customerName: string = payment.customerName || meta.customerName || "Valued Customer"
+    const customerEmail: string = payment.email || meta.email || ""
+    const customerPhone: string = payment.customerPhone || meta.customerPhone || ""
+    const baseAmount: number =
+      payment.baseAmount ?? meta.baseAmount ?? meta.amount ?? payment.amount ?? paidAmountInNaira
+    const totalAmount: number = payment.totalAmount ?? meta.totalAmount ?? payment.amount ?? paidAmountInNaira
+    const bookingDate: string = meta.bookingDate || new Date().toISOString().split("T")[0]
+    const bookingTime: string = meta.bookingTime || new Date().toTimeString().split(" ")[0].substring(0, 5)
+
+    console.log("[v0] Extracted details:", {
+      eventIdStr,
+      eventTitle,
+      eventType,
+      seats,
+      seatType,
+      customerName,
+      customerEmail,
+      baseAmount,
+      totalAmount,
+    })
+
+    // 4) Amount sanity check (allow tiny diff)
+    if (Math.abs(paidAmountInNaira - totalAmount) > 0.01) {
+      console.warn("[v0] WARNING: Amount mismatch; continuing with Paystack amount as source of truth", {
+        paidAmountInNaira,
+        totalAmount,
+      })
+    }
+
+    // 5) Fetch event if possible, but don't fail if not found
+    console.log("[v0] Step 4: Fetching event details...")
+    let event: any = null
+    if (eventIdStr && ObjectId.isValid(eventIdStr)) {
+      event = await db.collection("events").findOne({ _id: new ObjectId(eventIdStr) })
+      console.log("[v0] Event found:", event ? "YES" : "NO")
+    } else {
+      console.log("[v0] Invalid or missing eventId:", eventIdStr)
+    }
+
+    // Generate booking code
+    console.log("[v0] Step 5: Generating booking code...")
+    let seq, bookingCode
+    try {
+      seq = await getNextSequence(db, "booking")
+      bookingCode = formatBookingCode(seq, "DEX", 6)
+      console.log("[v0] Generated booking code:", bookingCode)
+    } catch (sequenceError) {
+      console.error("[v0] Error generating booking code:", sequenceError)
+      // Fallback to timestamp-based code
+      bookingCode = `DEX${Date.now().toString().slice(-6)}`
+      console.log("[v0] Using fallback booking code:", bookingCode)
+    }
+
+    // 6) Compose booking payload (fall back to metadata if event missing)
+    console.log("[v0] Step 6: Creating booking data...")
+    const bookingData: any = {
+      bookingCode,
+      customerName,
+      customerEmail,
+      customerPhone,
+      eventId: event?._id || (ObjectId.isValid(eventIdStr || "") ? new ObjectId(eventIdStr!) : eventIdStr || null),
+      eventTitle: event?.title || eventTitle || "Event",
+      eventType,
+      eventDate: event?.date || bookingDate,
+      eventTime: event?.time || bookingTime,
+      seats,
+      seatType,
+      amount: baseAmount, // per your data shape; total is below
+      processingFee: 0,
+      totalAmount: paidAmountInNaira, // source of truth: Paystack
+      status: "confirmed",
+      bookingDate,
+      bookingTime,
+      paymentMethod: "paystack",
+      paymentReference: reference,
+      paystackData: pstack.data,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
+
+    console.log("[v0] Booking data prepared:", JSON.stringify(bookingData, null, 2))
+
+    // 7) Create booking
+    console.log("[v0] Step 7: Inserting booking into database...")
+    let bookingResult
+    try {
+      bookingResult = await db.collection("bookings").insertOne(bookingData)
+      console.log("[v0] Booking created with ID:", bookingResult.insertedId)
+    } catch (bookingInsertError) {
+      console.error("[v0] Error creating booking:", bookingInsertError)
+      return NextResponse.json(
+        {
+          status: false,
+          message: "Failed to create booking record",
+          error: (bookingInsertError as Error).message,
+        },
+        { status: 500 },
+      )
+    }
+
+    // 8) Update payment & event
+    console.log("[v0] Step 8: Updating payment status...")
+    try {
+      await db
+        .collection("payments")
+        .updateOne(
+          { reference },
+          { $set: { status: "confirmed", bookingId: bookingResult.insertedId, updatedAt: new Date() } },
+        )
+    } catch (paymentUpdateError) {
+      console.error("[v0] Error updating payment status:", paymentUpdateError)
+      // Don't fail the entire process for this
+    }
+
+    if (event && Array.isArray(seats) && seats.length) {
+      console.log("[v0] Step 9: Updating event booked seats...")
+      try {
+        await db.collection("events").updateOne({ _id: event._id }, { $addToSet: { bookedSeats: { $each: seats } } })
+      } catch (eventUpdateError) {
+        console.error("[v0] Error updating event booked seats:", eventUpdateError)
+        // Don't fail the entire process for this
+      }
+    }
+
+    // 9) Try to send confirmation email (non-blocking on failure)
+    console.log("[v0] Step 10: Attempting to send confirmation email...")
+    try {
+      const hall =
+        event && event.hall_id && ObjectId.isValid(String(event.hall_id))
+          ? await db.collection("halls").findOne({ _id: new ObjectId(String(event.hall_id)) })
+          : null
+      const createdBooking = {
+        ...bookingData,
+        _id: String(bookingResult.insertedId),
+        eventId: String(bookingData.eventId ?? eventIdStr ?? ""),
+      }
+      await sendBookingConfirmationEmail(createdBooking, event, hall)
+      console.log("[v0] Confirmation email sent successfully")
+    } catch (e) {
+      console.error("[v0] Email send error (non-blocking):", e)
+    }
+
+    console.log("[v0] Payment verification completed successfully!")
+    return NextResponse.json({
+      status: true,
+      message: "Payment verified and booking confirmed",
+      data: {
+        bookingId: String(bookingResult.insertedId),
+        reference,
+        amount: paidAmountInNaira,
+      },
+    })
+  } catch (error) {
+    console.error("[v0] Payment verification error:", error)
+    return NextResponse.json(
+      { status: false, message: "Payment verification failed", error: (error as Error).message },
+      { status: 500 },
+    )
   }
 }
