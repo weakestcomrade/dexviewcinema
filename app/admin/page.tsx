@@ -237,6 +237,7 @@ const initialNewHallState: NewHallData = {
 }
 
 type RevenueTimeFrame = "all" | "day" | "week" | "month" | "custom"
+type EventStatus = "active" | "draft" | "cancelled"
 
 export default function AdminDashboard() {
   const { data: session, status } = useSession()
@@ -2007,7 +2008,6 @@ export default function AdminDashboard() {
               <DialogDescription className="text-cyber-slate-300">Update event information</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-              {/* Same form fields as create event */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="edit-title" className="text-cyber-slate-200">
@@ -2039,7 +2039,312 @@ export default function AdminDashboard() {
                   </Select>
                 </div>
               </div>
-              {/* Add other form fields similar to create event */}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-category" className="text-cyber-slate-200">
+                    Category
+                  </Label>
+                  <Select
+                    value={newEvent.category}
+                    onValueChange={(value: EventCategory) => setNewEvent((prev) => ({ ...prev, category: value }))}
+                  >
+                    <SelectTrigger className="bg-glass-white border-white/20 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-glass-white-strong backdrop-blur-xl border-white/20">
+                      {newEvent.event_type === "movie" ? (
+                        <>
+                          <SelectItem value="Blockbuster">Blockbuster</SelectItem>
+                          <SelectItem value="Drama">Drama</SelectItem>
+                          <SelectItem value="Action">Action</SelectItem>
+                        </>
+                      ) : (
+                        <>
+                          <SelectItem value="Premium Match">Premium Match</SelectItem>
+                          <SelectItem value="Big Match">Big Match</SelectItem>
+                          <SelectItem value="Champions League">Champions League</SelectItem>
+                          <SelectItem value="Derby Match">Derby Match</SelectItem>
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="edit-hall_id" className="text-cyber-slate-200">
+                    Hall
+                  </Label>
+                  <Select
+                    value={newEvent.hall_id}
+                    onValueChange={(value) => {
+                      const selectedHall = getHallDetails(halls, value)
+                      if (selectedHall) {
+                        const pricing =
+                          selectedHall.type === "vip" ? defaultVipMoviePricing : defaultStandardMoviePricingHallA
+                        setNewEvent((prev) => ({
+                          ...prev,
+                          hall_id: value,
+                          total_seats: selectedHall.capacity,
+                          pricing,
+                        }))
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="bg-glass-white border-white/20 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-glass-white-strong backdrop-blur-xl border-white/20">
+                      {halls.map((hall) => (
+                        <SelectItem key={hall._id} value={hall._id}>
+                          {hall.name} ({hall.capacity} seats)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-event_date" className="text-cyber-slate-200">
+                    Event Date
+                  </Label>
+                  <Input
+                    id="edit-event_date"
+                    type="date"
+                    value={newEvent.event_date}
+                    onChange={(e) => setNewEvent((prev) => ({ ...prev, event_date: e.target.value }))}
+                    className="bg-glass-white border-white/20 text-white"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-event_time" className="text-cyber-slate-200">
+                    Event Time
+                  </Label>
+                  <Input
+                    id="edit-event_time"
+                    type="time"
+                    value={newEvent.event_time}
+                    onChange={(e) => setNewEvent((prev) => ({ ...prev, event_time: e.target.value }))}
+                    className="bg-glass-white border-white/20 text-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="edit-description" className="text-cyber-slate-200">
+                  Description
+                </Label>
+                <Textarea
+                  id="edit-description"
+                  value={newEvent.description}
+                  onChange={(e) => setNewEvent((prev) => ({ ...prev, description: e.target.value }))}
+                  className="bg-glass-white border-white/20 text-white"
+                  placeholder="Enter event description"
+                  rows={3}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-duration" className="text-cyber-slate-200">
+                    Duration
+                  </Label>
+                  <Input
+                    id="edit-duration"
+                    value={newEvent.duration}
+                    onChange={(e) => setNewEvent((prev) => ({ ...prev, duration: e.target.value }))}
+                    className="bg-glass-white border-white/20 text-white"
+                    placeholder="e.g., 120 minutes"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-image_url" className="text-cyber-slate-200">
+                    Image URL
+                  </Label>
+                  <Input
+                    id="edit-image_url"
+                    value={newEvent.image_url}
+                    onChange={(e) => setNewEvent((prev) => ({ ...prev, image_url: e.target.value }))}
+                    className="bg-glass-white border-white/20 text-white"
+                    placeholder="Enter image URL"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="edit-status" className="text-cyber-slate-200">
+                  Status
+                </Label>
+                <Select
+                  value={newEvent.status}
+                  onValueChange={(value: EventStatus) => setNewEvent((prev) => ({ ...prev, status: value }))}
+                >
+                  <SelectTrigger className="bg-glass-white border-white/20 text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-glass-white-strong backdrop-blur-xl border-white/20">
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="draft">Draft</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-4">
+                <Label className="text-cyber-slate-200 text-lg font-semibold">Pricing Configuration</Label>
+                {newEvent.event_type === "match" ? (
+                  getHallDetails(halls, newEvent.hall_id)?.type === "vip" ? (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="edit-vip-sofa-price" className="text-cyber-slate-200">
+                          VIP Sofa Price (₦)
+                        </Label>
+                        <Input
+                          id="edit-vip-sofa-price"
+                          type="number"
+                          value={newEvent.pricing.vipSofaSeats?.price || 0}
+                          onChange={(e) =>
+                            setNewEvent((prev) => ({
+                              ...prev,
+                              pricing: {
+                                ...prev.pricing,
+                                vipSofaSeats: { ...prev.pricing.vipSofaSeats, price: Number(e.target.value) },
+                              },
+                            }))
+                          }
+                          className="bg-glass-white border-white/20 text-white"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="edit-vip-regular-price" className="text-cyber-slate-200">
+                          VIP Regular Price (₦)
+                        </Label>
+                        <Input
+                          id="edit-vip-regular-price"
+                          type="number"
+                          value={newEvent.pricing.vipRegularSeats?.price || 0}
+                          onChange={(e) =>
+                            setNewEvent((prev) => ({
+                              ...prev,
+                              pricing: {
+                                ...prev.pricing,
+                                vipRegularSeats: { ...prev.pricing.vipRegularSeats, price: Number(e.target.value) },
+                              },
+                            }))
+                          }
+                          className="bg-glass-white border-white/20 text-white"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <Label htmlFor="edit-standard-match-price" className="text-cyber-slate-200">
+                        Standard Match Price (₦)
+                      </Label>
+                      <Input
+                        id="edit-standard-match-price"
+                        type="number"
+                        value={newEvent.pricing.standardMatchSeats?.price || 0}
+                        onChange={(e) =>
+                          setNewEvent((prev) => ({
+                            ...prev,
+                            pricing: {
+                              ...prev.pricing,
+                              standardMatchSeats: { ...prev.pricing.standardMatchSeats, price: Number(e.target.value) },
+                            },
+                          }))
+                        }
+                        className="bg-glass-white border-white/20 text-white"
+                      />
+                    </div>
+                  )
+                ) : getHallDetails(halls, newEvent.hall_id)?.type === "vip" ? (
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="edit-vip-single-price" className="text-cyber-slate-200">
+                        VIP Single Price (₦)
+                      </Label>
+                      <Input
+                        id="edit-vip-single-price"
+                        type="number"
+                        value={newEvent.pricing.vipSingle?.price || 0}
+                        onChange={(e) =>
+                          setNewEvent((prev) => ({
+                            ...prev,
+                            pricing: {
+                              ...prev.pricing,
+                              vipSingle: { ...prev.pricing.vipSingle, price: Number(e.target.value) },
+                            },
+                          }))
+                        }
+                        className="bg-glass-white border-white/20 text-white"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-vip-couple-price" className="text-cyber-slate-200">
+                        VIP Couple Price (₦)
+                      </Label>
+                      <Input
+                        id="edit-vip-couple-price"
+                        type="number"
+                        value={newEvent.pricing.vipCouple?.price || 0}
+                        onChange={(e) =>
+                          setNewEvent((prev) => ({
+                            ...prev,
+                            pricing: {
+                              ...prev.pricing,
+                              vipCouple: { ...prev.pricing.vipCouple, price: Number(e.target.value) },
+                            },
+                          }))
+                        }
+                        className="bg-glass-white border-white/20 text-white"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-vip-family-price" className="text-cyber-slate-200">
+                        VIP Family Price (₦)
+                      </Label>
+                      <Input
+                        id="edit-vip-family-price"
+                        type="number"
+                        value={newEvent.pricing.vipFamily?.price || 0}
+                        onChange={(e) =>
+                          setNewEvent((prev) => ({
+                            ...prev,
+                            pricing: {
+                              ...prev.pricing,
+                              vipFamily: { ...prev.pricing.vipFamily, price: Number(e.target.value) },
+                            },
+                          }))
+                        }
+                        className="bg-glass-white border-white/20 text-white"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <Label htmlFor="edit-standard-single-price" className="text-cyber-slate-200">
+                      Standard Single Price (₦)
+                    </Label>
+                    <Input
+                      id="edit-standard-single-price"
+                      type="number"
+                      value={newEvent.pricing.standardSingle?.price || 0}
+                      onChange={(e) =>
+                        setNewEvent((prev) => ({
+                          ...prev,
+                          pricing: {
+                            ...prev.pricing,
+                            standardSingle: { ...prev.pricing.standardSingle, price: Number(e.target.value) },
+                          },
+                        }))
+                      }
+                      className="bg-glass-white border-white/20 text-white"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
             <div className="flex justify-end gap-2">
               <Button
@@ -2049,7 +2354,10 @@ export default function AdminDashboard() {
               >
                 Cancel
               </Button>
-              <Button onClick={updateEvent} className="bg-gradient-to-r from-brand-red-500 to-brand-red-600 text-white">
+              <Button
+                onClick={updateEvent}
+                className="bg-gradient-to-r from-brand-red-500 to-brand-red-600 hover:from-brand-red-600 hover:to-brand-red-700 text-white"
+              >
                 Update Event
               </Button>
             </div>
