@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
 import { Eye, EyeOff, UserPlus, Lock, Mail } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 
 interface AdminSignupData {
   email: string
@@ -29,6 +30,7 @@ export default function AdminSignup() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter()
 
   const handleInputChange = (field: keyof AdminSignupData, value: string) => {
     setSignupData((prev) => ({
@@ -76,28 +78,40 @@ export default function AdminSignup() {
     setIsLoading(true)
 
     try {
-      // TODO: Implement actual signup API call
-      // This is a placeholder for future authentication integration
-      console.log("[v0] Admin signup data:", signupData)
+      const response = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: signupData.email,
+          password: signupData.password,
+        }),
+      })
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Signup failed")
+      }
 
       toast({
         title: "Account Created Successfully!",
-        description: "Your admin account has been created. Please wait for approval.",
+        description: "Your admin account has been created. You can now sign in.",
         variant: "default",
       })
 
-      // Reset form
       setSignupData(initialSignupState)
 
-      // TODO: Redirect to login page or dashboard after successful signup
+      setTimeout(() => {
+        window.location.href = "/admin/signin"
+      }, 1500)
     } catch (error) {
       console.error("[v0] Signup error:", error)
       toast({
         title: "Signup Failed",
-        description: "An error occurred while creating your account. Please try again.",
+        description:
+          error instanceof Error ? error.message : "An error occurred while creating your account. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -107,7 +121,6 @@ export default function AdminSignup() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-cyber-dark-900 via-cyber-dark-800 to-cyber-dark-900 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Background Effects */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-brand-red-500/20 to-cyber-purple-500/20 rounded-full blur-3xl animate-float"></div>
         <div className="absolute top-1/2 -left-40 w-80 h-80 bg-gradient-to-br from-cyber-blue-500/15 to-brand-red-500/15 rounded-full blur-3xl animate-float delay-1000"></div>
@@ -135,7 +148,6 @@ export default function AdminSignup() {
 
           <CardContent className="space-y-6">
             <form onSubmit={handleSignup} className="space-y-4">
-              {/* Email Field */}
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-cyber-slate-200 font-medium">
                   Email Address
@@ -154,7 +166,6 @@ export default function AdminSignup() {
                 </div>
               </div>
 
-              {/* Password Fields */}
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="password" className="text-cyber-slate-200 font-medium">
@@ -207,7 +218,6 @@ export default function AdminSignup() {
                 </div>
               </div>
 
-              {/* Submit Button */}
               <Button
                 type="submit"
                 disabled={isLoading}
@@ -227,15 +237,14 @@ export default function AdminSignup() {
               </Button>
             </form>
 
-            {/* Footer Links */}
             <div className="text-center space-y-4 pt-4 border-t border-white/10">
               <div className="flex flex-col space-y-2 text-sm">
-                <Link href="/admin" className="text-cyber-slate-300 hover:text-brand-red-400 transition-colors">
+                <Link href="/admin/signin" className="text-slate-300 hover:text-red-400 transition-colors">
                   Already have an account? Sign in
                 </Link>
                 <Link
                   href="/"
-                  className="text-cyber-slate-400 hover:text-white transition-colors flex items-center justify-center space-x-1"
+                  className="text-slate-400 hover:text-white transition-colors flex items-center justify-center space-x-1"
                 >
                   <UserPlus className="w-3 h-3" />
                   <span>Back to Main Site</span>

@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
 import { Eye, EyeOff, LogIn, Lock, Mail } from "lucide-react"
 import Link from "next/link"
+import { signIn } from "next-auth/react"
+import { useRouter } from "next/navigation"
 
 interface AdminSigninData {
   email: string
@@ -26,6 +28,7 @@ export default function AdminSignIn() {
   const [signinData, setSigninData] = useState<AdminSigninData>(initialSigninState)
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter()
 
   const handleInputChange = (field: keyof AdminSigninData, value: string) => {
     setSigninData((prev) => ({
@@ -64,12 +67,15 @@ export default function AdminSignIn() {
     setIsLoading(true)
 
     try {
-      // TODO: Implement actual signin API call
-      // This is a placeholder for future authentication integration
-      console.log("[v0] Admin signin data:", signinData)
+      const result = await signIn("credentials", {
+        email: signinData.email,
+        password: signinData.password,
+        redirect: false,
+      })
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      if (result?.error) {
+        throw new Error("Invalid credentials")
+      }
 
       toast({
         title: "Sign In Successful!",
@@ -77,10 +83,9 @@ export default function AdminSignIn() {
         variant: "default",
       })
 
-      // Reset form
       setSigninData(initialSigninState)
 
-      // TODO: Redirect to admin dashboard after successful signin
+      router.push("/admin")
     } catch (error) {
       console.error("[v0] Signin error:", error)
       toast({
