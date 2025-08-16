@@ -5,11 +5,27 @@ import type { Db } from "mongodb"
  * Uses a "counters" collection with documents shaped as: { _id: name, seq: number }
  */
 export async function getNextSequence(db: Db, name: string): Promise<number> {
-  const res = await db
-    .collection("counters")
-    .findOneAndUpdate({ _id: name }, { $inc: { seq: 1 } }, { upsert: true, returnDocument: "after" })
-  const seq = (res.value as any)?.seq
-  return typeof seq === "number" ? seq : 1
+  console.log(`[v0] Getting next sequence for: ${name}`)
+
+  try {
+    const res = await db
+      .collection("counters")
+      .findOneAndUpdate({ _id: name }, { $inc: { seq: 1 } }, { upsert: true, returnDocument: "after" })
+
+    const seq = (res.value as any)?.seq
+    console.log(`[v0] Sequence result for ${name}:`, { seq, hasValue: !!res.value })
+
+    if (typeof seq === "number" && seq > 0) {
+      console.log(`[v0] Generated sequence ${seq} for ${name}`)
+      return seq
+    } else {
+      console.warn(`[v0] Invalid sequence for ${name}, falling back to 1`)
+      return 1
+    }
+  } catch (error) {
+    console.error(`[v0] Error generating sequence for ${name}:`, error)
+    return 1
+  }
 }
 
 /**
@@ -17,5 +33,7 @@ export async function getNextSequence(db: Db, name: string): Promise<number> {
  * Adjust prefix or padding length to your preference.
  */
 export function formatBookingCode(seq: number, prefix = "DEX", pad = 6): string {
-  return `${prefix}${String(seq).padStart(pad, "0")}`
+  const formatted = `${prefix}${String(seq).padStart(pad, "0")}`
+  console.log(`[v0] Formatted booking code: ${formatted} (from sequence: ${seq})`)
+  return formatted
 }

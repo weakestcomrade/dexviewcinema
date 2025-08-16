@@ -18,7 +18,7 @@ async function setupCollections() {
     const db = client.db(dbName)
 
     // Create collections if they don't exist
-    const collections = ["events", "halls", "bookings", "payments"]
+    const collections = ["events", "halls", "bookings", "payments", "counters"]
 
     for (const collectionName of collections) {
       const exists = await db.listCollections({ name: collectionName }).hasNext()
@@ -28,6 +28,12 @@ async function setupCollections() {
       } else {
         console.log(`Collection already exists: ${collectionName}`)
       }
+    }
+
+    const existingBookingCounter = await db.collection("counters").findOne({ _id: "booking" })
+    if (!existingBookingCounter) {
+      await db.collection("counters").insertOne({ _id: "booking", seq: 0 })
+      console.log("Initialized booking counter starting from 0")
     }
 
     // Create indexes for better performance
@@ -47,6 +53,7 @@ async function setupCollections() {
     await db.collection("bookings").createIndex({ eventId: 1 })
     await db.collection("bookings").createIndex({ paymentReference: 1 }, { unique: true })
     await db.collection("bookings").createIndex({ createdAt: -1 })
+    await db.collection("bookings").createIndex({ bookingCode: 1 }, { unique: true })
     console.log("Created indexes for bookings collection")
 
     // Payments collection indexes
@@ -56,6 +63,9 @@ async function setupCollections() {
     await db.collection("payments").createIndex({ status: 1 })
     await db.collection("payments").createIndex({ createdAt: -1 })
     console.log("Created indexes for payments collection")
+
+    await db.collection("counters").createIndex({ _id: 1 }, { unique: true })
+    console.log("Created indexes for counters collection")
 
     console.log("MongoDB collections and indexes setup completed successfully!")
   } catch (error) {
