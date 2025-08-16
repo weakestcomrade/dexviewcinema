@@ -239,6 +239,101 @@ const initialNewHallState: NewHallData = {
 type RevenueTimeFrame = "all" | "day" | "week" | "month" | "custom"
 type EventStatus = "active" | "draft" | "cancelled"
 
+const generateVipMatchSeats = (eventPricing: any, bookedSeats: string[] = []) => {
+  const seats: Seat[] = []
+  const sofaRows = ["S1", "S2"]
+  sofaRows.forEach((row) => {
+    for (let i = 1; i <= 5; i++) {
+      const seatId = `${row}${i}`
+      seats.push({
+        id: seatId,
+        row: row,
+        number: i,
+        type: "sofa",
+        isBooked: bookedSeats.includes(seatId),
+        price: eventPricing?.vipSofaSeats?.price || 0,
+      })
+    }
+  })
+  const regularRows = ["A", "B"]
+  regularRows.forEach((row) => {
+    for (let i = 1; i <= 6; i++) {
+      const seatId = `${row}${i}`
+      seats.push({
+        id: seatId,
+        row: row,
+        number: i,
+        type: "regular",
+        isBooked: bookedSeats.includes(seatId),
+        price: eventPricing?.vipRegularSeats?.price || 0,
+      })
+    }
+  })
+  return seats
+}
+
+const generateStandardMatchSeats = (eventPricing: any, hallId: string, halls: Hall[], bookedSeats: string[] = []) => {
+  const seats: Seat[] = []
+  const totalSeats = halls.find((h) => h._id === hallId)?.capacity || 0
+  for (let i = 1; i <= totalSeats; i++) {
+    const seatId = `${hallId.toUpperCase()}-${i}`
+    seats.push({
+      id: seatId,
+      type: "standardMatch",
+      isBooked: bookedSeats.includes(seatId),
+      price: eventPricing?.standardMatchSeats?.price || 0,
+    })
+  }
+  return seats
+}
+
+const generateMovieSeats = (eventPricing: any, hallId: string, halls: Hall[], bookedSeats: string[] = []) => {
+  const seats: Seat[] = []
+  const hallType = halls.find((h) => h._id === hallId)?.type || "standard"
+  const totalSeats = halls.find((h) => h._id === hallId)?.capacity || 0
+
+  if (hallType === "vip") {
+    for (let i = 1; i <= 20; i++) {
+      const seatId = `S${i}`
+      seats.push({
+        id: seatId,
+        type: "vipSingle",
+        isBooked: bookedSeats.includes(seatId),
+        price: eventPricing?.vipSingle?.price || 0,
+      })
+    }
+    for (let i = 1; i <= 7; i++) {
+      const seatId = `C${i}`
+      seats.push({
+        id: seatId,
+        type: "vipCouple",
+        isBooked: bookedSeats.includes(seatId),
+        price: eventPricing?.vipCouple?.price || 0,
+      })
+    }
+    for (let i = 1; i <= 14; i++) {
+      const seatId = `F${i}`
+      seats.push({
+        id: seatId,
+        type: "vipFamily",
+        isBooked: bookedSeats.includes(seatId),
+        price: eventPricing?.vipFamily?.price || 0,
+      })
+    }
+  } else {
+    for (let i = 1; i <= totalSeats; i++) {
+      const seatId = `${hallId.toUpperCase()}-${i}`
+      seats.push({
+        id: seatId,
+        type: "standardSingle",
+        isBooked: bookedSeats.includes(seatId),
+        price: eventPricing?.standardSingle?.price || 0,
+      })
+    }
+  }
+  return seats
+}
+
 export default function AdminDashboard() {
   const { data: session, status } = useSession()
   const { toast } = useToast()
@@ -271,6 +366,10 @@ export default function AdminDashboard() {
   const [customRevenueEndDate, setCustomRevenueEndDate] = useState<string>("")
   const [selectedSeats, setSelectedSeats] = useState<string[]>([])
   const [availableSeats, setAvailableSeats] = useState<string[]>([])
+
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
+  const [availableSeatsMap, setAvailableSeatsMap] = useState<Seat[]>([])
+  const [selectedSeatType, setSelectedSeatType] = useState<string>("")
 
   const fetchHalls = useCallback(async () => {
     try {
@@ -436,35 +535,106 @@ export default function AdminDashboard() {
     [toast, fetchEvents],
   )
 
-  const generateAvailableSeats = useCallback((seatType: string, eventId: string) => {
-    let seats: string[] = []
+  const generateAvailableSeats = useCallback(
+    async (eventId: string) => {
+      try {
+        // Fetch the specific event to get real seat data
+        const eventRes = await fetch(`/api/events/${eventId}`)
+        if (!eventRes.ok) return
 
-    switch (seatType) {
-      case "vipSingle":
-        seats = Array.from({ length: 20 }, (_, i) => `S${i + 1}`)
-        break
-      case "vipCouple":
-        seats = Array.from({ length: 10 }, (_, i) => `C${i + 1}`)
-        break
-      case "vipFamily":
-        seats = Array.from({ length: 5 }, (_, i) => `F${i + 1}`)
-        break
-      case "standardSingle":
-        seats = Array.from({ length: 50 }, (_, i) => `HALL${eventId.slice(-1)}-${i + 1}`)
-        break
-      case "standardCouple":
-        seats = Array.from({ length: 20 }, (_, i) => `HALL${eventId.slice(-1)}-C${i + 1}`)
-        break
-      case "standardFamily":
-        seats = Array.from({ length: 10 }, (_, i) => `HALL${eventId.slice(-1)}-F${i + 1}`)
-        break
-      default:
-        seats = []
+        const eventData: Event = await eventRes.json()
+        setSelectedEvent(eventData)
+
+        const hallType = halls.find((h) => h._id === eventData.hall_id)?.type || "standard"
+
+        let seats: Seat[] = []
+        if (eventData.event_type === "match") {
+          if (hallType === "vip") {
+            seats = generateVipMatchSeats(eventData.pricing, eventData.bookedSeats)
+          } else {
+            seats = generateStandardMatchSeats(eventData.pricing, eventData.hall_id, halls, eventData.bookedSeats)
+          }
+        } else {
+          seats = generateMovieSeats(eventData.pricing, eventData.hall_id, halls, eventData.bookedSeats)
+        }
+
+        setAvailableSeatsMap(seats)
+        setSelectedSeats([])
+
+        // Auto-calculate pricing based on first available seat
+        const firstAvailableSeat = seats.find((s) => !s.isBooked)
+        if (firstAvailableSeat) {
+          setNewBooking((prev) => ({
+            ...prev,
+            amount: firstAvailableSeat.price,
+            totalAmount: firstAvailableSeat.price + prev.processingFee,
+          }))
+        }
+      } catch (error) {
+        console.error("Failed to fetch event seat data:", error)
+      }
+    },
+    [halls],
+  )
+
+  const handleSeatClick = (seatId: string, seatType: string, isBooked: boolean, price: number) => {
+    if (isBooked) return
+
+    // Check if mixing seat types
+    if (selectedSeats.length > 0 && selectedSeatType !== seatType) {
+      toast({
+        title: "Seat Selection Conflict",
+        description: `Please select only ${getSeatTypeName(selectedSeatType)} seats for consistency.`,
+        variant: "destructive",
+      })
+      return
     }
 
-    setAvailableSeats(seats)
-    setSelectedSeats([])
-  }, [])
+    let newSelectedSeats: string[]
+    if (selectedSeats.includes(seatId)) {
+      newSelectedSeats = selectedSeats.filter((id) => id !== seatId)
+      if (newSelectedSeats.length === 0) setSelectedSeatType("")
+    } else {
+      newSelectedSeats = [...selectedSeats, seatId]
+      setSelectedSeatType(seatType)
+    }
+
+    setSelectedSeats(newSelectedSeats)
+
+    // Update pricing based on selected seats
+    const totalAmount = newSelectedSeats.reduce((sum, id) => {
+      const seat = availableSeatsMap.find((s) => s.id === id)
+      return sum + (seat?.price || 0)
+    }, 0)
+
+    setNewBooking((prev) => ({
+      ...prev,
+      amount: totalAmount,
+      totalAmount: totalAmount + prev.processingFee,
+      seatType: seatType,
+    }))
+  }
+
+  const getSeatTypeName = (type: string) => {
+    switch (type) {
+      case "sofa":
+        return "VIP Sofa"
+      case "regular":
+        return "VIP Regular"
+      case "vipSingle":
+        return "VIP Single"
+      case "vipCouple":
+        return "VIP Couple"
+      case "vipFamily":
+        return "VIP Family"
+      case "standardSingle":
+        return "Standard Single"
+      case "standardMatch":
+        return "Standard Match"
+      default:
+        return "Seat"
+    }
+  }
 
   const createBooking = useCallback(async () => {
     try {
@@ -1432,9 +1602,7 @@ export default function AdminDashboard() {
                                     eventTitle: selectedEvent.title,
                                     eventType: selectedEvent.event_type,
                                   }))
-                                  if (newBooking.seatType) {
-                                    generateAvailableSeats(newBooking.seatType, value)
-                                  }
+                                  generateAvailableSeats(value)
                                 }
                               }}
                             >
@@ -1447,35 +1615,6 @@ export default function AdminDashboard() {
                                     {event.title} - {new Date(event.event_date).toLocaleDateString()}
                                   </SelectItem>
                                 ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label htmlFor="seatType" className="text-cyber-slate-200">
-                              Seat Type
-                            </Label>
-                            <Select
-                              value={newBooking.seatType}
-                              onValueChange={(value) => {
-                                setNewBooking((prev) => ({ ...prev, seatType: value }))
-                                if (newBooking.eventId) {
-                                  generateAvailableSeats(value, newBooking.eventId)
-                                }
-                              }}
-                            >
-                              <SelectTrigger className="bg-glass-white border-white/20 text-white">
-                                <SelectValue placeholder="Select seat type" />
-                              </SelectTrigger>
-                              <SelectContent className="bg-glass-white-strong backdrop-blur-xl border-white/20">
-                                <SelectItem value="vipSingle">VIP Single</SelectItem>
-                                <SelectItem value="vipCouple">VIP Couple</SelectItem>
-                                <SelectItem value="vipFamily">VIP Family</SelectItem>
-                                <SelectItem value="standardSingle">Standard Single</SelectItem>
-                                <SelectItem value="standardCouple">Standard Couple</SelectItem>
-                                <SelectItem value="standardFamily">Standard Family</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
@@ -1496,37 +1635,308 @@ export default function AdminDashboard() {
                                 }))
                               }}
                               className="bg-glass-white border-white/20 text-white"
-                              placeholder="Enter amount"
+                              placeholder="Amount will be calculated"
+                              readOnly
                             />
                           </div>
                         </div>
 
-                        {availableSeats.length > 0 && (
-                          <div>
-                            <Label className="text-cyber-slate-200">
-                              Select Seats ({selectedSeats.length} selected)
+                        {selectedEvent && availableSeatsMap.length > 0 && (
+                          <div className="space-y-4">
+                            <Label className="text-cyber-slate-200 text-lg font-semibold">
+                              Select Seats -{" "}
+                              {halls.find((h) => h._id === selectedEvent.hall_id)?.name || selectedEvent.hall_id}
                             </Label>
-                            <div className="grid grid-cols-8 gap-2 p-4 bg-glass-white/10 rounded-lg max-h-40 overflow-y-auto">
-                              {availableSeats.map((seat) => (
-                                <Button
-                                  key={seat}
-                                  type="button"
-                                  variant={selectedSeats.includes(seat) ? "default" : "outline"}
-                                  size="sm"
-                                  className={`text-xs ${
-                                    selectedSeats.includes(seat)
-                                      ? "bg-brand-red-500 text-white"
-                                      : "bg-glass-white border-white/20 text-cyber-slate-300"
-                                  }`}
-                                  onClick={() => {
-                                    setSelectedSeats((prev) =>
-                                      prev.includes(seat) ? prev.filter((s) => s !== seat) : [...prev, seat],
-                                    )
-                                  }}
-                                >
-                                  {seat}
-                                </Button>
-                              ))}
+
+                            {/* Screen/Field indicator */}
+                            <div className="bg-gradient-to-r from-brand-red-100/20 via-brand-red-50/20 to-brand-red-100/20 text-white text-center py-4 rounded-3xl border border-brand-red-500/30">
+                              <span className="text-sm font-bold">
+                                {selectedEvent.event_type === "match"
+                                  ? "🏟️ FOOTBALL FIELD VIEW 🏟️"
+                                  : "🎬 PREMIUM SCREEN VIEW 🎬"}
+                              </span>
+                            </div>
+
+                            {/* Real seat map */}
+                            <div className="bg-glass-white/10 p-4 rounded-lg max-h-96 overflow-y-auto">
+                              {selectedEvent.event_type === "match" ? (
+                                halls.find((h) => h._id === selectedEvent.hall_id)?.type === "vip" ? (
+                                  <div className="space-y-6">
+                                    {/* VIP Sofa Seats */}
+                                    <div>
+                                      <h4 className="text-sm font-bold text-brand-red-300 mb-3">VIP Sofa Seats</h4>
+                                      <div className="space-y-3">
+                                        {["S1", "S2"].map((row) => (
+                                          <div key={row} className="flex items-center gap-3">
+                                            <div className="w-6 text-center font-bold text-brand-red-400 text-sm">
+                                              {row}
+                                            </div>
+                                            <div className="flex gap-2">
+                                              {availableSeatsMap
+                                                .filter((seat) => seat.row === row && seat.type === "sofa")
+                                                .map((seat) => (
+                                                  <button
+                                                    key={seat.id}
+                                                    type="button"
+                                                    onClick={() =>
+                                                      handleSeatClick(seat.id, seat.type, seat.isBooked, seat.price)
+                                                    }
+                                                    disabled={seat.isBooked}
+                                                    className={`
+                                                      w-12 h-10 rounded-2xl border-2 text-xs font-bold transition-all duration-200 flex items-center justify-center
+                                                      ${
+                                                        seat.isBooked
+                                                          ? "bg-red-100/20 text-red-400/60 border-red-300/30 cursor-not-allowed"
+                                                          : selectedSeats.includes(seat.id)
+                                                            ? "bg-brand-red-500 text-white border-brand-red-400"
+                                                            : "bg-glass-white text-cyber-slate-300 border-white/30 hover:border-brand-red-400/50"
+                                                      }
+                                                    `}
+                                                  >
+                                                    🛋️
+                                                  </button>
+                                                ))}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+
+                                    {/* VIP Regular Seats */}
+                                    <div>
+                                      <h4 className="text-sm font-bold text-cyber-blue-300 mb-3">VIP Regular Seats</h4>
+                                      <div className="space-y-3">
+                                        {["A", "B"].map((row) => (
+                                          <div key={row} className="flex items-center gap-3">
+                                            <div className="w-6 text-center font-bold text-cyber-blue-400 text-sm">
+                                              {row}
+                                            </div>
+                                            <div className="flex gap-2">
+                                              {availableSeatsMap
+                                                .filter((seat) => seat.row === row && seat.type === "regular")
+                                                .map((seat) => (
+                                                  <button
+                                                    key={seat.id}
+                                                    type="button"
+                                                    onClick={() =>
+                                                      handleSeatClick(seat.id, seat.type, seat.isBooked, seat.price)
+                                                    }
+                                                    disabled={seat.isBooked}
+                                                    className={`
+                                                      w-12 h-10 rounded-2xl border-2 text-xs font-bold transition-all duration-200
+                                                      ${
+                                                        seat.isBooked
+                                                          ? "bg-red-100/20 text-red-400/60 border-red-300/30 cursor-not-allowed"
+                                                          : selectedSeats.includes(seat.id)
+                                                            ? "bg-cyber-blue-500 text-white border-cyber-blue-400"
+                                                            : "bg-glass-white text-cyber-slate-300 border-white/30 hover:border-cyber-blue-400/50"
+                                                      }
+                                                    `}
+                                                  >
+                                                    {seat.number}
+                                                  </button>
+                                                ))}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  // Standard Match Seats
+                                  <div>
+                                    <h4 className="text-sm font-bold text-cyber-green-300 mb-3">
+                                      Standard Match Seats
+                                    </h4>
+                                    <div className="grid grid-cols-8 gap-2">
+                                      {availableSeatsMap
+                                        .filter((seat) => seat.type === "standardMatch")
+                                        .map((seat) => (
+                                          <button
+                                            key={seat.id}
+                                            type="button"
+                                            onClick={() =>
+                                              handleSeatClick(seat.id, seat.type, seat.isBooked, seat.price)
+                                            }
+                                            disabled={seat.isBooked}
+                                            className={`
+                                              w-10 h-10 rounded-xl border-2 text-xs font-bold transition-all duration-200
+                                              ${
+                                                seat.isBooked
+                                                  ? "bg-red-100/20 text-red-400/60 border-red-300/30 cursor-not-allowed"
+                                                  : selectedSeats.includes(seat.id)
+                                                    ? "bg-cyber-green-500 text-white border-cyber-green-400"
+                                                    : "bg-glass-white text-cyber-slate-300 border-white/30 hover:border-cyber-green-400/50"
+                                              }
+                                            `}
+                                          >
+                                            {seat.id.split("-")[1]}
+                                          </button>
+                                        ))}
+                                    </div>
+                                  </div>
+                                )
+                              ) : // Movie seats
+                              halls.find((h) => h._id === selectedEvent.hall_id)?.type === "vip" ? (
+                                <div className="space-y-6">
+                                  {/* VIP Single Seats */}
+                                  <div>
+                                    <h4 className="text-sm font-bold text-cyber-green-300 mb-3">VIP Single Seats</h4>
+                                    <div className="grid grid-cols-10 gap-2">
+                                      {availableSeatsMap
+                                        .filter((seat) => seat.type === "vipSingle")
+                                        .map((seat) => (
+                                          <button
+                                            key={seat.id}
+                                            type="button"
+                                            onClick={() =>
+                                              handleSeatClick(seat.id, seat.type, seat.isBooked, seat.price)
+                                            }
+                                            disabled={seat.isBooked}
+                                            className={`
+                                                w-10 h-10 rounded-xl border-2 text-xs font-bold transition-all duration-200
+                                                ${
+                                                  seat.isBooked
+                                                    ? "bg-red-100/20 text-red-400/60 border-red-300/30 cursor-not-allowed"
+                                                    : selectedSeats.includes(seat.id)
+                                                      ? "bg-cyber-green-500 text-white border-cyber-green-400"
+                                                      : "bg-glass-white text-cyber-slate-300 border-white/30 hover:border-cyber-green-400/50"
+                                                }
+                                              `}
+                                          >
+                                            {seat.id}
+                                          </button>
+                                        ))}
+                                    </div>
+                                  </div>
+
+                                  {/* VIP Couple Seats */}
+                                  <div>
+                                    <h4 className="text-sm font-bold text-cyber-purple-300 mb-3">VIP Couple Seats</h4>
+                                    <div className="grid grid-cols-7 gap-3">
+                                      {availableSeatsMap
+                                        .filter((seat) => seat.type === "vipCouple")
+                                        .map((seat) => (
+                                          <button
+                                            key={seat.id}
+                                            type="button"
+                                            onClick={() =>
+                                              handleSeatClick(seat.id, seat.type, seat.isBooked, seat.price)
+                                            }
+                                            disabled={seat.isBooked}
+                                            className={`
+                                                w-16 h-10 rounded-2xl border-2 text-xs font-bold transition-all duration-200 flex items-center justify-center
+                                                ${
+                                                  seat.isBooked
+                                                    ? "bg-red-100/20 text-red-400/60 border-red-300/30 cursor-not-allowed"
+                                                    : selectedSeats.includes(seat.id)
+                                                      ? "bg-cyber-purple-500 text-white border-cyber-purple-400"
+                                                      : "bg-glass-white text-cyber-slate-300 border-white/30 hover:border-cyber-purple-400/50"
+                                                }
+                                              `}
+                                          >
+                                            💕{seat.id.replace("C", "")}
+                                          </button>
+                                        ))}
+                                    </div>
+                                  </div>
+
+                                  {/* VIP Family Seats */}
+                                  <div>
+                                    <h4 className="text-sm font-bold text-brand-red-300 mb-3">VIP Family Seats</h4>
+                                    <div className="grid grid-cols-7 gap-3">
+                                      {availableSeatsMap
+                                        .filter((seat) => seat.type === "vipFamily")
+                                        .map((seat) => (
+                                          <button
+                                            key={seat.id}
+                                            type="button"
+                                            onClick={() =>
+                                              handleSeatClick(seat.id, seat.type, seat.isBooked, seat.price)
+                                            }
+                                            disabled={seat.isBooked}
+                                            className={`
+                                                w-20 h-12 rounded-2xl border-2 text-xs font-bold transition-all duration-200 flex items-center justify-center
+                                                ${
+                                                  seat.isBooked
+                                                    ? "bg-red-100/20 text-red-400/60 border-red-300/30 cursor-not-allowed"
+                                                    : selectedSeats.includes(seat.id)
+                                                      ? "bg-brand-red-500 text-white border-brand-red-400"
+                                                      : "bg-glass-white text-cyber-slate-300 border-white/30 hover:border-brand-red-400/50"
+                                                }
+                                              `}
+                                          >
+                                            👨‍👩‍👧‍👦{seat.id.replace("F", "")}
+                                          </button>
+                                        ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                // Standard Movie Seats
+                                <div>
+                                  <h4 className="text-sm font-bold text-cyber-green-300 mb-3">Standard Seats</h4>
+                                  <div className="grid grid-cols-8 gap-2">
+                                    {availableSeatsMap
+                                      .filter((seat) => seat.type === "standardSingle")
+                                      .map((seat) => (
+                                        <button
+                                          key={seat.id}
+                                          type="button"
+                                          onClick={() => handleSeatClick(seat.id, seat.type, seat.isBooked, seat.price)}
+                                          disabled={seat.isBooked}
+                                          className={`
+                                              w-10 h-10 rounded-xl border-2 text-xs font-bold transition-all duration-200
+                                              ${
+                                                seat.isBooked
+                                                  ? "bg-red-100/20 text-red-400/60 border-red-300/30 cursor-not-allowed"
+                                                  : selectedSeats.includes(seat.id)
+                                                    ? "bg-cyber-green-500 text-white border-cyber-green-400"
+                                                    : "bg-glass-white text-cyber-slate-300 border-white/30 hover:border-cyber-green-400/50"
+                                              }
+                                            `}
+                                        >
+                                          {seat.id.split("-")[1]}
+                                        </button>
+                                      ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Legend */}
+                              <div className="flex justify-center gap-6 mt-4 text-sm">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-4 h-4 bg-glass-white border border-white/30 rounded"></div>
+                                  <span className="text-cyber-slate-300">Available</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <div className="w-4 h-4 bg-brand-red-500 border border-brand-red-400 rounded"></div>
+                                  <span className="text-cyber-slate-300">Selected</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <div className="w-4 h-4 bg-red-100/20 border border-red-300/30 rounded"></div>
+                                  <span className="text-cyber-slate-300">Occupied</span>
+                                </div>
+                              </div>
+
+                              {/* Selected seats summary */}
+                              {selectedSeats.length > 0 && (
+                                <div className="mt-4 p-3 bg-glass-white/20 rounded-lg">
+                                  <p className="text-cyber-slate-200 text-sm font-semibold mb-2">
+                                    Selected Seats ({selectedSeats.length}): {getSeatTypeName(selectedSeatType)}
+                                  </p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {selectedSeats.map((seat) => (
+                                      <span
+                                        key={seat}
+                                        className="px-2 py-1 bg-brand-red-500/20 text-brand-red-300 rounded text-xs"
+                                      >
+                                        {seat}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         )}
