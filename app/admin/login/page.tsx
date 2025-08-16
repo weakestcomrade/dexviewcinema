@@ -1,66 +1,99 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
-import { signIn } from "next-auth/react"
+import { signIn, getSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Shield, Eye, EyeOff, Loader2 } from "lucide-react"
-import { useToast } from "@/components/ui/use-toast"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Eye, EyeOff, LogIn, ArrowLeft, Shield, Loader2, AlertCircle } from "lucide-react"
 
-export const dynamic = "force-dynamic"
-export const runtime = "nodejs"
-
-export default function AdminLogin() {
-  const [username, setUsername] = useState("")
-  const [password, setPassword] = useState("")
+export default function AdminLoginPage() {
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+  })
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
   const router = useRouter()
-  const { toast } = useToast()
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }))
+    // Clear error when user starts typing
+    if (error) setError("")
+  }
+
+  const validateForm = () => {
+    if (!formData.email || !formData.password) {
+      setError("Please fill in all fields")
+      return false
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(formData.email)) {
+      setError("Please enter a valid email address")
+      return false
+    }
+
+    return true
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!validateForm()) return
+
     setIsLoading(true)
+    setError("")
 
     try {
+      console.log("[v0] Starting NextAuth login...")
+
       const result = await signIn("credentials", {
-        username,
-        password,
+        email: formData.email,
+        password: formData.password,
         redirect: false,
       })
 
+      console.log("[v0] NextAuth result:", result)
+
       if (result?.error) {
-        toast({
-          title: "Authentication Failed",
-          description: "Invalid username or password. Please try again.",
-          variant: "destructive",
-        })
-      } else {
-        toast({
-          title: "Login Successful",
-          description: "Welcome to the admin dashboard!",
-        })
-        router.push("/admin")
-        router.refresh()
+        setError("Invalid email or password")
+        setIsLoading(false)
+        return
       }
-    } catch (error) {
-      toast({
-        title: "Login Error",
-        description: "An unexpected error occurred. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
+
+      if (result?.ok) {
+        // Verify the session and role
+        const session = await getSession()
+        console.log("[v0] Session after login:", session)
+
+        if (session?.user?.role === "admin") {
+          console.log("[v0] Admin login successful, redirecting...")
+          router.push("/admin")
+        } else {
+          setError("Access denied. Admin privileges required.")
+          setIsLoading(false)
+        }
+      }
+    } catch (err) {
+      console.error("[v0] Login error:", err)
+      setError("An unexpected error occurred")
       setIsLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 relative overflow-hidden flex items-center justify-center">
+    <div className="min-h-screen bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 relative overflow-hidden">
       {/* Cyber-Glassmorphism background elements */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-brand-red-500/20 to-cyber-purple-500/20 rounded-full blur-3xl animate-float"></div>
@@ -72,38 +105,80 @@ export default function AdminLogin() {
         <div className="absolute top-1/3 left-1/3 w-16 h-16 border border-cyber-purple-500/20 rounded-full animate-pulse-slow"></div>
       </div>
 
-      <div className="relative z-10 w-full max-w-md px-4">
-        <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card">
+      {/* Header with glassmorphism */}
+      <header className="relative backdrop-blur-xl bg-glass-white border-b border-white/10 shadow-cyber-card z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-20">
+            <Link href="/" className="flex items-center space-x-4">
+              <Button variant="ghost" size="sm" className="text-cyber-slate-300 hover:bg-glass-white group">
+                <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
+                Back to Site
+              </Button>
+            </Link>
+            <div className="flex items-center space-x-4">
+              <div className="relative group">
+                <div className="w-12 h-12 bg-gradient-to-br from-brand-red-500 via-brand-red-600 to-brand-red-700 rounded-4xl flex items-center justify-center shadow-glow-red transform group-hover:scale-110 transition-all duration-300">
+                  <Shield className="w-6 h-6 text-white group-hover:rotate-12 transition-transform duration-300" />
+                </div>
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center shadow-lg">
+                  <div className="w-2 h-2 bg-brand-red-500 rounded-full animate-pulse"></div>
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-br from-brand-red-500/30 to-brand-red-600/30 rounded-4xl blur-xl animate-glow"></div>
+              </div>
+              <div>
+                <h1 className="text-xl font-bold bg-gradient-to-r from-white via-brand-red-200 to-white bg-clip-text text-transparent">
+                  Admin Login
+                </h1>
+                <p className="text-sm font-medium bg-gradient-to-r from-brand-red-400 to-brand-red-300 bg-clip-text text-transparent">
+                  Secure Access Portal
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <div className="relative flex items-center justify-center min-h-[calc(100vh-80px)] px-4 py-12">
+        <Card className="w-full max-w-md bg-glass-white-strong backdrop-blur-xl shadow-cyber-card border border-white/20 rounded-4xl">
           <CardHeader className="text-center space-y-4">
-            <div className="mx-auto w-20 h-20 bg-gradient-to-br from-brand-red-500/20 to-brand-red-600/20 rounded-full flex items-center justify-center border border-brand-red-500/30">
-              <Shield className="w-10 h-10 text-brand-red-400" />
+            <div className="mx-auto w-16 h-16 bg-gradient-to-br from-brand-red-500/20 to-brand-red-600/20 rounded-full flex items-center justify-center border border-brand-red-500/30 mb-4">
+              <LogIn className="w-8 h-8 text-brand-red-400" />
             </div>
-            <div>
-              <CardTitle className="text-2xl font-bold bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
-                Admin Login
-              </CardTitle>
-              <CardDescription className="text-cyber-slate-300 mt-2">
-                Access the Dex View Cinema admin dashboard
-              </CardDescription>
-            </div>
+            <CardTitle className="text-2xl font-bold bg-gradient-to-r from-white via-brand-red-200 to-white bg-clip-text text-transparent">
+              Welcome Back
+            </CardTitle>
+            <CardDescription className="text-cyber-slate-300 text-lg">
+              Sign in to access the admin dashboard
+            </CardDescription>
           </CardHeader>
-          <CardContent>
+
+          <CardContent className="space-y-6">
+            {error && (
+              <Alert className="bg-red-500/10 border-red-500/30 text-red-300">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="username" className="text-cyber-slate-200 font-semibold">
-                  Username
+                <Label htmlFor="email" className="text-cyber-slate-200 font-semibold">
+                  Email Address
                 </Label>
                 <Input
-                  id="username"
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Enter your username"
-                  className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
-                  required
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  placeholder="admin@dexviewcinema.com"
+                  className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl h-12 focus:border-brand-red-500/50 focus:ring-brand-red-500/20"
                   disabled={isLoading}
+                  required
                 />
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-cyber-slate-200 font-semibold">
                   Password
@@ -111,52 +186,56 @@ export default function AdminLogin() {
                 <div className="relative">
                   <Input
                     id="password"
+                    name="password"
                     type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    value={formData.password}
+                    onChange={handleInputChange}
                     placeholder="Enter your password"
-                    className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl pr-12"
-                    required
+                    className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl h-12 pr-12 focus:border-brand-red-500/50 focus:ring-brand-red-500/20"
                     disabled={isLoading}
+                    required
                   />
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0 text-cyber-slate-400 hover:text-white"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0 text-cyber-slate-400 hover:text-white hover:bg-transparent"
                     onClick={() => setShowPassword(!showPassword)}
                     disabled={isLoading}
                   >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </Button>
                 </div>
               </div>
+
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 text-white font-bold py-3 rounded-2xl shadow-lg transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                className="w-full bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 text-white shadow-glow-red rounded-2xl h-12 font-semibold text-lg transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 disabled={isLoading}
               >
                 {isLoading ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                     Signing In...
                   </>
                 ) : (
                   <>
-                    <Shield className="w-4 h-4 mr-2" />
+                    <LogIn className="w-5 h-5 mr-2" />
                     Sign In
                   </>
                 )}
               </Button>
             </form>
 
-            <div className="mt-6 p-4 bg-cyber-slate-800/50 rounded-2xl border border-white/10">
-              <p className="text-xs text-cyber-slate-300 text-center">
-                <strong>Demo Credentials:</strong>
-                <br />
-                Username: <code className="bg-cyber-slate-700/50 px-2 py-1 rounded">admin</code>
-                <br />
-                Password: <code className="bg-cyber-slate-700/50 px-2 py-1 rounded">admin123</code>
+            <div className="text-center pt-4 border-t border-white/10">
+              <p className="text-cyber-slate-400 text-sm">
+                Don't have an account?{" "}
+                <Link
+                  href="/admin/signup"
+                  className="text-brand-red-400 hover:text-brand-red-300 font-semibold hover:underline transition-colors"
+                >
+                  Sign up here
+                </Link>
               </p>
             </div>
           </CardContent>

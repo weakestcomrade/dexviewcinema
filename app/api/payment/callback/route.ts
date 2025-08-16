@@ -2,7 +2,6 @@ import { NextResponse } from "next/server"
 import { PaystackService } from "@/lib/paystack"
 import { connectToDatabase } from "@/lib/mongodb"
 
-export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 export async function GET(request: Request) {
@@ -10,9 +9,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const reference = searchParams.get("reference")
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
-
     if (!reference) {
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
       return NextResponse.redirect(new URL("/payment/failed?error=missing-reference", baseUrl))
     }
 
@@ -21,6 +19,8 @@ export async function GET(request: Request) {
 
     // Verify payment with Paystack
     const paystackResponse = await paystack.verifyPayment(reference)
+
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
 
     if (!paystackResponse.status || paystackResponse.data.status !== "success") {
       return NextResponse.redirect(new URL(`/payment/failed?reference=${reference}`, baseUrl))

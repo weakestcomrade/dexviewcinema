@@ -1,4 +1,4 @@
-import NextAuth from "next-auth"
+import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { MongoDBAdapter } from "@next-auth/mongodb-adapter"
 import { MongoClient } from "mongodb"
@@ -8,7 +8,7 @@ import { connectToDatabase } from "@/lib/mongodb"
 const client = new MongoClient(process.env.MONGODB_URI!)
 const clientPromise = Promise.resolve(client)
 
-const handler = NextAuth({
+export const authOptions: NextAuthOptions = {
   adapter: MongoDBAdapter(clientPromise),
   providers: [
     CredentialsProvider({
@@ -74,6 +74,4 @@ const handler = NextAuth({
     error: "/admin/login",
   },
   secret: process.env.NEXTAUTH_SECRET,
-})
-
-export { handler as GET, handler as POST }
+}

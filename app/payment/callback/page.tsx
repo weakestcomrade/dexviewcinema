@@ -6,10 +6,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { CheckCircle, XCircle, Loader2 } from "lucide-react"
 
-export const dynamic = "force-dynamic"
-export const runtime = "nodejs"
-
-function PaymentCallbackPage() {
+export default function PaymentCallbackPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [status, setStatus] = useState<"loading" | "success" | "failed">("loading")
@@ -123,7 +120,3 @@ function PaymentCallbackPage() {
     </div>
   )
 }
-
-PaymentCallbackPage.displayName = "PaymentCallbackPage"
-
-export default PaymentCallbackPage

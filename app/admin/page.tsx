@@ -1,33 +1,26 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { signOut } from "next-auth/react"
+import { useSession, signOut } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
-  CalendarIcon,
-  Clock,
-  Edit,
-  Eye,
-  Film,
-  Plus,
-  Trash2,
-  Trophy,
+  Settings,
   Users,
   TrendingUp,
   Shield,
@@ -35,22 +28,27 @@ import {
   Sparkles,
   BarChart3,
   Monitor,
-  MapPin,
-  Printer,
-  Filter,
-  Search,
-  ImageIcon,
   Building,
   LogOut,
+  Plus,
+  Edit,
+  Trash2,
+  Calendar,
+  Clock,
+  MapPin,
+  Search,
+  RefreshCw,
+  Mail,
+  Phone,
+  CreditCard,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  Printer,
 } from "lucide-react"
 import Link from "next/link"
-import Image from "next/image"
 import { useToast } from "@/components/ui/use-toast"
-import jsPDF from "jspdf"
-import html2canvas from "html2canvas"
-import { addDays, startOfWeek, startOfMonth, endOfWeek, endOfMonth, isWithinInterval } from "date-fns"
-import type { Hall } from "@/types/hall" // Import the new Hall type
-import AdminAuthWrapper from "@/components/admin-auth-wrapper"
+import type { Hall } from "@/types/hall"
 
 // Define types for events fetched from the database
 interface Event {
@@ -58,29 +56,28 @@ interface Event {
   title: string
   event_type: "movie" | "match"
   category: string
-  event_date: string // Assuming date comes as string from DB
-  event_time: string // Assuming time comes as string from DB
-  hall_id: string // e.g., "hallA", "hallB", "vip_hall"
+  event_date: string
+  event_time: string
+  hall_id: string
   status: "active" | "draft" | "cancelled"
-  image_url?: string // Made optional as it might not always be present
+  image_url?: string
   description?: string
   duration: string
-  total_seats: number // Total seats for the hall
+  total_seats: number
   pricing: {
     vipSofaSeats?: { price: number; count: number; available?: number }
     vipRegularSeats?: { price: number; count: number; available?: number }
     vipSingle?: { price: number; count: number; available?: number }
     vipCouple?: { price: number; count: number; available?: number }
     vipFamily?: { price: number; count: number; available?: number }
-    // New standard hall pricing
     standardSingle?: { price: number; count: number; available?: number }
     standardCouple?: { price: number; count: number; available?: number }
     standardFamily?: { price: number; count: number; available?: number }
-    standardMatchSeats?: { price: number; count: number; available?: number } // New for standard match halls
+    standardMatchSeats?: { price: number; count: number; available?: number }
   }
-  bookedSeats?: string[] // Array of booked seat IDs
-  createdAt?: string // Added for consistency with DB
-  updatedAt?: string // Added for consistency with DB
+  bookedSeats?: string[]
+  createdAt?: string
+  updatedAt?: string
 }
 
 interface Seat {
@@ -92,7 +89,6 @@ interface Seat {
   price: number
 }
 
-// Define type for actual bookings fetched from the database
 interface Booking {
   _id: string
   customerName: string
@@ -125,13 +121,13 @@ type EventCategory =
   | "Derby Match"
 
 interface NewEventData {
-  _id?: string // Optional for new events, required for editing
+  _id?: string
   title: string
   event_type: EventType
   category: EventCategory
   event_date: string
   event_time: string
-  hall_id: string // e.g., "hallA", "hallB", "vip_hall"
+  hall_id: string
   description: string
   duration: string
   total_seats: number
@@ -141,17 +137,15 @@ interface NewEventData {
     vipSingle?: { price: number; count: number }
     vipCouple?: { price: number; count: number }
     vipFamily?: { price: number; count: number }
-    // New standard hall pricing
     standardSingle?: { price: number; count: number }
     standardCouple?: { price: number; count: number }
     standardFamily?: { price: number; count: number }
-    standardMatchSeats?: { price: number; count: number } // New for standard match halls
+    standardMatchSeats?: { price: number; count: number }
   }
   status: "active" | "draft" | "cancelled"
-  image_url?: string // Added image_url to NewEventData
+  image_url?: string
 }
 
-// New interface for the Create Booking form data
 interface CreateBookingData {
   customerName: string
   customerEmail: string
@@ -159,7 +153,7 @@ interface CreateBookingData {
   eventId: string
   eventTitle: string
   eventType: "movie" | "match"
-  seats: string[] // Changed to array for internal use
+  seats: string[]
   seatType: string
   amount: number
   processingFee: number
@@ -170,26 +164,22 @@ interface CreateBookingData {
   paymentMethod: string
 }
 
-// New interface for Hall form data
 interface NewHallData {
-  _id?: string // Optional for new halls, required for editing
+  _id?: string
   name: string
   capacity: number
   type: "vip" | "standard"
 }
 
-// Helper to map hall_id to display name and total seats (for client-side generation)
 const hallMappingArray: Hall[] = [
   { _id: "hallA", name: "Hall A", capacity: 48, type: "standard" },
   { _id: "hallB", name: "Hall B", capacity: 60, type: "standard" },
   { _id: "vip_hall", name: "VIP Hall", capacity: 22, type: "vip" },
 ]
 
-// Helper to get hall details from fetched halls array, with fallback to local mapping
 const getHallDetails = (halls: Hall[], hallId: string) => {
   const foundInFetched = halls.find((hall) => hall._id === hallId)
   if (foundInFetched) return foundInFetched
-  // Fallback to local hardcoded mapping if not found in fetched halls
   return hallMappingArray.find((hall) => hall._id === hallId)
 }
 
@@ -207,59 +197,39 @@ const defaultStandardMoviePricingHallA = {
   standardSingle: { price: 2500, count: 48 },
 }
 
-const defaultStandardMoviePricingHallB = {
-  standardSingle: { price: 2500, count: 60 },
-}
-
-const defaultVipMatchPricing = {
-  vipSofaSeats: { price: 2500, count: 10 },
-  vipRegularSeats: { price: 2000, count: 12 },
-}
-
-const defaultStandardMatchPricingHallA = {
-  standardMatchSeats: { price: 1500, count: 48 },
-}
-
-const defaultStandardMatchPricingHallB = {
-  standardMatchSeats: { price: 1500, count: 60 },
-}
-
-// Initial state for new event form (will be updated dynamically after halls fetch)
 const initialNewEventState: NewEventData = {
   title: "",
   event_type: "movie",
   category: "Blockbuster",
   event_date: "",
   event_time: "",
-  hall_id: "", // Will be set dynamically
+  hall_id: "",
   description: "",
   duration: "120 minutes",
-  pricing: {}, // Will be set dynamically
-  total_seats: 0, // Will be set dynamically
+  pricing: {},
+  total_seats: 0,
   status: "active",
   image_url: "",
 }
 
-// Initial state for new booking form
 const initialNewBookingState: CreateBookingData = {
   customerName: "",
   customerEmail: "",
   customerPhone: "",
   eventId: "",
   eventTitle: "",
-  eventType: "movie", // Default, will be updated based on selected event
-  seats: [], // Now an array
+  eventType: "movie" | "match",
+  seats: [],
   seatType: "",
   amount: 0,
-  processingFee: 500, // Example fixed processing fee
+  processingFee: 500,
   totalAmount: 0,
-  status: "confirmed", // Default for cash bookings
-  bookingDate: new Date().toISOString().split("T")[0], // Current date
-  bookingTime: new Date().toTimeString().split(" ")[0].substring(0, 5), // Current time (HH:MM)
+  status: "confirmed",
+  bookingDate: new Date().toISOString().split("T")[0],
+  bookingTime: new Date().toTimeString().split(" ")[0].substring(0, 5),
   paymentMethod: "Cash",
 }
 
-// Initial state for new hall form
 const initialNewHallState: NewHallData = {
   name: "",
   capacity: 0,
@@ -268,179 +238,33 @@ const initialNewHallState: NewHallData = {
 
 type RevenueTimeFrame = "all" | "day" | "week" | "month" | "custom"
 
-// Seat layout for VIP Hall matches (10 sofa, 12 regular)
-const generateVipMatchSeats = (eventPricing: Event["pricing"], bookedSeats: string[] = []) => {
-  const seats: Seat[] = []
-  // VIP Sofa Seats (10 seats) - 2 rows of 5 each
-  const sofaRows = ["S1", "S2"]
-  sofaRows.forEach((row) => {
-    for (let i = 1; i <= 5; i++) {
-      const seatId = `${row}${i}`
-      seats.push({
-        id: seatId,
-        row: row,
-        number: i,
-        type: "sofa",
-        isBooked: bookedSeats.includes(seatId),
-        price: eventPricing?.vipSofaSeats?.price || 0,
-      })
-    }
-  })
-
-  // VIP Regular Seats (12 seats) - 2 rows of 6 each
-  const regularRows = ["A", "B"]
-  regularRows.forEach((row) => {
-    for (let i = 1; i <= 6; i++) {
-      const seatId = `${row}${i}`
-      seats.push({
-        id: seatId,
-        row: row,
-        number: i,
-        type: "regular",
-        isBooked: bookedSeats.includes(seatId),
-        price: eventPricing?.vipRegularSeats?.price || 0,
-      })
-    }
-  })
-  return seats
-}
-
-// Seat layout for Standard Hall A or Hall B matches (all single seats)
-const generateStandardMatchSeats = (
-  eventPricing: Event["pricing"],
-  hallId: string,
-  halls: Hall[],
-  bookedSeats: string[] = [],
-) => {
-  const seats: Seat[] = []
-  const totalSeats = getHallTotalSeats(halls, hallId) // Use passed halls
-  for (let i = 1; i <= totalSeats; i++) {
-    const seatId = `${hallId.toUpperCase()}-${i}`
-    seats.push({
-      id: seatId,
-      type: "standardMatch",
-      isBooked: bookedSeats.includes(seatId),
-      price: eventPricing?.standardMatchSeats?.price || 0,
-    })
-  }
-  return seats
-}
-
-// Seat layout for movies based on hall type
-const generateMovieSeats = (
-  eventPricing: Event["pricing"],
-  hallId: string,
-  halls: Hall[],
-  bookedSeats: string[] = [],
-) => {
-  const seats: Seat[] = []
-  const hallType = getHallType(halls, hallId) // Use passed halls
-  const totalSeats = getHallTotalSeats(halls, hallId) // Use passed halls
-
-  if (hallType === "vip") {
-    // VIP Movie Hall (20 single, 14 couple, 14 family)
-    // VIP Single Seats (20 seats)
-    for (let i = 1; i <= 20; i++) {
-      const seatId = `S${i}`
-      seats.push({
-        id: seatId,
-        type: "vipSingle",
-        isBooked: bookedSeats.includes(seatId),
-        price: eventPricing?.vipSingle?.price || 0,
-      })
-    }
-
-    // VIP Couple Seats (14 seats - 7 couple pods)
-    for (let i = 1; i <= 7; i++) {
-      const seatId = `C${i}`
-      seats.push({
-        id: seatId,
-        type: "vipCouple",
-        isBooked: bookedSeats.includes(seatId),
-        price: eventPricing?.vipCouple?.price || 0,
-      })
-    }
-
-    // VIP Family Seats (14 seats - 14 family sections)
-    for (let i = 1; i <= 14; i++) {
-      const seatId = `F${i}`
-      seats.push({
-        id: seatId,
-        type: "vipFamily",
-        isBooked: bookedSeats.includes(seatId),
-        price: eventPricing?.vipFamily?.price || 0,
-      })
-    }
-  } else {
-    // Standard Movie Halls (Hall A, Hall B) - all single seats
-    for (let i = 1; i <= totalSeats; i++) {
-      const seatId = `${hallId.toUpperCase()}-${i}`
-      seats.push({
-        id: seatId,
-        type: "standardSingle",
-        isBooked: bookedSeats.includes(seatId),
-        price: eventPricing?.standardSingle?.price || 0,
-      })
-    }
-  }
-  return seats
-}
-
-const getSeatTypeName = (type: string) => {
-  switch (type) {
-    case "sofa":
-      return "VIP Sofa"
-    case "regular":
-      return "VIP Regular"
-    case "vipSingle":
-      return "VIP Single"
-    case "vipCouple":
-      return "VIP Couple"
-    case "vipFamily":
-      return "VIP Family"
-    case "standardSingle":
-      return "Standard Single"
-    case "standardMatch":
-      return "Standard Match"
-    default:
-      return "Seat"
-  }
-}
-
 export default function AdminDashboard() {
+  const { data: session, status } = useSession()
   const { toast } = useToast()
+
   const [events, setEvents] = useState<Event[]>([])
-  const [actualBookings, setActualBookings] = useState<Booking[]>([]) // State for actual bookings
-  const [halls, setHalls] = useState<Hall[]>([]) // New state for halls
+  const [actualBookings, setActualBookings] = useState<Booking[]>([])
+  const [halls, setHalls] = useState<Hall[]>([])
   const [isCreateEventOpen, setIsCreateEventOpen] = useState(false)
   const [isEditEventOpen, setIsEditEventOpen] = useState(false)
   const [isPrintReceiptOpen, setIsPrintReceiptOpen] = useState(false)
-  const [isCreateBookingOpen, setIsCreateBookingOpen] = useState(false) // New state for create booking dialog
-  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null) // Use Booking type
-
+  const [isCreateBookingOpen, setIsCreateBookingOpen] = useState(false)
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   const [newEvent, setNewEvent] = useState<NewEventData>(initialNewEventState)
-  const [newBooking, setNewBooking] = useState<CreateBookingData>(initialNewBookingState) // New state for new booking form
-  const [selectedEventForBooking, setSelectedEventForBooking] = useState<Event | null>(null) // To hold the selected event object for booking
-  const [currentEventSeats, setCurrentEventSeats] = useState<Seat[]>([]) // Seats for the selected event in admin booking
-  const [selectedSeatsForAdminBooking, setSelectedSeatsForAdminBooking] = useState<string[]>([]) // Selected seats in admin booking
-
-  // New states for Hall Management
-  const [isManageHallsOpen, setIsManageHallsOpen] = useState(false) // State for Hall Management dialog
-  const [isCreateEditHallOpen, setIsCreateEditHallOpen] = useState(false) // State for Create/Edit Hall dialog
-  const [currentHall, setCurrentHall] = useState<NewHallData>(initialNewHallState) // State for the hall being created/edited
-
-  // State for reports filter
+  const [newBooking, setNewBooking] = useState<CreateBookingData>(initialNewBookingState)
+  const [selectedEventForBooking, setSelectedEventForBooking] = useState<Event | null>(null)
+  const [currentEventSeats, setCurrentEventSeats] = useState<Seat[]>([])
+  const [selectedSeatsForAdminBooking, setSelectedSeatsForAdminBooking] = useState<string[]>([])
+  const [isManageHallsOpen, setIsManageHallsOpen] = useState(false)
+  const [isCreateEditHallOpen, setIsCreateEditHallOpen] = useState(false)
+  const [currentHall, setCurrentHall] = useState<NewHallData>(initialNewHallState)
   const [reportStartDate, setReportStartDate] = useState<string>("")
   const [reportEndDate, setReportEndDate] = useState<string>("")
   const [reportEventType, setReportEventType] = useState<EventType | "all">("all")
   const [reportStatus, setReportStatus] = useState<Booking["status"] | "all">("all")
   const [selectedEventIdForReports, setSelectedEventIdForReports] = useState<string | "all">("all")
-
-  // State for bookings tab filter and search
   const [selectedEventIdForBookings, setSelectedEventIdForBookings] = useState<string | "all">("all")
   const [customerSearchQuery, setCustomerSearchQuery] = useState<string>("")
-
-  // State for revenue filter
   const [revenueTimeFrame, setRevenueTimeFrame] = useState<RevenueTimeFrame>("all")
   const [customRevenueStartDate, setCustomRevenueStartDate] = useState<string>("")
   const [customRevenueEndDate, setCustomRevenueEndDate] = useState<string>("")
@@ -453,14 +277,13 @@ export default function AdminDashboard() {
       }
       const data: Hall[] = await res.json()
       setHalls(data)
-      // Set initial new event state based on fetched halls
       if (data.length > 0 && newEvent.hall_id === "") {
-        const defaultHall = data[0] // Use the first hall as default
+        const defaultHall = data[0]
         setNewEvent((prev) => ({
           ...prev,
           hall_id: defaultHall._id,
           total_seats: defaultHall.capacity,
-          pricing: defaultHall.type === "vip" ? defaultVipMoviePricing : defaultStandardMoviePricingHallA, // Default pricing based on hall type
+          pricing: defaultHall.type === "vip" ? defaultVipMoviePricing : defaultStandardMoviePricingHallA,
         }))
       }
     } catch (error) {
@@ -480,14 +303,12 @@ export default function AdminDashboard() {
         throw new Error(`HTTP error! status: ${res.status}`)
       }
       const data: Event[] = await res.json()
-      // Placeholder for bookedSeats - in a real app, these would be calculated or fetched
-      // For now, let's simulate booked seats based on actual bookings if available
       const formattedEvents = data.map((event) => {
         const bookingsForEvent = actualBookings.filter((booking) => booking.eventId === event._id)
         const bookedSeatIds = bookingsForEvent.flatMap((booking) => booking.seats)
         return {
           ...event,
-          bookedSeats: bookedSeatIds, // Store actual booked seat IDs
+          bookedSeats: bookedSeatIds,
         }
       })
       setEvents(formattedEvents)
@@ -499,7 +320,7 @@ export default function AdminDashboard() {
         variant: "destructive",
       })
     }
-  }, [actualBookings, toast]) // Depend on actualBookings to update bookedSeats
+  }, [actualBookings, toast])
 
   const fetchBookings = useCallback(async () => {
     try {
@@ -520,978 +341,285 @@ export default function AdminDashboard() {
   }, [toast])
 
   useEffect(() => {
-    fetchHalls() // Fetch halls first
+    fetchHalls()
   }, [fetchHalls])
 
   useEffect(() => {
-    fetchBookings() // Fetch bookings first
+    fetchBookings()
   }, [fetchBookings])
 
   useEffect(() => {
     if (actualBookings.length > 0 || events.length === 0) {
-      // Only fetch events after bookings are loaded, or if events are empty
       fetchEvents()
     }
   }, [actualBookings, fetchEvents, events.length])
 
-  const handleEventTypeChange = (type: EventType) => {
-    let newHallId: string
-    let newCategory: EventCategory
-    let newDuration: string
-    let newPricing: NewEventData["pricing"]
-
-    if (type === "match") {
-      newHallId = halls.find((h) => h.type === "vip")?._id || (halls.length > 0 ? halls[0]._id : "") // Default to VIP Hall for matches
-      newCategory = "Premium Match"
-      newDuration = "90 minutes + extra time"
-      newPricing = defaultVipMatchPricing
-    } else {
-      // movie
-      newHallId = halls.find((h) => h._id === "hallA")?._id || (halls.length > 0 ? halls[0]._id : "") // Default to Hall A for movies
-      newCategory = "Blockbuster"
-      newDuration = "120 minutes"
-      newPricing = defaultStandardMoviePricingHallA // Default to standard pricing for Hall A
-    }
-
-    setNewEvent({
-      ...newEvent,
-      event_type: type,
-      category: newCategory,
-      hall_id: newHallId,
-      total_seats: getHallTotalSeats(halls, newHallId),
-      duration: newDuration,
-      pricing: newPricing,
-    })
-  }
-
-  const handleCategoryChange = (category: EventCategory) => {
-    let updatedPricing = { ...newEvent.pricing }
-
-    if (newEvent.event_type === "match") {
-      if (getHallType(halls, newEvent.hall_id) === "vip") {
-        if (category === "Big Match") {
-          updatedPricing = {
-            vipSofaSeats: { price: 3000, count: 10 },
-            vipRegularSeats: { price: 2500, count: 12 },
-          }
-        } else {
-          updatedPricing = defaultVipMatchPricing
-        }
-      } else if (newEvent.hall_id === "hallA") {
-        updatedPricing = defaultStandardMatchPricingHallA
-      } else if (newEvent.hall_id === "hallB") {
-        updatedPricing = defaultStandardMatchPricingHallB
-      }
-    }
-    // For movie categories, pricing is determined by hall_id, not category, so no change here.
-
-    setNewEvent({ ...newEvent, category, pricing: updatedPricing })
-  }
-
-  const handleCreateEvent = async () => {
+  const createEvent = useCallback(async () => {
     try {
       const res = await fetch("/api/events", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newEvent),
       })
-
-      if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.message || `HTTP error! status: ${res.status}`)
-      }
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
 
       toast({
-        title: "Event created successfully!",
-        description: `${newEvent.title} has been added.`,
+        title: "Event created successfully",
+        description: `${newEvent.title} has been added to the system.`,
       })
+
+      setNewEvent(initialNewEventState)
       setIsCreateEventOpen(false)
-      setNewEvent(initialNewEventState) // Reset form to initial state
-      fetchEvents() // Refresh the list
+      fetchEvents()
     } catch (error) {
       console.error("Failed to create event:", error)
       toast({
         title: "Error creating event",
-        description: (error as Error).message,
+        description: "Could not create the event. Please try again.",
         variant: "destructive",
       })
     }
-  }
+  }, [newEvent, toast, fetchEvents])
 
-  const handleEditClick = (event: Event) => {
-    // Map fetched event data to NewEventData for the form
-    setNewEvent({
-      _id: event._id,
-      title: event.title,
-      event_type: event.event_type,
-      category: event.category as EventCategory,
-      event_date: event.event_date,
-      event_time: event.event_time,
-      hall_id: event.hall_id,
-      description: event.description || "",
-      duration: event.duration || "",
-      pricing: event.pricing, // Use the existing pricing from the event
-      total_seats: event.total_seats,
-      status: event.status,
-      image_url: event.image_url || "", // Set image_url for editing
-    })
-    setIsEditEventOpen(true)
-  }
-
-  const handleUpdateEvent = async () => {
-    if (!newEvent._id) {
-      toast({
-        title: "Error updating event",
-        description: "Event ID is missing.",
-        variant: "destructive",
-      })
-      return
-    }
-
+  const updateEvent = useCallback(async () => {
+    if (!newEvent._id) return
     try {
       const res = await fetch(`/api/events/${newEvent._id}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newEvent),
       })
-
-      if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.message || `HTTP error! status: ${res.status}`)
-      }
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
 
       toast({
-        title: "Event updated successfully!",
+        title: "Event updated successfully",
         description: `${newEvent.title} has been updated.`,
       })
+
+      setNewEvent(initialNewEventState)
       setIsEditEventOpen(false)
-      setNewEvent(initialNewEventState) // Reset form after update
-      fetchEvents() // Refresh the list
+      fetchEvents()
     } catch (error) {
       console.error("Failed to update event:", error)
       toast({
         title: "Error updating event",
-        description: (error as Error).message,
+        description: "Could not update the event. Please try again.",
         variant: "destructive",
       })
     }
-  }
+  }, [newEvent, toast, fetchEvents])
 
-  const handleDeleteEvent = async (id: string, title: string) => {
-    if (!window.confirm(`Are you sure you want to delete "${title}"?`)) {
-      return
-    }
-
-    try {
-      const res = await fetch(`/api/events/${id}`, {
-        method: "DELETE",
-      })
-
-      if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.message || `HTTP error! status: ${res.status}`)
-      }
-
-      toast({
-        title: "Event deleted successfully!",
-        description: `${title} has been removed.`,
-      })
-      fetchEvents() // Refresh the list
-    } catch (error) {
-      console.error("Failed to delete event:", error)
-      toast({
-        title: "Error deleting event",
-        description: (error as Error).message,
-        variant: "destructive",
-      })
-    }
-  }
-
-  const handlePrintReceipt = (booking: Booking) => {
-    setSelectedBooking(booking)
-    setIsPrintReceiptOpen(true)
-  }
-
-  const printReceipt = () => {
-    window.print()
-  }
-
-  // Handle change for new booking event selection
-  const handleNewBookingEventChange = async (eventId: string) => {
-    const event = events.find((e) => e._id === eventId)
-    setSelectedEventForBooking(event || null)
-    setSelectedSeatsForAdminBooking([]) // Clear selected seats when event changes
-    setCurrentEventSeats([]) // Clear current event seats
-
-    if (event) {
-      // Fetch the full event details including bookedSeats from the API
+  const deleteEvent = useCallback(
+    async (eventId: string) => {
       try {
-        const res = await fetch(`/api/events/${eventId}`)
-        if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`)
-        }
-        const fullEventData: Event = await res.json()
+        const res = await fetch(`/api/events/${eventId}`, { method: "DELETE" })
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
 
-        // Generate seat map based on event type and hall
-        let generatedSeats: Seat[] = []
-        if (fullEventData.event_type === "match") {
-          if (getHallType(halls, fullEventData.hall_id) === "vip") {
-            generatedSeats = generateVipMatchSeats(fullEventData.pricing, fullEventData.bookedSeats)
-          } else {
-            generatedSeats = generateStandardMatchSeats(
-              fullEventData.pricing,
-              fullEventData.hall_id,
-              halls, // Pass halls here
-              fullEventData.bookedSeats,
-            )
-          }
-        } else {
-          // Movie event
-          if (getHallType(halls, fullEventData.hall_id) === "vip") {
-            generatedSeats = generateMovieSeats(
-              fullEventData.pricing,
-              fullEventData.hall_id,
-              halls,
-              fullEventData.bookedSeats,
-            ) // Pass halls here
-          } else {
-            generatedSeats = generateMovieSeats(
-              fullEventData.pricing,
-              fullEventData.hall_id,
-              halls,
-              fullEventData.bookedSeats,
-            ) // Pass halls here
-          }
-        }
-        setCurrentEventSeats(generatedSeats)
-
-        setNewBooking((prev) => ({
-          ...prev,
-          eventId: eventId,
-          eventTitle: fullEventData.title,
-          eventType: fullEventData.event_type,
-          seats: [], // Ensure seats array is empty
-          seatType: "", // Reset seat type
-          amount: 0,
-          totalAmount: newBooking.processingFee, // Only processing fee initially
-        }))
-      } catch (err) {
-        console.error("Failed to fetch full event details for booking:", err)
         toast({
-          title: "Error loading event seats",
-          description: "Could not load seat map for the selected event.",
+          title: "Event deleted successfully",
+          description: "The event has been removed from the system.",
+        })
+
+        fetchEvents()
+      } catch (error) {
+        console.error("Failed to delete event:", error)
+        toast({
+          title: "Error deleting event",
+          description: "Could not delete the event. Please try again.",
           variant: "destructive",
         })
       }
-    } else {
-      setNewBooking(initialNewBookingState)
-    }
-  }
+    },
+    [toast, fetchEvents],
+  )
 
-  const handleAdminSeatClick = (seatId: string, seatType: string, isBooked: boolean, seatPrice: number) => {
-    if (isBooked) return // Cannot select already booked seats
-
-    const hallType = getHallType(halls, selectedEventForBooking?.hall_id || "")
-
-    let newSelectedSeats: string[]
-    let newSelectedSeatType: string
-
-    if (selectedEventForBooking?.event_type === "movie" && hallType === "vip") {
-      // For VIP movie halls, only allow one selection per type (single, couple, family unit)
-      if (selectedSeatsForAdminBooking.length > 0 && newBooking.seatType !== seatType) {
-        toast({
-          title: "Seat Selection Conflict",
-          description: `Please select only ${getSeatTypeName(newBooking.seatType)} seats for consistency.`,
-          variant: "destructive",
-        })
-        return
-      }
-      if (selectedSeatsForAdminBooking.includes(seatId)) {
-        newSelectedSeats = []
-        newSelectedSeatType = ""
-      } else {
-        newSelectedSeats = [seatId]
-        newSelectedSeatType = seatType
-      }
-    } else {
-      // For football matches (both VIP and Standard) and standard movie halls, allow multiple selections of same type
-      if (selectedSeatsForAdminBooking.length > 0 && newBooking.seatType !== seatType) {
-        toast({
-          title: "Seat Selection Conflict",
-          description: `Please select only ${getSeatTypeName(newBooking.seatType)} seats for consistency.`,
-          variant: "destructive",
-        })
-        return
-      }
-
-      if (selectedSeatsForAdminBooking.includes(seatId)) {
-        newSelectedSeats = selectedSeatsForAdminBooking.filter((id) => id !== seatId)
-        newSelectedSeatType = newSelectedSeats.length > 0 ? seatType : ""
-      } else {
-        newSelectedSeats = [...selectedSeatsForAdminBooking, seatId]
-        newSelectedSeatType = seatType
-      }
-    }
-
-    setSelectedSeatsForAdminBooking(newSelectedSeats)
-
-    // Recalculate amount based on newSelectedSeats
-    let calculatedAmount = 0
-    newSelectedSeats.forEach((sId) => {
-      const seat = currentEventSeats.find((s) => s.id === sId)
-      if (seat) {
-        calculatedAmount += seat.price
-      }
-    })
-
-    setNewBooking((prev) => ({
-      ...prev,
-      seats: newSelectedSeats,
-      seatType: newSelectedSeatType,
-      amount: calculatedAmount,
-      totalAmount: calculatedAmount + prev.processingFee,
-    }))
-  }
-
-  const handleCreateBooking = async () => {
-    if (!selectedEventForBooking) {
-      toast({
-        title: "Error creating booking",
-        description: "Please select an event.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (selectedSeatsForAdminBooking.length === 0) {
-      toast({
-        title: "No Seats Selected",
-        description: "Please select at least one seat.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (!newBooking.customerName || !newBooking.customerEmail || !newBooking.customerPhone) {
-      toast({
-        title: "Missing Information",
-        description: "Please fill in all customer information.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    const bookingPayload = {
-      ...newBooking,
-      seats: selectedSeatsForAdminBooking, // Use the array of selected seats
-      eventId: selectedEventForBooking._id,
-      eventTitle: selectedEventForBooking.title,
-      eventType: selectedEventForBooking.event_type,
-    }
-
+  const createBooking = useCallback(async () => {
     try {
       const res = await fetch("/api/bookings", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(bookingPayload),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newBooking),
       })
-
-      if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.message || `HTTP error! status: ${res.status}`)
-      }
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
 
       toast({
-        title: "Booking created successfully!",
-        description: `Booking for ${newBooking.customerName} has been added.`,
+        title: "Booking created successfully",
+        description: `Booking for ${newBooking.customerName} has been created.`,
       })
+
+      setNewBooking(initialNewBookingState)
       setIsCreateBookingOpen(false)
-      setNewBooking(initialNewBookingState) // Reset form
-      setSelectedEventForBooking(null) // Reset selected event
-      setSelectedSeatsForAdminBooking([]) // Clear selected seats
-      setCurrentEventSeats([]) // Clear seat map
-      fetchBookings() // Refresh bookings list
-      fetchEvents() // Refresh events to update booked seats count
+      fetchBookings()
     } catch (error) {
       console.error("Failed to create booking:", error)
       toast({
         title: "Error creating booking",
-        description: (error as Error).message,
+        description: "Could not create the booking. Please try again.",
         variant: "destructive",
       })
     }
-  }
+  }, [newBooking, toast, fetchBookings])
 
-  const getSeatTypeBreakdown = (event: Event, halls: Hall[], specificBookedSeats: string[]) => {
-    const breakdown: Record<string, number> = {}
-    if (!event || specificBookedSeats.length === 0) {
-      return breakdown
-    }
+  const updateBookingStatus = useCallback(
+    async (bookingId: string, status: Booking["status"]) => {
+      try {
+        const res = await fetch(`/api/bookings/${bookingId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status }),
+        })
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
 
-    const hallType = getHallType(halls, event.hall_id)
+        toast({
+          title: "Booking status updated",
+          description: `Booking status changed to ${status}.`,
+        })
 
-    specificBookedSeats.forEach((seatId) => {
-      let seatTypeKey = "Unknown"
-      if (event.event_type === "match") {
-        if (hallType === "vip") {
-          if (seatId.startsWith("S")) seatTypeKey = "VIP Sofa"
-          else if (seatId.match(/^[A-Z]\d+$/)) seatTypeKey = "VIP Regular"
-        } else {
-          seatTypeKey = "Standard Match"
-        }
-      } else {
-        // Movie event
-        if (hallType === "vip") {
-          if (seatId.startsWith("S")) seatTypeKey = "VIP Single"
-          else if (seatId.startsWith("C")) seatTypeKey = "VIP Couple"
-          else if (seatId.startsWith("F")) seatTypeKey = "VIP Family"
-        } else {
-          seatTypeKey = "Standard Single"
-        }
+        fetchBookings()
+      } catch (error) {
+        console.error("Failed to update booking status:", error)
+        toast({
+          title: "Error updating booking",
+          description: "Could not update the booking status. Please try again.",
+          variant: "destructive",
+        })
       }
-      breakdown[seatTypeKey] = (breakdown[seatTypeKey] || 0) + 1
-    })
-    return breakdown
-  }
+    },
+    [toast, fetchBookings],
+  )
 
-  const handleExportPdf = async () => {
-    const input = document.getElementById("full-report-content")
-    if (!input) {
-      toast({
-        title: "Export Failed",
-        description: "Could not find report content to export.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    // Calculate summary analytics based on filteredReportsBookings
-    const summaryTotalRevenue = filteredReportsBookings.reduce((sum, booking) => sum + booking.totalAmount, 0)
-    const summaryTotalBookings = filteredReportsBookings.length
-    const summaryTotalSeatsBooked = filteredReportsBookings.reduce((sum, booking) => sum + booking.seats.length, 0)
-
-    let summaryOverallOccupancyRate = 0
-    let summaryRevenueByCategoryHtml = ""
-    let summaryHallPerformanceHtml = ""
-    let specificEventDetailsHtml = ""
-
-    const currentEventForReport =
-      selectedEventIdForReports !== "all" ? events.find((e) => e._id === selectedEventIdForReports) : null
-
-    if (currentEventForReport) {
-      const eventBookingsForReport = filteredReportsBookings.filter((b) => b.eventId === currentEventForReport._id)
-      const eventBookedSeatsCount = eventBookingsForReport.reduce((sum, b) => sum + b.seats.length, 0)
-      summaryOverallOccupancyRate =
-        currentEventForReport.total_seats > 0 ? (eventBookedSeatsCount / currentEventForReport.total_seats) * 100 : 0
-
-      const filteredBookedSeatsForCurrentEvent = eventBookingsForReport.flatMap((b) => b.seats)
-      const seatBreakdown = getSeatTypeBreakdown(currentEventForReport, halls, filteredBookedSeatsForCurrentEvent)
-      const seatBreakdownList = Object.entries(seatBreakdown)
-        .map(([type, count]) => `<li>${type}: ${count}</li>`)
-        .join("")
-
-      specificEventDetailsHtml = `
-        <h2 class="text-2xl font-bold mb-6">Event Specific Details</h2>
-        <div class="mb-10 p-4 border border-gray-300 rounded-lg">
-          <h3 class="text-xl font-semibold mb-4">${currentEventForReport.title} (${getHallDisplayName(halls, currentEventForReport.hall_id)})</h3>
-          <p><strong>Date:</strong> ${currentEventForReport.event_date}</p>
-          <p><strong>Time:</strong> ${currentEventForReport.event_time}</p>
-          <p><strong>Total Seats:</strong> ${currentEventForReport.total_seats}</p>
-          <p><strong>Booked Seats (Filtered):</strong> ${eventBookedSeatsCount}</p>
-          <p><strong>Occupancy:</strong> ${summaryOverallOccupancyRate.toFixed(0)}%</p>
-          <h4 class="text-lg font-semibold mt-4 mb-2">Booked Seats Breakdown:</h4>
-          <ul>${seatBreakdownList}</ul>
-        </div>
-      `
-    } else {
-      // Calculate for all filtered events
-      const relevantEventIds = new Set(filteredReportsBookings.map((b) => b.eventId))
-      const relevantEvents = events.filter((e) => relevantEventIds.has(e._id))
-
-      const totalBookedSeatsFiltered = filteredReportsBookings.reduce((sum, booking) => sum + booking.seats.length, 0)
-      const totalAvailableSeatsRelevant = relevantEvents.reduce((sum, event) => sum + event.total_seats, 0)
-      summaryOverallOccupancyRate =
-        totalAvailableSeatsRelevant > 0 ? (totalBookedSeatsFiltered / totalAvailableSeatsRelevant) * 100 : 0
-
-      const currentRevenueByCategory = filteredReportsBookings.reduce(
-        (acc, booking) => {
-          const category = events.find((e) => e._id === booking.eventId)?.category || "Unknown"
-          acc[category] = (acc[category] || 0) + booking.totalAmount
-          return acc
-        },
-        {} as Record<string, number>,
-      )
-
-      summaryRevenueByCategoryHtml =
-        Object.entries(currentRevenueByCategory).length > 0
-          ? Object.entries(currentRevenueByCategory)
-              .map(
-                ([category, revenue]) => `
-          <div class="flex justify-between items-center text-lg border-b border-gray-200 pb-2">
-            <span>${category}:</span>
-            <span class="font-bold">₦${revenue.toLocaleString()}</span>
-          </div>
-        `,
-              )
-              .join("")
-          : `<p>No revenue data available for these filters.</p>`
-
-      const currentHallPerformance = relevantEvents.reduce(
-        (acc, event) => {
-          const hallName = getHallDisplayName(halls, event.hall_id)
-          if (!acc[hallName]) {
-            acc[hallName] = { booked: 0, total: 0 }
-          }
-          // Sum booked seats for this hall from the filtered bookings
-          const bookedSeatsForHall = filteredReportsBookings
-            .filter((b) => b.eventId === event._id)
-            .reduce((sum, b) => sum + b.seats.length, 0)
-
-          acc[hallName].booked += bookedSeatsForHall
-          acc[hallName].total += event.total_seats
-          return acc
-        },
-        {} as Record<string, { booked: number; total: number }>,
-      )
-
-      summaryHallPerformanceHtml =
-        Object.entries(currentHallPerformance).length > 0
-          ? Object.entries(currentHallPerformance)
-              .map(([hallName, data]) => {
-                const occupancy = data.total > 0 ? (data.booked / data.total) * 100 : 0
-                return `
-          <div class="mb-4">
-            <div class="flex justify-between text-lg mb-2">
-              <span>${hallName}:</span>
-              <span class="font-bold">${occupancy.toFixed(0)}% Occupancy</span>
-            </div>
-            <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
-              <div class="bg-blue-500 h-4 rounded-full" style="width: ${occupancy}%"></div>
-            </div>
-          </div>
-        `
-              })
-              .join("")
-          : `<p>No hall performance data available for these filters.</p>`
-    }
-
-    const summaryReportHtml = `
-      <div class="p-8 bg-white text-black">
-        <h1 class="text-3xl font-bold text-center mb-8">Event Booking Summary Report</h1>
-
-        <div class="mb-8 p-4 border border-gray-300 rounded-lg">
-          <h2 class="text-xl font-semibold mb-4">Filters Applied:</h2>
-          <div class="grid grid-cols-2 gap-4 text-lg">
-            <div><strong>Date Range:</strong> ${reportStartDate || "All"} to ${reportEndDate || "All"}</div>
-            <div><strong>Event Type:</strong> ${reportEventType === "all" ? "All" : reportEventType}</div>
-            <div><strong>Booking Status:</strong> ${reportStatus === "all" ? "All" : reportStatus}</div>
-            <div><strong>Selected Event:</strong> ${currentEventForReport ? `${currentEventForReport.title} (${getHallDisplayName(halls, currentEventForReport.hall_id)})` : "All Events"}</div>
-          </div>
-        </div>
-
-        <h2 class="text-2xl font-bold mb-6">Summary Statistics</h2>
-        <div class="grid grid-cols-2 gap-6 mb-10">
-          <div class="p-4 border border-gray-300 rounded-lg">
-            <h3 class="text-lg font-semibold mb-2">Total Revenue (Filtered)</h3>
-            <p class="text-3xl font-bold">₦${summaryTotalRevenue.toLocaleString()}</p>
-          </div>
-          <div class="p-4 border border-gray-300 rounded-lg">
-            <h3 class="text-lg font-semibold mb-2">Total Bookings (Filtered)</h3>
-            <p class="text-3xl font-bold">${summaryTotalBookings}</p>
-          </div>
-          <div class="p-4 border border-gray-300 rounded-lg">
-            <h3 class="text-lg font-semibold mb-2">Total Seats Booked (Filtered)</h3>
-            <p class="text-3xl font-bold">${summaryTotalSeatsBooked}</p>
-          </div>
-          <div class="p-4 border border-gray-300 rounded-lg">
-            <h3 class="text-lg font-semibold mb-2">Overall Occupancy Rate (Filtered)</h3>
-            <p class="text-3xl font-bold">${summaryOverallOccupancyRate.toFixed(0)}%</p>
-          </div>
-        </div>
-        ${specificEventDetailsHtml}
-        ${
-          selectedEventIdForReports === "all"
-            ? `
-          <h2 class="text-2xl font-bold mb-6">Revenue by Category</h2>
-          <div class="space-y-4 mb-10">${summaryRevenueByCategoryHtml}</div>
-          <h2 class="text-2xl font-bold mb-6">Hall Performance</h2>
-          <div class="space-y-4 mb-10">${summaryHallPerformanceHtml}</div>
-        `
-            : ""
-        }
-      </div>
-    `
-
-    // Set the content of the hidden div
-    input.innerHTML = summaryReportHtml
-
-    // Temporarily apply styles for PDF rendering
-    input.style.backgroundColor = "#ffffff"
-    input.style.padding = "20px"
-    input.style.color = "#000000"
-    input.style.boxShadow = "none"
-    input.style.borderRadius = "0"
-    input.style.display = "block" // Make sure it's visible for html2canvas
-
-    // Temporarily change text color for all elements within the report content
-    const textElements = input.querySelectorAll("*")
-    textElements.forEach((el) => {
-      if (el instanceof HTMLElement) {
-        const computedColor = window.getComputedStyle(el).color
-        // Only override if the color is not already black or a very dark color
-        if (computedColor !== "rgb(0, 0, 0)" && computedColor !== "rgb(255, 255, 255)") {
-          el.style.color = "#000000"
-        }
-        // Remove background gradients/shadows from cards
-        if (el.classList.contains("bg-glass-white-strong") || el.classList.contains("shadow-cyber-card")) {
-          el.style.backgroundColor = "#ffffff"
-          el.style.boxShadow = "none"
-          el.style.border = "1px solid #e0e0e0"
-        }
-        // Remove text gradients
-        if (el.classList.contains("bg-clip-text")) {
-          el.style.color = "#000000"
-          el.style.backgroundImage = "none"
-        }
-        // Remove badge backgrounds
-        if (el.classList.contains("badge")) {
-          el.style.backgroundColor = "#f0f0f0"
-          el.style.color = "#333333"
-          el.style.border = "1px solid #cccccc"
-        }
-      }
-    })
-
-    try {
-      const canvas = await html2canvas(input, {
-        scale: 2, // Increase scale for better resolution
-        useCORS: true, // Important for images if any
-        logging: true, // Enable logging for debugging
-      })
-
-      const imgData = canvas.toDataURL("image/png")
-      const pdf = new jsPDF("l", "mm", "a4") // 'l' for landscape, 'mm' for units, 'a4' for page size
-      const imgWidth = 297 // A4 landscape width in mm
-      const pageHeight = 210 // A4 landscape height in mm
-      const imgHeight = (canvas.height * imgWidth) / canvas.width
-      let heightLeft = imgHeight
-      let position = 0
-
-      pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight)
-      heightLeft -= pageHeight
-
-      while (heightLeft >= 0) {
-        position = heightLeft - imgHeight
-        pdf.addPage()
-        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight)
-        heightLeft -= pageHeight
-      }
-
-      pdf.save("booking_report.pdf")
-
-      toast({
-        title: "PDF Exported",
-        description: "Booking report has been exported as PDF.",
-      })
-    } catch (error) {
-      console.error("Failed to export PDF:", error)
-      toast({
-        title: "Export Failed",
-        description: "Could not export report as PDF. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      // Revert temporary styles and clear content
-      input.style.backgroundColor = ""
-      input.style.padding = ""
-      input.style.color = ""
-      input.style.boxShadow = ""
-      input.style.borderRadius = ""
-      input.style.display = "none" // Hide it again
-      input.innerHTML = "" // Clear the content
-
-      textElements.forEach((el) => {
-        if (el instanceof HTMLElement) {
-          el.style.color = "" // Revert to original computed style
-          el.style.backgroundColor = ""
-          el.style.boxShadow = ""
-          el.style.border = ""
-          el.style.backgroundImage = ""
-        }
-      })
-    }
-  }
-
-  // --- Hall Management Functions ---
-  const handleCreateHall = async () => {
+  const createHall = useCallback(async () => {
     try {
       const res = await fetch("/api/halls", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(currentHall),
       })
-
-      if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.message || `HTTP error! status: ${res.status}`)
-      }
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
 
       toast({
-        title: "Hall created successfully!",
-        description: `${currentHall.name} has been added.`,
+        title: "Hall created successfully",
+        description: `${currentHall.name} has been added to the system.`,
       })
+
+      setCurrentHall(initialNewHallState)
       setIsCreateEditHallOpen(false)
-      setCurrentHall(initialNewHallState) // Reset form
-      fetchHalls() // Refresh the list
+      fetchHalls()
     } catch (error) {
       console.error("Failed to create hall:", error)
       toast({
         title: "Error creating hall",
-        description: (error as Error).message,
+        description: "Could not create the hall. Please try again.",
         variant: "destructive",
       })
     }
-  }
+  }, [currentHall, toast, fetchHalls])
 
-  const handleEditHallClick = (hall: Hall) => {
-    setCurrentHall({
-      _id: hall._id,
-      name: hall.name,
-      capacity: hall.capacity,
-      type: hall.type,
-    })
-    setIsCreateEditHallOpen(true)
-  }
+  const filteredBookings = actualBookings.filter((booking) => {
+    const matchesCustomer =
+      customerSearchQuery === "" ||
+      booking.customerName.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
+      booking.customerEmail.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
+      booking.customerPhone.includes(customerSearchQuery)
 
-  const handleUpdateHall = async () => {
-    if (!currentHall._id) {
-      toast({
-        title: "Error updating hall",
-        description: "Hall ID is missing.",
-        variant: "destructive",
-      })
-      return
-    }
+    const matchesEvent = selectedEventIdForBookings === "all" || booking.eventId === selectedEventIdForBookings
+    const matchesStatus = reportStatus === "all" || booking.status === reportStatus
 
-    try {
-      const res = await fetch(`/api/halls/${currentHall._id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(currentHall),
-      })
-
-      if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.message || `HTTP error! status: ${res.status}`)
-      }
-
-      toast({
-        title: "Hall updated successfully!",
-        description: `${currentHall.name} has been updated.`,
-      })
-      setIsCreateEditHallOpen(false)
-      setCurrentHall(initialNewHallState) // Reset form
-      fetchHalls() // Refresh the list
-    } catch (error) {
-      console.error("Failed to update hall:", error)
-      toast({
-        title: "Error updating hall",
-        description: (error as Error).message,
-        variant: "destructive",
-      })
-    }
-  }
-
-  const handleDeleteHall = async (id: string, name: string) => {
-    if (!window.confirm(`Are you sure you want to delete hall "${name}"? This action cannot be undone.`)) {
-      return
-    }
-
-    try {
-      const res = await fetch(`/api/halls/${id}`, {
-        method: "DELETE",
-      })
-
-      if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.message || `HTTP error! status: ${res.status}`)
-      }
-
-      toast({
-        title: "Hall deleted successfully!",
-        description: `${name} has been removed.`,
-      })
-      fetchHalls() // Refresh the list
-    } catch (error) {
-      console.error("Failed to delete hall:", error)
-      toast({
-        title: "Error deleting hall",
-        description: (error as Error).message,
-        variant: "destructive",
-      })
-    }
-  }
-
-  // --- Analytics Calculations ---
-  const filteredBookingsForRevenue = actualBookings.filter((booking) => {
-    const bookingDate = new Date(booking.bookingDate)
-
-    if (revenueTimeFrame === "day") {
-      return bookingDate.toDateString() === new Date().toDateString()
-    }
-
-    if (revenueTimeFrame === "week") {
-      const start = startOfWeek(new Date())
-      const end = endOfWeek(new Date())
-      return isWithinInterval(bookingDate, { start, end })
-    }
-
-    if (revenueTimeFrame === "month") {
-      const start = startOfMonth(new Date())
-      const end = endOfMonth(new Date())
-      return isWithinInterval(bookingDate, { start, end })
-    }
-
-    if (revenueTimeFrame === "custom") {
-      const start = customRevenueStartDate ? new Date(customRevenueStartDate) : null
-      const end = customRevenueEndDate ? new Date(customRevenueEndDate) : null
-
-      if (start && end) {
-        return isWithinInterval(bookingDate, { start, end: addDays(new Date(end), 1) }) // Adding one day to include the end date
-      }
-      return true // If start or end date is missing, include all bookings
-    }
-
-    return true // "all" timeframe
+    return matchesCustomer && matchesEvent && matchesStatus
   })
 
-  const totalRevenue = filteredBookingsForRevenue.reduce((sum, booking) => sum + booking.totalAmount, 0)
+  const filteredEvents = events.filter((event) => {
+    const matchesType = reportEventType === "all" || event.event_type === reportEventType
+    return matchesType
+  })
+
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 flex items-center justify-center">
+        <div className="text-white text-xl">Loading...</div>
+      </div>
+    )
+  }
+
+  if (status === "unauthenticated") {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 flex items-center justify-center">
+        <div className="text-white text-xl">Access Denied</div>
+      </div>
+    )
+  }
+
+  const handleSignOut = async () => {
+    await signOut({ callbackUrl: "/" })
+  }
+
+  // Analytics calculations
+  const totalRevenue = actualBookings.reduce((sum, booking) => sum + booking.totalAmount, 0)
   const totalBookings = actualBookings.length
   const activeEventsCount = events.filter((e) => e.status === "active").length
-
   const totalBookedSeatsCount = events.reduce((sum, event) => sum + (event.bookedSeats?.length || 0), 0)
   const totalAvailableSeatsCount = events.reduce((sum, event) => sum + event.total_seats, 0)
   const overallOccupancyRate =
     totalAvailableSeatsCount > 0 ? (totalBookedSeatsCount / totalAvailableSeatsCount) * 100 : 0
 
-  const revenueByCategory = actualBookings.reduce(
-    (acc, booking) => {
-      const category = events.find((e) => e._id === booking.eventId)?.category || "Unknown"
-      acc[category] = (acc[category] || 0) + booking.totalAmount
-      return acc
-    },
-    {} as Record<string, number>,
-  )
-
-  const hallPerformance = events.reduce(
-    (acc, event) => {
-      const hallName = getHallDisplayName(halls, event.hall_id)
-      if (!acc[hallName]) {
-        acc[hallName] = { booked: 0, total: 0 }
-      }
-      acc[hallName].booked += event.bookedSeats?.length || 0
-      acc[hallName].total += event.total_seats
-      return acc
-    },
-    {} as Record<string, { booked: number; total: number }>,
-  )
-
-  // --- Reports Filtering ---
-  const filteredReportsBookings = actualBookings.filter((booking) => {
-    const bookingDate = new Date(booking.bookingDate)
-    const start = reportStartDate ? new Date(reportStartDate) : null
-    const end = reportEndDate ? new Date(reportEndDate) : null
-
-    const matchesDate =
-      (!start || bookingDate >= start) && (!end || bookingDate <= new Date(end.setDate(end.getDate() + 1))) // +1 day to include end date
-
-    const matchesEventType = reportEventType === "all" || booking.eventType === reportEventType
-    const matchesStatus = reportStatus === "all" || booking.status === reportStatus
-    const matchesEvent = selectedEventIdForReports === "all" || booking.eventId === selectedEventIdForReports // New filter
-
-    return matchesDate && matchesEventType && matchesStatus && matchesEvent
-  })
-
-  // --- Bookings Tab Filtering and Search ---
-  const filteredCustomerBookings = actualBookings.filter((booking) => {
-    const matchesEvent = selectedEventIdForBookings === "all" || booking.eventId === selectedEventIdForBookings
-    const matchesSearch =
-      customerSearchQuery === "" ||
-      booking.customerName.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
-      booking.customerEmail.toLowerCase().includes(customerSearchQuery.toLowerCase())
-
-    return matchesEvent && matchesSearch
-  })
-
-  const handleSignOut = async () => {
-    try {
-      await signOut({ callbackUrl: "/admin/login" })
-      toast({
-        title: "Signed Out",
-        description: "You have been successfully signed out.",
-      })
-    } catch (error) {
-      toast({
-        title: "Sign Out Error",
-        description: "An error occurred while signing out.",
-        variant: "destructive",
-      })
-    }
-  }
-
   return (
-    <AdminAuthWrapper>
-      <div className="min-h-screen bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 relative overflow-hidden">
-        {/* Cyber-Glassmorphism background elements */}
-        <div className="fixed inset-0 pointer-events-none">
-          <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-brand-red-500/20 to-cyber-purple-500/20 rounded-full blur-3xl animate-float"></div>
-          <div className="absolute top-1/2 -left-40 w-80 h-80 bg-gradient-to-br from-cyber-blue-500/15 to-brand-red-500/15 rounded-full blur-3xl animate-float delay-1000"></div>
-          <div className="absolute -bottom-40 right-1/3 w-72 h-72 bg-gradient-to-br from-cyber-green-500/15 to-cyber-purple-500/15 rounded-full blur-3xl animate-float delay-2000"></div>
+    <div className="min-h-screen bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 relative overflow-hidden">
+      {/* Background elements */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-brand-red-500/20 to-cyber-purple-500/20 rounded-full blur-3xl animate-float"></div>
+        <div className="absolute top-1/2 -left-40 w-80 h-80 bg-gradient-to-br from-cyber-blue-500/15 to-brand-red-500/15 rounded-full blur-3xl animate-float delay-1000"></div>
+        <div className="absolute -bottom-40 right-1/3 w-72 h-72 bg-gradient-to-br from-cyber-green-500/15 to-cyber-purple-500/15 rounded-full blur-3xl animate-float delay-2000"></div>
+      </div>
 
-          <div className="absolute top-20 right-20 w-32 h-32 border border-brand-red-500/20 rotate-45 animate-spin-slow"></div>
-          <div className="absolute bottom-40 left-20 w-24 h-24 border border-cyber-blue-500/30 rotate-12 animate-bounce-slow"></div>
-          <div className="absolute top-1/3 left-1/3 w-16 h-16 border border-cyber-purple-500/20 rounded-full animate-pulse-slow"></div>
-        </div>
-
-        {/* Header with glassmorphism */}
-        <header className="relative backdrop-blur-xl bg-glass-white border-b border-white/10 shadow-cyber-card z-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-20">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-brand-red-500/20 to-brand-red-600/20 rounded-2xl flex items-center justify-center border border-brand-red-500/30">
-                  <Shield className="w-6 h-6 text-brand-red-400" />
+      {/* Header */}
+      <header className="relative backdrop-blur-xl bg-glass-white border-b border-white/10 shadow-cyber-card z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col sm:flex-row justify-between items-center h-auto sm:h-20 py-4 sm:py-0 gap-4 sm:gap-0">
+            <div className="flex items-center space-x-4 w-full sm:w-auto justify-center sm:justify-start">
+              <div className="relative group">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-brand-red-500 via-brand-red-600 to-brand-red-700 rounded-4xl flex items-center justify-center shadow-glow-red transform group-hover:scale-110 transition-all duration-300">
+                  <Settings className="w-6 h-6 sm:w-8 sm:h-8 text-white group-hover:rotate-180 transition-transform duration-500" />
                 </div>
-                <div>
-                  <h1 className="text-xl font-bold bg-gradient-to-r from-white via-brand-red-300 to-white bg-clip-text text-transparent">
-                    Admin Dashboard
-                  </h1>
-                  <p className="text-sm text-brand-red-400 font-medium">Dex View Cinema Management</p>
+                <div className="absolute -top-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 bg-white rounded-full flex items-center justify-center shadow-lg">
+                  <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-brand-red-500 rounded-full animate-pulse"></div>
                 </div>
+                <div className="absolute inset-0 bg-gradient-to-br from-brand-red-500/30 to-brand-red-600/30 rounded-4xl blur-xl animate-glow"></div>
               </div>
-
+              <div className="text-center sm:text-left">
+                <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-white via-brand-red-200 to-white bg-clip-text text-transparent">
+                  Admin Dashboard
+                </h1>
+                <p className="text-xs sm:text-sm font-medium bg-gradient-to-r from-brand-red-400 to-brand-red-300 bg-clip-text text-transparent">
+                  Welcome, {session?.user?.email} | Dex View Cinema Management System
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
+              <Link href="/" className="w-full sm:w-auto">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-brand-red-500/50 text-brand-red-300 hover:bg-brand-red-500/20 bg-glass-white backdrop-blur-sm shadow-cyber-card hover:shadow-cyber-hover transition-all duration-300 group rounded-2xl w-full sm:w-auto h-10 sm:h-9"
+                >
+                  <Shield className="w-4 h-4 mr-2 group-hover:rotate-12 transition-transform" />
+                  Back to Site
+                </Button>
+              </Link>
               <Button
                 onClick={handleSignOut}
                 variant="outline"
                 size="sm"
-                className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl"
+                className="border-red-500/50 text-red-300 hover:bg-red-500/20 bg-glass-white backdrop-blur-sm shadow-cyber-card hover:shadow-cyber-hover transition-all duration-300 group rounded-2xl w-full sm:w-auto h-10 sm:h-9"
               >
-                <LogOut className="w-4 h-4 mr-2" />
+                <LogOut className="w-4 h-4 mr-2 group-hover:rotate-12 transition-transform" />
                 Sign Out
               </Button>
             </div>
           </div>
-        </header>
+        </div>
+      </header>
 
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 hover:border-cyber-green-500/50 transition-all duration-300 group shadow-cyber-card hover:shadow-cyber-hover">
@@ -1555,40 +683,29 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        {/* Main Content */}
+        {/* Main Content Tabs */}
         <Tabs defaultValue="events" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-4 bg-glass-white-strong backdrop-blur-xl border border-white/20 rounded-3xl h-auto sm:h-10">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 bg-glass-white-strong backdrop-blur-xl border border-white/20 rounded-3xl h-auto sm:h-10">
             <TabsTrigger
               value="events"
               className="data-[state=active]:bg-brand-red-500/30 data-[state=active]:text-white text-cyber-slate-300 font-semibold rounded-2xl h-10 sm:h-8 text-sm sm:text-base"
             >
               <Monitor className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Events Management</span>
-              <span className="sm:hidden">Events</span>
+              <span className="hidden sm:inline">Events</span>
             </TabsTrigger>
             <TabsTrigger
               value="bookings"
               className="data-[state=active]:bg-brand-red-500/30 data-[state=active]:text-white text-cyber-slate-300 font-semibold rounded-2xl h-10 sm:h-8 text-sm sm:text-base"
             >
               <Users className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Customer Bookings</span>
-              <span className="sm:hidden">Bookings</span>
+              <span className="hidden sm:inline">Bookings</span>
             </TabsTrigger>
             <TabsTrigger
               value="halls"
               className="data-[state=active]:bg-brand-red-500/30 data-[state=active]:text-white text-cyber-slate-300 font-semibold rounded-2xl h-10 sm:h-8 text-sm sm:text-base"
             >
               <Building className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Halls Management</span>
-              <span className="sm:hidden">Halls</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="reports"
-              className="data-[state=active]:bg-brand-red-500/30 data-[state=active]:text-white text-cyber-slate-300 font-semibold rounded-2xl h-10 sm:h-8 text-sm sm:text-base"
-            >
-              <Filter className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Reports</span>
-              <span className="sm:hidden">Reports</span>
+              <span className="hidden sm:inline">Halls</span>
             </TabsTrigger>
             <TabsTrigger
               value="analytics"
@@ -1596,189 +713,570 @@ export default function AdminDashboard() {
             >
               <Sparkles className="w-4 h-4 mr-2" />
               <span className="hidden sm:inline">Analytics</span>
-              <span className="sm:hidden">Stats</span>
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="events">
             <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card">
               <CardHeader>
-                <CardTitle className="text-white text-xl font-bold">Upcoming Shows Management</CardTitle>
-                <CardDescription className="text-cyber-slate-300">
-                  Manage your movies and sports events with detailed seating arrangements and pricing
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="border-white/20 hover:bg-glass-white">
-                        <TableHead className="text-cyber-slate-200 font-semibold">Image</TableHead> {/* New column */}
-                        <TableHead className="text-cyber-slate-200 font-semibold">Event</TableHead>
-                        <TableHead className="text-cyber-slate-200 font-semibold">Type/Category</TableHead>
-                        <TableHead className="text-cyber-slate-200 font-semibold">Date & Time</TableHead>
-                        <TableHead className="text-cyber-slate-200 font-semibold">Venue</TableHead>
-                        <TableHead className="text-cyber-slate-200 font-semibold">Pricing Info</TableHead>
-                        <TableHead className="text-cyber-slate-200 font-semibold">Occupancy</TableHead>
-                        <TableHead className="text-cyber-slate-200 font-semibold">Status</TableHead>
-                        <TableHead className="text-cyber-slate-200 font-semibold">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {events.map((event) => (
-                        <TableRow key={event._id} className="border-white/20 hover:bg-glass-white transition-colors">
-                          <TableCell>
-                            {event.image_url ? (
-                              <Image
-                                src={event.image_url || "/placeholder.svg"}
-                                alt={event.title}
-                                width={64}
-                                height={64}
-                                className="rounded-md object-cover"
-                              />
-                            ) : (
-                              <div className="w-16 h-16 bg-cyber-slate-700/50 rounded-md flex items-center justify-center text-cyber-slate-400">
-                                <ImageIcon className="w-8 h-8" />
-                              </div>
-                            )}
-                          </TableCell>
-                          <TableCell className="font-medium text-white">{event.title}</TableCell>
-                          <TableCell>
-                            <div className="flex flex-col gap-1">
-                              <Badge
-                                variant={event.event_type === "match" ? "destructive" : "default"}
-                                className={
-                                  event.event_type === "match"
-                                    ? "bg-brand-red-500/30 text-brand-red-300 border-brand-red-500/50 rounded-2xl"
-                                    : "bg-glass-white-strong text-white border-white/30 rounded-2xl"
-                                }
-                              >
-                                {event.event_type === "match" ? (
-                                  <Trophy className="w-3 h-3 mr-1" />
-                                ) : (
-                                  <Film className="w-3 h-3 mr-1" />
-                                )}
-                                {event.event_type}
-                              </Badge>
-                              <Badge
-                                variant="outline"
-                                className="text-xs bg-cyber-slate-500/20 text-cyber-slate-300 border-cyber-slate-500/30 rounded-xl"
-                              >
-                                {event.category}
-                              </Badge>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2 text-sm text-cyber-slate-300">
-                              <CalendarIcon className="w-4 h-4 text-brand-red-400" />
-                              {new Date(event.event_date).toLocaleDateString()}
-                              <Clock className="w-4 h-4 ml-2 text-brand-red-400" />
-                              {event.event_time}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <MapPin className="w-4 h-4 text-brand-red-400" />
-                              <span className="text-cyber-slate-200">{getHallDisplayName(halls, event.hall_id)}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-sm text-cyber-slate-200">
-                              {event.event_type === "match" ? (
-                                getHallType(halls, event.hall_id) === "vip" &&
-                                event.pricing?.vipSofaSeats &&
-                                event.pricing?.vipRegularSeats ? (
-                                  <div className="space-y-1">
-                                    <div>Sofa: ₦{event.pricing.vipSofaSeats.price.toLocaleString()}</div>
-                                    <div>Regular: ₦{event.pricing.vipRegularSeats.price.toLocaleString()}</div>
-                                  </div>
-                                ) : (
-                                  (event.hall_id === "hallA" || event.hall_id === "hallB") &&
-                                  event.pricing?.standardMatchSeats && (
-                                    <div className="space-y-1">
-                                      <div>Match: ₦{event.pricing.standardMatchSeats.price.toLocaleString()}</div>
-                                    </div>
-                                  )
-                                )
-                              ) : getHallType(halls, event.hall_id) === "vip" ? (
-                                <div className="space-y-1">
-                                  {event.pricing?.vipSingle && (
-                                    <div>Single: ₦{event.pricing.vipSingle.price.toLocaleString()}</div>
-                                  )}
-                                  {event.pricing?.vipCouple && (
-                                    <div>Couple: ₦{event.pricing.vipCouple.price.toLocaleString()}</div>
-                                  )}
-                                  {event.pricing?.vipFamily && (
-                                    <div>Family: ₦{event.pricing.vipFamily.price.toLocaleString()}</div>
-                                  )}
-                                </div>
-                              ) : (
-                                <div className="space-y-1">
-                                  {event.pricing?.standardSingle && (
-                                    <div>Single: ₦{event.pricing.standardSingle.price.toLocaleString()}</div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <div className="w-full bg-cyber-slate-700/50 rounded-full h-3 overflow-hidden">
-                                <div
-                                  className="bg-gradient-to-r from-brand-red-500 to-brand-red-400 h-3 rounded-full transition-all duration-500"
-                                  style={{ width: `${((event.bookedSeats?.length || 0) / event.total_seats) * 100}%` }}
-                                ></div>
-                              </div>
-                              <span className="text-sm text-cyber-slate-300 font-semibold">
-                                {event.bookedSeats?.length || 0}/{event.total_seats}
-                              </span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={event.status === "active" ? "default" : "secondary"}
-                              className={
-                                event.status === "active"
-                                  ? "bg-cyber-green-500/30 text-cyber-green-300 border-cyber-green-500/50 rounded-2xl"
-                                  : "bg-cyber-slate-500/30 text-cyber-slate-300 border-cyber-slate-500/50 rounded-2xl"
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div>
+                    <CardTitle className="text-white text-xl font-bold">Events Management</CardTitle>
+                    <CardDescription className="text-cyber-slate-300">
+                      Manage your movies and sports events
+                    </CardDescription>
+                  </div>
+                  <Dialog open={isCreateEventOpen} onOpenChange={setIsCreateEventOpen}>
+                    <DialogTrigger asChild>
+                      <Button className="bg-gradient-to-r from-brand-red-500 to-brand-red-600 hover:from-brand-red-600 hover:to-brand-red-700 text-white shadow-glow-red rounded-2xl">
+                        <Plus className="w-4 h-4 mr-2" />
+                        Create Event
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="bg-glass-white-strong backdrop-blur-xl border border-white/20 max-w-2xl max-h-[90vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle className="text-white">Create New Event</DialogTitle>
+                        <DialogDescription className="text-cyber-slate-300">
+                          Add a new movie or sports event to the system
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="title" className="text-cyber-slate-200">
+                              Event Title
+                            </Label>
+                            <Input
+                              id="title"
+                              value={newEvent.title}
+                              onChange={(e) => setNewEvent((prev) => ({ ...prev, title: e.target.value }))}
+                              className="bg-glass-white border-white/20 text-white"
+                              placeholder="Enter event title"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="event_type" className="text-cyber-slate-200">
+                              Event Type
+                            </Label>
+                            <Select
+                              value={newEvent.event_type}
+                              onValueChange={(value: EventType) =>
+                                setNewEvent((prev) => ({ ...prev, event_type: value }))
                               }
                             >
-                              {event.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleEditClick(event)}
-                                className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl"
-                              >
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                              <Link href={`/admin/seats/${event._id}`}>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl"
-                                >
-                                  <Eye className="w-4 h-4" />
-                                </Button>
-                              </Link>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleDeleteEvent(event._id, event.title)}
-                                className="border-brand-red-500/50 text-brand-red-400 hover:bg-brand-red-500/20 bg-transparent backdrop-blur-sm rounded-2xl"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
+                              <SelectTrigger className="bg-glass-white border-white/20 text-white">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="bg-glass-white-strong backdrop-blur-xl border-white/20">
+                                <SelectItem value="movie">Movie</SelectItem>
+                                <SelectItem value="match">Sports Match</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="category" className="text-cyber-slate-200">
+                              Category
+                            </Label>
+                            <Select
+                              value={newEvent.category}
+                              onValueChange={(value: EventCategory) =>
+                                setNewEvent((prev) => ({ ...prev, category: value }))
+                              }
+                            >
+                              <SelectTrigger className="bg-glass-white border-white/20 text-white">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="bg-glass-white-strong backdrop-blur-xl border-white/20">
+                                {newEvent.event_type === "movie" ? (
+                                  <>
+                                    <SelectItem value="Blockbuster">Blockbuster</SelectItem>
+                                    <SelectItem value="Drama">Drama</SelectItem>
+                                    <SelectItem value="Action">Action</SelectItem>
+                                  </>
+                                ) : (
+                                  <>
+                                    <SelectItem value="Premium Match">Premium Match</SelectItem>
+                                    <SelectItem value="Big Match">Big Match</SelectItem>
+                                    <SelectItem value="Champions League">Champions League</SelectItem>
+                                    <SelectItem value="Derby Match">Derby Match</SelectItem>
+                                  </>
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label htmlFor="hall_id" className="text-cyber-slate-200">
+                              Hall
+                            </Label>
+                            <Select
+                              value={newEvent.hall_id}
+                              onValueChange={(value) => {
+                                const selectedHall = getHallDetails(halls, value)
+                                if (selectedHall) {
+                                  const pricing =
+                                    selectedHall.type === "vip"
+                                      ? defaultVipMoviePricing
+                                      : defaultStandardMoviePricingHallA
+                                  setNewEvent((prev) => ({
+                                    ...prev,
+                                    hall_id: value,
+                                    total_seats: selectedHall.capacity,
+                                    pricing,
+                                  }))
+                                }
+                              }}
+                            >
+                              <SelectTrigger className="bg-glass-white border-white/20 text-white">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="bg-glass-white-strong backdrop-blur-xl border-white/20">
+                                {halls.map((hall) => (
+                                  <SelectItem key={hall._id} value={hall._id}>
+                                    {hall.name} ({hall.capacity} seats)
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="event_date" className="text-cyber-slate-200">
+                              Event Date
+                            </Label>
+                            <Input
+                              id="event_date"
+                              type="date"
+                              value={newEvent.event_date}
+                              onChange={(e) => setNewEvent((prev) => ({ ...prev, event_date: e.target.value }))}
+                              className="bg-glass-white border-white/20 text-white"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="event_time" className="text-cyber-slate-200">
+                              Event Time
+                            </Label>
+                            <Input
+                              id="event_time"
+                              type="time"
+                              value={newEvent.event_time}
+                              onChange={(e) => setNewEvent((prev) => ({ ...prev, event_time: e.target.value }))}
+                              className="bg-glass-white border-white/20 text-white"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <Label htmlFor="description" className="text-cyber-slate-200">
+                            Description
+                          </Label>
+                          <Textarea
+                            id="description"
+                            value={newEvent.description}
+                            onChange={(e) => setNewEvent((prev) => ({ ...prev, description: e.target.value }))}
+                            className="bg-glass-white border-white/20 text-white"
+                            placeholder="Enter event description"
+                            rows={3}
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="duration" className="text-cyber-slate-200">
+                              Duration
+                            </Label>
+                            <Input
+                              id="duration"
+                              value={newEvent.duration}
+                              onChange={(e) => setNewEvent((prev) => ({ ...prev, duration: e.target.value }))}
+                              className="bg-glass-white border-white/20 text-white"
+                              placeholder="e.g., 120 minutes"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="image_url" className="text-cyber-slate-200">
+                              Image URL
+                            </Label>
+                            <Input
+                              id="image_url"
+                              value={newEvent.image_url || ""}
+                              onChange={(e) => setNewEvent((prev) => ({ ...prev, image_url: e.target.value }))}
+                              className="bg-glass-white border-white/20 text-white"
+                              placeholder="Enter image URL"
+                            />
+                          </div>
+                        </div>
+
+                        {newEvent.hall_id && (
+                          <div className="space-y-4">
+                            <div className="border-t border-white/20 pt-4">
+                              <Label className="text-cyber-slate-200 text-lg font-semibold">
+                                Pricing Configuration
+                              </Label>
+                              <p className="text-cyber-slate-400 text-sm mt-1">
+                                Set prices for different seat types in {getHallDisplayName(halls, newEvent.hall_id)}
+                              </p>
                             </div>
-                          </TableCell>
+
+                            {/* VIP Hall Pricing */}
+                            {getHallType(halls, newEvent.hall_id) === "vip" && (
+                              <div className="space-y-4">
+                                {newEvent.event_type === "match" ? (
+                                  // VIP Match Pricing
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                      <Label htmlFor="vip_sofa_price" className="text-cyber-slate-200">
+                                        VIP Sofa Seats Price (₦)
+                                      </Label>
+                                      <Input
+                                        id="vip_sofa_price"
+                                        type="number"
+                                        value={newEvent.pricing.vipSofaSeats?.price || ""}
+                                        onChange={(e) =>
+                                          setNewEvent((prev) => ({
+                                            ...prev,
+                                            pricing: {
+                                              ...prev.pricing,
+                                              vipSofaSeats: {
+                                                price: Number(e.target.value) || 0,
+                                                count: 10,
+                                              },
+                                            },
+                                          }))
+                                        }
+                                        className="bg-glass-white border-white/20 text-white"
+                                        placeholder="Enter sofa seat price"
+                                      />
+                                      <p className="text-xs text-cyber-slate-400 mt-1">10 sofa seats available</p>
+                                    </div>
+                                    <div>
+                                      <Label htmlFor="vip_regular_price" className="text-cyber-slate-200">
+                                        VIP Regular Seats Price (₦)
+                                      </Label>
+                                      <Input
+                                        id="vip_regular_price"
+                                        type="number"
+                                        value={newEvent.pricing.vipRegularSeats?.price || ""}
+                                        onChange={(e) =>
+                                          setNewEvent((prev) => ({
+                                            ...prev,
+                                            pricing: {
+                                              ...prev.pricing,
+                                              vipRegularSeats: {
+                                                price: Number(e.target.value) || 0,
+                                                count: 12,
+                                              },
+                                            },
+                                          }))
+                                        }
+                                        className="bg-glass-white border-white/20 text-white"
+                                        placeholder="Enter regular seat price"
+                                      />
+                                      <p className="text-xs text-cyber-slate-400 mt-1">12 regular seats available</p>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  // VIP Movie Pricing
+                                  <div className="grid grid-cols-3 gap-4">
+                                    <div>
+                                      <Label htmlFor="vip_single_price" className="text-cyber-slate-200">
+                                        VIP Single Price (₦)
+                                      </Label>
+                                      <Input
+                                        id="vip_single_price"
+                                        type="number"
+                                        value={newEvent.pricing.vipSingle?.price || ""}
+                                        onChange={(e) =>
+                                          setNewEvent((prev) => ({
+                                            ...prev,
+                                            pricing: {
+                                              ...prev.pricing,
+                                              vipSingle: {
+                                                price: Number(e.target.value) || 0,
+                                                count: 20,
+                                              },
+                                            },
+                                          }))
+                                        }
+                                        className="bg-glass-white border-white/20 text-white"
+                                        placeholder="Single seat price"
+                                      />
+                                      <p className="text-xs text-cyber-slate-400 mt-1">20 single seats</p>
+                                    </div>
+                                    <div>
+                                      <Label htmlFor="vip_couple_price" className="text-cyber-slate-200">
+                                        VIP Couple Price (₦)
+                                      </Label>
+                                      <Input
+                                        id="vip_couple_price"
+                                        type="number"
+                                        value={newEvent.pricing.vipCouple?.price || ""}
+                                        onChange={(e) =>
+                                          setNewEvent((prev) => ({
+                                            ...prev,
+                                            pricing: {
+                                              ...prev.pricing,
+                                              vipCouple: {
+                                                price: Number(e.target.value) || 0,
+                                                count: 14,
+                                              },
+                                            },
+                                          }))
+                                        }
+                                        className="bg-glass-white border-white/20 text-white"
+                                        placeholder="Couple seat price"
+                                      />
+                                      <p className="text-xs text-cyber-slate-400 mt-1">14 couple seats</p>
+                                    </div>
+                                    <div>
+                                      <Label htmlFor="vip_family_price" className="text-cyber-slate-200">
+                                        VIP Family Price (₦)
+                                      </Label>
+                                      <Input
+                                        id="vip_family_price"
+                                        type="number"
+                                        value={newEvent.pricing.vipFamily?.price || ""}
+                                        onChange={(e) =>
+                                          setNewEvent((prev) => ({
+                                            ...prev,
+                                            pricing: {
+                                              ...prev.pricing,
+                                              vipFamily: {
+                                                price: Number(e.target.value) || 0,
+                                                count: 14,
+                                              },
+                                            },
+                                          }))
+                                        }
+                                        className="bg-glass-white border-white/20 text-white"
+                                        placeholder="Family seat price"
+                                      />
+                                      <p className="text-xs text-cyber-slate-400 mt-1">14 family seats</p>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Standard Hall Pricing */}
+                            {getHallType(halls, newEvent.hall_id) === "standard" && (
+                              <div className="space-y-4">
+                                {newEvent.event_type === "match" ? (
+                                  // Standard Match Pricing
+                                  <div>
+                                    <Label htmlFor="standard_match_price" className="text-cyber-slate-200">
+                                      Standard Match Seats Price (₦)
+                                    </Label>
+                                    <Input
+                                      id="standard_match_price"
+                                      type="number"
+                                      value={newEvent.pricing.standardMatchSeats?.price || ""}
+                                      onChange={(e) =>
+                                        setNewEvent((prev) => ({
+                                          ...prev,
+                                          pricing: {
+                                            ...prev.pricing,
+                                            standardMatchSeats: {
+                                              price: Number(e.target.value) || 0,
+                                              count: getHallTotalSeats(halls, newEvent.hall_id),
+                                            },
+                                          },
+                                        }))
+                                      }
+                                      className="bg-glass-white border-white/20 text-white"
+                                      placeholder="Enter match seat price"
+                                    />
+                                    <p className="text-xs text-cyber-slate-400 mt-1">
+                                      {getHallTotalSeats(halls, newEvent.hall_id)} seats available
+                                    </p>
+                                  </div>
+                                ) : (
+                                  // Standard Movie Pricing
+                                  <div>
+                                    <Label htmlFor="standard_single_price" className="text-cyber-slate-200">
+                                      Standard Single Seats Price (₦)
+                                    </Label>
+                                    <Input
+                                      id="standard_single_price"
+                                      type="number"
+                                      value={newEvent.pricing.standardSingle?.price || ""}
+                                      onChange={(e) =>
+                                        setNewEvent((prev) => ({
+                                          ...prev,
+                                          pricing: {
+                                            ...prev.pricing,
+                                            standardSingle: {
+                                              price: Number(e.target.value) || 0,
+                                              count: getHallTotalSeats(halls, newEvent.hall_id),
+                                            },
+                                          },
+                                        }))
+                                      }
+                                      className="bg-glass-white border-white/20 text-white"
+                                      placeholder="Enter single seat price"
+                                    />
+                                    <p className="text-xs text-cyber-slate-400 mt-1">
+                                      {getHallTotalSeats(halls, newEvent.hall_id)} seats available
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => setIsCreateEventOpen(false)}
+                          className="border-white/20 text-cyber-slate-300"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={createEvent}
+                          className="bg-gradient-to-r from-brand-red-500 to-brand-red-600 text-white"
+                        >
+                          Create Event
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {/* Events Filter */}
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <Select
+                      value={reportEventType}
+                      onValueChange={(value: EventType | "all") => setReportEventType(value)}
+                    >
+                      <SelectTrigger className="bg-glass-white border-white/20 text-white w-full sm:w-48">
+                        <SelectValue placeholder="Filter by type" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-glass-white-strong backdrop-blur-xl border-white/20">
+                        <SelectItem value="all">All Types</SelectItem>
+                        <SelectItem value="movie">Movies</SelectItem>
+                        <SelectItem value="match">Sports Matches</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      onClick={fetchEvents}
+                      variant="outline"
+                      className="border-white/20 text-cyber-slate-300 bg-transparent"
+                    >
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Refresh
+                    </Button>
+                  </div>
+
+                  {/* Events Table */}
+                  <div className="rounded-lg border border-white/20 overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-white/20 hover:bg-white/5">
+                          <TableHead className="text-cyber-slate-200">Event</TableHead>
+                          <TableHead className="text-cyber-slate-200">Type</TableHead>
+                          <TableHead className="text-cyber-slate-200">Hall</TableHead>
+                          <TableHead className="text-cyber-slate-200">Date & Time</TableHead>
+                          <TableHead className="text-cyber-slate-200">Status</TableHead>
+                          <TableHead className="text-cyber-slate-200">Occupancy</TableHead>
+                          <TableHead className="text-cyber-slate-200">Actions</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredEvents.map((event) => {
+                          const bookedSeats = event.bookedSeats?.length || 0
+                          const occupancyRate = event.total_seats > 0 ? (bookedSeats / event.total_seats) * 100 : 0
+
+                          return (
+                            <TableRow key={event._id} className="border-white/20 hover:bg-white/5">
+                              <TableCell>
+                                <div>
+                                  <div className="font-medium text-white">{event.title}</div>
+                                  <div className="text-sm text-cyber-slate-400">{event.category}</div>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge
+                                  variant={event.event_type === "movie" ? "default" : "secondary"}
+                                  className="capitalize"
+                                >
+                                  {event.event_type}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-cyber-slate-300">
+                                {getHallDisplayName(halls, event.hall_id)}
+                              </TableCell>
+                              <TableCell>
+                                <div className="text-cyber-slate-300">
+                                  <div className="flex items-center gap-1">
+                                    <Calendar className="w-3 h-3" />
+                                    {new Date(event.event_date).toLocaleDateString()}
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <Clock className="w-3 h-3" />
+                                    {event.event_time}
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge
+                                  variant={
+                                    event.status === "active"
+                                      ? "default"
+                                      : event.status === "draft"
+                                        ? "secondary"
+                                        : "destructive"
+                                  }
+                                  className="capitalize"
+                                >
+                                  {event.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <div className="text-cyber-slate-300">
+                                  <div className="text-sm">
+                                    {bookedSeats}/{event.total_seats}
+                                  </div>
+                                  <div className="text-xs text-cyber-slate-400">{occupancyRate.toFixed(0)}%</div>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setNewEvent(event)
+                                      setIsEditEventOpen(true)
+                                    }}
+                                    className="border-white/20 text-cyber-slate-300 hover:bg-white/10"
+                                  >
+                                    <Edit className="w-3 h-3" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => deleteEvent(event._id)}
+                                    className="border-red-500/50 text-red-400 hover:bg-red-500/20"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -1787,788 +1285,777 @@ export default function AdminDashboard() {
           <TabsContent value="bookings">
             <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card">
               <CardHeader>
-                <CardTitle className="text-white text-xl font-bold">Customer Bookings</CardTitle>
-                <CardDescription className="text-cyber-slate-300">
-                  View and manage customer bookings with receipt printing capability
-                </CardDescription>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div>
+                    <CardTitle className="text-white text-xl font-bold">Customer Bookings</CardTitle>
+                    <CardDescription className="text-cyber-slate-300">
+                      View and manage customer bookings
+                    </CardDescription>
+                  </div>
+                  <Dialog open={isCreateBookingOpen} onOpenChange={setIsCreateBookingOpen}>
+                    <DialogTrigger asChild>
+                      <Button className="bg-gradient-to-r from-cyber-blue-500 to-cyber-blue-600 hover:from-cyber-blue-600 hover:to-cyber-blue-700 text-white shadow-glow-blue rounded-2xl">
+                        <Plus className="w-4 h-4 mr-2" />
+                        Create Booking
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="bg-glass-white-strong backdrop-blur-xl border border-white/20 max-w-2xl max-h-[90vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle className="text-white">Create New Booking</DialogTitle>
+                        <DialogDescription className="text-cyber-slate-300">
+                          Create a booking for a customer
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="customerName" className="text-cyber-slate-200">
+                              Customer Name
+                            </Label>
+                            <Input
+                              id="customerName"
+                              value={newBooking.customerName}
+                              onChange={(e) => setNewBooking((prev) => ({ ...prev, customerName: e.target.value }))}
+                              className="bg-glass-white border-white/20 text-white"
+                              placeholder="Enter customer name"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="customerEmail" className="text-cyber-slate-200">
+                              Customer Email
+                            </Label>
+                            <Input
+                              id="customerEmail"
+                              type="email"
+                              value={newBooking.customerEmail}
+                              onChange={(e) => setNewBooking((prev) => ({ ...prev, customerEmail: e.target.value }))}
+                              className="bg-glass-white border-white/20 text-white"
+                              placeholder="Enter customer email"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="customerPhone" className="text-cyber-slate-200">
+                              Customer Phone
+                            </Label>
+                            <Input
+                              id="customerPhone"
+                              value={newBooking.customerPhone}
+                              onChange={(e) => setNewBooking((prev) => ({ ...prev, customerPhone: e.target.value }))}
+                              className="bg-glass-white border-white/20 text-white"
+                              placeholder="Enter customer phone"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="eventId" className="text-cyber-slate-200">
+                              Event
+                            </Label>
+                            <Select
+                              value={newBooking.eventId}
+                              onValueChange={(value) => {
+                                const selectedEvent = events.find((e) => e._id === value)
+                                if (selectedEvent) {
+                                  setNewBooking((prev) => ({
+                                    ...prev,
+                                    eventId: value,
+                                    eventTitle: selectedEvent.title,
+                                    eventType: selectedEvent.event_type,
+                                  }))
+                                }
+                              }}
+                            >
+                              <SelectTrigger className="bg-glass-white border-white/20 text-white">
+                                <SelectValue placeholder="Select event" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-glass-white-strong backdrop-blur-xl border-white/20">
+                                {events.map((event) => (
+                                  <SelectItem key={event._id} value={event._id}>
+                                    {event.title} - {new Date(event.event_date).toLocaleDateString()}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="seatType" className="text-cyber-slate-200">
+                              Seat Type
+                            </Label>
+                            <Select
+                              value={newBooking.seatType}
+                              onValueChange={(value) => setNewBooking((prev) => ({ ...prev, seatType: value }))}
+                            >
+                              <SelectTrigger className="bg-glass-white border-white/20 text-white">
+                                <SelectValue placeholder="Select seat type" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-glass-white-strong backdrop-blur-xl border-white/20">
+                                <SelectItem value="vipSingle">VIP Single</SelectItem>
+                                <SelectItem value="vipCouple">VIP Couple</SelectItem>
+                                <SelectItem value="vipFamily">VIP Family</SelectItem>
+                                <SelectItem value="standardSingle">Standard Single</SelectItem>
+                                <SelectItem value="standardCouple">Standard Couple</SelectItem>
+                                <SelectItem value="standardFamily">Standard Family</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label htmlFor="amount" className="text-cyber-slate-200">
+                              Amount (₦)
+                            </Label>
+                            <Input
+                              id="amount"
+                              type="number"
+                              value={newBooking.amount}
+                              onChange={(e) => {
+                                const amount = Number.parseInt(e.target.value) || 0
+                                setNewBooking((prev) => ({
+                                  ...prev,
+                                  amount,
+                                  totalAmount: amount + prev.processingFee,
+                                }))
+                              }}
+                              className="bg-glass-white border-white/20 text-white"
+                              placeholder="Enter amount"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="paymentMethod" className="text-cyber-slate-200">
+                              Payment Method
+                            </Label>
+                            <Select
+                              value={newBooking.paymentMethod}
+                              onValueChange={(value) => setNewBooking((prev) => ({ ...prev, paymentMethod: value }))}
+                            >
+                              <SelectTrigger className="bg-glass-white border-white/20 text-white">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="bg-glass-white-strong backdrop-blur-xl border-white/20">
+                                <SelectItem value="Cash">Cash</SelectItem>
+                                <SelectItem value="Card">Card</SelectItem>
+                                <SelectItem value="Transfer">Transfer</SelectItem>
+                                <SelectItem value="Online">Online</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label htmlFor="status" className="text-cyber-slate-200">
+                              Status
+                            </Label>
+                            <Select
+                              value={newBooking.status}
+                              onValueChange={(value: Booking["status"]) =>
+                                setNewBooking((prev) => ({ ...prev, status: value }))
+                              }
+                            >
+                              <SelectTrigger className="bg-glass-white border-white/20 text-white">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="bg-glass-white-strong backdrop-blur-xl border-white/20">
+                                <SelectItem value="confirmed">Confirmed</SelectItem>
+                                <SelectItem value="pending">Pending</SelectItem>
+                                <SelectItem value="cancelled">Cancelled</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        <div className="bg-glass-white/10 p-4 rounded-lg">
+                          <div className="flex justify-between text-cyber-slate-300">
+                            <span>Subtotal:</span>
+                            <span>₦{newBooking.amount.toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between text-cyber-slate-300">
+                            <span>Processing Fee:</span>
+                            <span>₦{newBooking.processingFee.toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between text-white font-bold border-t border-white/20 pt-2 mt-2">
+                            <span>Total:</span>
+                            <span>₦{newBooking.totalAmount.toLocaleString()}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => setIsCreateBookingOpen(false)}
+                          className="border-white/20 text-cyber-slate-300"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={createBooking}
+                          className="bg-gradient-to-r from-cyber-blue-500 to-cyber-blue-600 text-white"
+                        >
+                          Create Booking
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                  <div className="grid gap-2">
-                    <Label htmlFor="booking-event-filter" className="text-cyber-slate-200">
-                      Filter by Event
-                    </Label>
-                    <Select
-                      value={selectedEventIdForBookings}
-                      onValueChange={(value: string | "all") => setSelectedEventIdForBookings(value)}
-                    >
-                      <SelectTrigger className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl">
-                        <SelectValue placeholder="All Events" />
+                <div className="space-y-4">
+                  {/* Bookings Filters */}
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-cyber-slate-400 w-4 h-4" />
+                      <Input
+                        placeholder="Search customers..."
+                        value={customerSearchQuery}
+                        onChange={(e) => setCustomerSearchQuery(e.target.value)}
+                        className="bg-glass-white border-white/20 text-white pl-10"
+                      />
+                    </div>
+                    <Select value={selectedEventIdForBookings} onValueChange={setSelectedEventIdForBookings}>
+                      <SelectTrigger className="bg-glass-white border-white/20 text-white w-full sm:w-48">
+                        <SelectValue placeholder="Filter by event" />
                       </SelectTrigger>
-                      <SelectContent className="bg-glass-dark-strong border-white/20 backdrop-blur-xl rounded-2xl">
+                      <SelectContent className="bg-glass-white-strong backdrop-blur-xl border-white/20">
                         <SelectItem value="all">All Events</SelectItem>
                         {events.map((event) => (
                           <SelectItem key={event._id} value={event._id}>
-                            {event.title} ({getHallDisplayName(halls, event.hall_id)})
+                            {event.title}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="customer-search" className="text-cyber-slate-200">
-                      Search Customer
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        id="customer-search"
-                        type="text"
-                        value={customerSearchQuery}
-                        onChange={(e) => setCustomerSearchQuery(e.target.value)}
-                        placeholder="Search by name or email..."
-                        className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl pl-9"
-                      />
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cyber-slate-400" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="border-white/20">
-                        <TableHead className="text-cyber-slate-200 font-semibold">Booking ID</TableHead>
-                        <TableHead className="text-cyber-slate-200 font-semibold">Customer</TableHead>
-                        <TableHead className="text-cyber-slate-200 font-semibold">Event</TableHead>
-                        <TableHead className="text-cyber-slate-200 font-semibold">Seats/Type</TableHead>
-                        <TableHead className="text-cyber-slate-200 font-semibold">Amount</TableHead>
-                        <TableHead className="text-cyber-slate-200 font-semibold">Status</TableHead>
-                        <TableHead className="text-cyber-slate-200 font-semibold">Date</TableHead>
-                        <TableHead className="text-cyber-slate-200 font-semibold">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredCustomerBookings.length > 0 ? (
-                        filteredCustomerBookings.map((booking) => (
-                          <TableRow
-                            key={booking._id}
-                            className="border-white/20 hover:bg-glass-white transition-colors"
-                          >
-                            <TableCell className="font-medium text-white font-mono">{booking._id}</TableCell>
-                            <TableCell>
-                              <div className="text-cyber-slate-200">
-                                <div className="font-semibold">{booking.customerName}</div>
-                                <div className="text-xs text-cyber-slate-400">{booking.customerEmail}</div>
-                                <div className="text-xs text-cyber-slate-400">{booking.customerPhone}</div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="text-cyber-slate-200">
-                                <div className="font-semibold">{booking.eventTitle}</div>
-                                <Badge
-                                  variant="outline"
-                                  className="text-xs bg-cyber-slate-500/20 text-cyber-slate-300 border-cyber-slate-500/30 rounded-xl mt-1"
-                                >
-                                  {booking.eventType}
-                                </Badge>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="space-y-1">
-                                <div className="flex gap-1">
-                                  {booking.seats.map((seat) => (
-                                    <Badge
-                                      key={seat}
-                                      variant="outline"
-                                      className="text-xs bg-brand-red-500/20 text-brand-red-300 border-brand-red-500/30 rounded-2xl"
-                                    >
-                                      {seat}
-                                    </Badge>
-                                  ))}
-                                </div>
-                                <div className="text-xs text-cyber-slate-400">{booking.seatType}</div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="text-cyber-slate-200">
-                                <div className="font-semibold">₦{booking.totalAmount.toLocaleString()}</div>
-                                <div className="text-xs text-cyber-slate-400">
-                                  Base: ₦{booking.amount.toLocaleString()} + Fee: ₦{booking.processingFee}
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                variant={booking.status === "confirmed" ? "default" : "secondary"}
-                                className={
-                                  booking.status === "confirmed"
-                                    ? "bg-cyber-green-500/30 text-cyber-green-300 border-cyber-green-500/50 rounded-2xl"
-                                    : "bg-cyber-yellow-500/30 text-cyber-yellow-300 border-cyber-yellow-500/50 rounded-2xl"
-                                }
-                              >
-                                {booking.status}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <div className="text-cyber-slate-200">
-                                <div>{new Date(booking.bookingDate).toLocaleDateString()}</div>
-                                <div className="text-xs text-cyber-slate-400">{booking.bookingTime}</div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl"
-                                >
-                                  <Eye className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handlePrintReceipt(booking)}
-                                  className="border-cyber-green-500/50 text-cyber-green-400 hover:bg-cyber-green-500/20 bg-transparent backdrop-blur-sm rounded-2xl"
-                                >
-                                  <Printer className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl"
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={8} className="text-center text-cyber-slate-400 py-8">
-                            No bookings found matching the selected filters.
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Halls Management Tab Content */}
-          <TabsContent value="halls">
-            <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-white text-xl font-bold">Hall/Venue Management</CardTitle>
-                  <CardDescription className="text-cyber-slate-300">
-                    Create, update, or delete cinema halls and venues.
-                  </CardDescription>
-                </div>
-                <Dialog open={isCreateEditHallOpen} onOpenChange={setIsCreateEditHallOpen}>
-                  <DialogTrigger asChild>
-                    <Button
-                      size="sm"
-                      className="bg-gradient-to-r from-cyber-purple-500 via-cyber-purple-600 to-cyber-purple-700 hover:from-cyber-purple-600 hover:via-cyber-purple-700 hover:to-cyber-purple-800 shadow-glow-purple text-white group rounded-2xl"
-                      onClick={() => setCurrentHall(initialNewHallState)} // Reset form for new hall
-                    >
-                      <Plus className="w-4 h-4 mr-2 group-hover:rotate-180 transition-transform duration-300" />
-                      Create Hall
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[500px] bg-glass-dark-strong backdrop-blur-xl border border-white/20 text-white shadow-cyber-hover rounded-4xl">
-                    <DialogHeader>
-                      <DialogTitle className="text-white text-xl font-bold bg-gradient-to-r from-white to-cyber-purple-200 bg-clip-text text-transparent">
-                        {currentHall._id ? "Edit Hall" : "Create New Hall"}
-                      </DialogTitle>
-                      <DialogDescription className="text-cyber-slate-300">
-                        {currentHall._id ? "Modify details for this hall." : "Add a new cinema hall or venue."}
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="grid gap-3">
-                        <Label htmlFor="hall-name" className="text-cyber-slate-200 font-semibold">
-                          Hall Name
-                        </Label>
-                        <Input
-                          id="hall-name"
-                          value={currentHall.name}
-                          onChange={(e) => setCurrentHall({ ...currentHall, name: e.target.value })}
-                          placeholder="e.g., Hall C, Deluxe Hall"
-                          className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
-                        />
-                      </div>
-                      <div className="grid gap-3">
-                        <Label htmlFor="hall-capacity" className="text-cyber-slate-200 font-semibold">
-                          Capacity (Total Seats)
-                        </Label>
-                        <Input
-                          id="hall-capacity"
-                          type="number"
-                          value={currentHall.capacity}
-                          onChange={(e) => setCurrentHall({ ...currentHall, capacity: Number(e.target.value) })}
-                          placeholder="e.g., 50"
-                          className="bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl"
-                        />
-                      </div>
-                      <div className="grid gap-3">
-                        <Label htmlFor="hall-type" className="text-cyber-slate-200 font-semibold">
-                          Hall Type
-                        </Label>
-                        <Select
-                          value={currentHall.type}
-                          onValueChange={(value: "vip" | "standard") => setCurrentHall({ ...currentHall, type: value })}
-                        >
-                          <SelectTrigger className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl">
-                            <SelectValue placeholder="Select hall type" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-glass-dark-strong border-white/20 backdrop-blur-xl rounded-2xl">
-                            <SelectItem value="standard">Standard</SelectItem>
-                            <SelectItem value="vip">VIP</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button
-                        variant="outline"
-                        onClick={() => setIsCreateEditHallOpen(false)}
-                        className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl"
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        onClick={currentHall._id ? handleUpdateHall : handleCreateHall}
-                        className="bg-gradient-to-r from-cyber-purple-500 via-cyber-purple-600 to-cyber-purple-700 hover:from-cyber-purple-600 hover:via-cyber-purple-700 hover:to-cyber-purple-800 text-white rounded-2xl"
-                      >
-                        {currentHall._id ? "Save Changes" : "Create Hall"}
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="border-white/20 hover:bg-glass-white">
-                        <TableHead className="text-cyber-slate-200 font-semibold">Hall ID</TableHead>
-                        <TableHead className="text-cyber-slate-200 font-semibold">Name</TableHead>
-                        <TableHead className="text-cyber-slate-200 font-semibold">Capacity</TableHead>
-                        <TableHead className="text-cyber-slate-200 font-semibold">Type</TableHead>
-                        <TableHead className="text-cyber-slate-200 font-semibold">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {halls.length > 0 ? (
-                        halls.map((hall) => (
-                          <TableRow key={hall._id} className="border-white/20 hover:bg-glass-white transition-colors">
-                            <TableCell className="font-medium text-white font-mono">{hall._id}</TableCell>
-                            <TableCell className="text-cyber-slate-200">{hall.name}</TableCell>
-                            <TableCell className="text-cyber-slate-200">{hall.capacity} seats</TableCell>
-                            <TableCell>
-                              <Badge
-                                variant="outline"
-                                className={
-                                  hall.type === "vip"
-                                    ? "bg-brand-red-500/30 text-brand-red-300 border-brand-red-500/50 rounded-2xl"
-                                    : "bg-cyber-blue-500/30 text-cyber-blue-300 border-cyber-blue-500/50 rounded-2xl"
-                                }
-                              >
-                                {hall.type.toUpperCase()}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleEditHallClick(hall)}
-                                  className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl"
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleDeleteHall(hall._id, hall.name)}
-                                  className="border-brand-red-500/50 text-brand-red-400 hover:bg-brand-red-500/20 bg-transparent backdrop-blur-sm rounded-2xl"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={5} className="text-center text-cyber-slate-400 py-8">
-                            No halls found. Create one to get started!
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="reports">
-            <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card">
-              <CardHeader>
-                <CardTitle className="text-white text-xl font-bold">Booking Reports</CardTitle>
-                <CardDescription className="text-cyber-slate-300">
-                  Generate and view reports on customer bookings with various filters.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                  <div className="grid gap-2">
-                    <Label htmlFor="report-start-date" className="text-cyber-slate-200">
-                      Start Date
-                    </Label>
-                    <Input
-                      id="report-start-date"
-                      type="date"
-                      value={reportStartDate}
-                      onChange={(e) => setReportStartDate(e.target.value)}
-                      className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl"
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="report-end-date" className="text-cyber-slate-200">
-                      End Date
-                    </Label>
-                    <Input
-                      id="report-end-date"
-                      type="date"
-                      value={reportEndDate}
-                      onChange={(e) => setReportEndDate(e.target.value)}
-                      className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl"
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="report-event-type" className="text-cyber-slate-200">
-                      Event Type
-                    </Label>
-                    <Select
-                      value={reportEventType}
-                      onValueChange={(value: EventType | "all") => setReportEventType(value)}
-                    >
-                      <SelectTrigger className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl">
-                        <SelectValue placeholder="All Types" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-glass-dark-strong border-white/20 backdrop-blur-xl rounded-2xl">
-                        <SelectItem value="all">All Types</SelectItem>
-                        <SelectItem value="movie">Movie</SelectItem>
-                        <SelectItem value="match">Sports Match</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="report-status" className="text-cyber-slate-200">
-                      Booking Status
-                    </Label>
                     <Select
                       value={reportStatus}
                       onValueChange={(value: Booking["status"] | "all") => setReportStatus(value)}
                     >
-                      <SelectTrigger className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl">
-                        <SelectValue placeholder="All Statuses" />
+                      <SelectTrigger className="bg-glass-white border-white/20 text-white w-full sm:w-48">
+                        <SelectValue placeholder="Filter by status" />
                       </SelectTrigger>
-                      <SelectContent className="bg-glass-dark-strong border-white/20 backdrop-blur-xl rounded-2xl">
-                        <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectContent className="bg-glass-white-strong backdrop-blur-xl border-white/20">
+                        <SelectItem value="all">All Status</SelectItem>
                         <SelectItem value="confirmed">Confirmed</SelectItem>
                         <SelectItem value="pending">Pending</SelectItem>
                         <SelectItem value="cancelled">Cancelled</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="report-event-filter" className="text-cyber-slate-200">
-                      Filter by Event
-                    </Label>
-                    <Select
-                      value={selectedEventIdForReports}
-                      onValueChange={(value: string | "all") => setSelectedEventIdForReports(value)}
-                    >
-                      <SelectTrigger className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl">
-                        <SelectValue placeholder="All Events" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-glass-dark-strong border-white/20 backdrop-blur-xl rounded-2xl">
-                        <SelectItem value="all">All Events</SelectItem>
-                        {events.map((event) => (
-                          <SelectItem key={event._id} value={event._id}>
-                            {event.title} ({getHallDisplayName(halls, event.hall_id)})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
 
-                <div className="flex justify-end mb-4">
-                  <Button
-                    onClick={handleExportPdf}
-                    className="bg-gradient-to-r from-cyber-green-500 via-cyber-green-600 to-cyber-green-700 hover:from-cyber-green-600 hover:via-cyber-green-700 hover:to-cyber-green-800 text-white rounded-2xl"
-                  >
-                    <Printer className="w-4 h-4 mr-2" />
-                    Export as PDF
-                  </Button>
-                </div>
-
-                <div id="report-table-content" className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="border-white/20">
-                        <TableHead className="text-cyber-slate-200 font-semibold">Booking ID</TableHead>
-                        <TableHead className="text-cyber-slate-200 font-semibold">Customer</TableHead>
-                        <TableHead className="text-cyber-slate-200 font-semibold">Event</TableHead>
-                        <TableHead className="text-cyber-slate-200 font-semibold">Seats/Type</TableHead>
-                        <TableHead className="text-cyber-slate-200 font-semibold">Amount</TableHead>
-                        <TableHead className="text-cyber-slate-200 font-semibold">Status</TableHead>
-                        <TableHead className="text-cyber-slate-200 font-semibold">Date</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredReportsBookings.length > 0 ? (
-                        filteredReportsBookings.map((booking) => (
-                          <TableRow
-                            key={booking._id}
-                            className="border-white/20 hover:bg-glass-white transition-colors"
-                          >
-                            <TableCell className="font-medium text-white font-mono">{booking._id}</TableCell>
+                  {/* Bookings Table */}
+                  <div className="rounded-lg border border-white/20 overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-white/20 hover:bg-white/5">
+                          <TableHead className="text-cyber-slate-200">Customer</TableHead>
+                          <TableHead className="text-cyber-slate-200">Event</TableHead>
+                          <TableHead className="text-cyber-slate-200">Seats</TableHead>
+                          <TableHead className="text-cyber-slate-200">Amount</TableHead>
+                          <TableHead className="text-cyber-slate-200">Status</TableHead>
+                          <TableHead className="text-cyber-slate-200">Date</TableHead>
+                          <TableHead className="text-cyber-slate-200">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredBookings.map((booking) => (
+                          <TableRow key={booking._id} className="border-white/20 hover:bg-white/5">
                             <TableCell>
-                              <div className="text-cyber-slate-200">
-                                <div className="font-semibold">{booking.customerName}</div>
-                                <div className="text-xs text-cyber-slate-400">{booking.customerEmail}</div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="text-cyber-slate-200">
-                                <div className="font-semibold">{booking.eventTitle}</div>
-                                <Badge
-                                  variant="outline"
-                                  className="text-xs bg-cyber-slate-500/20 text-cyber-slate-300 border-cyber-slate-500/30 rounded-xl mt-1"
-                                >
-                                  {booking.eventType}
-                                </Badge>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="space-y-1">
-                                <div className="flex gap-1">
-                                  {booking.seats.map((seat) => (
-                                    <Badge
-                                      key={seat}
-                                      variant="outline"
-                                      className="text-xs bg-brand-red-500/20 text-brand-red-300 border-brand-red-500/30 rounded-2xl"
-                                    >
-                                      {seat}
-                                    </Badge>
-                                  ))}
+                              <div>
+                                <div className="font-medium text-white">{booking.customerName}</div>
+                                <div className="text-sm text-cyber-slate-400 flex items-center gap-1">
+                                  <Mail className="w-3 h-3" />
+                                  {booking.customerEmail}
                                 </div>
-                                <div className="text-xs text-cyber-slate-400">{booking.seatType}</div>
+                                <div className="text-sm text-cyber-slate-400 flex items-center gap-1">
+                                  <Phone className="w-3 h-3" />
+                                  {booking.customerPhone}
+                                </div>
                               </div>
                             </TableCell>
                             <TableCell>
-                              <div className="text-cyber-slate-200">
-                                <div className="font-semibold">₦{booking.totalAmount.toLocaleString()}</div>
-                                <div className="text-xs text-cyber-slate-400">
-                                  Base: ₦{booking.amount.toLocaleString()} + Fee: ₦{booking.processingFee}
+                              <div>
+                                <div className="font-medium text-white">{booking.eventTitle}</div>
+                                <div className="text-sm text-cyber-slate-400 capitalize">{booking.eventType}</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-cyber-slate-300">
+                                <div className="text-sm">{booking.seats.join(", ")}</div>
+                                <div className="text-xs text-cyber-slate-400 capitalize">{booking.seatType}</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-cyber-slate-300">
+                                <div className="font-medium">₦{booking.totalAmount.toLocaleString()}</div>
+                                <div className="text-xs text-cyber-slate-400 flex items-center gap-1">
+                                  <CreditCard className="w-3 h-3" />
+                                  {booking.paymentMethod}
                                 </div>
                               </div>
                             </TableCell>
                             <TableCell>
                               <Badge
-                                variant={booking.status === "confirmed" ? "default" : "secondary"}
-                                className={
+                                variant={
                                   booking.status === "confirmed"
-                                    ? "bg-cyber-green-500/30 text-cyber-green-300 border-cyber-green-500/50 rounded-2xl"
-                                    : "bg-cyber-yellow-500/30 text-cyber-yellow-300 border-cyber-yellow-500/50 rounded-2xl"
+                                    ? "default"
+                                    : booking.status === "pending"
+                                      ? "secondary"
+                                      : "destructive"
                                 }
+                                className="capitalize"
                               >
+                                {booking.status === "confirmed" && <CheckCircle className="w-3 h-3 mr-1" />}
+                                {booking.status === "pending" && <AlertCircle className="w-3 h-3 mr-1" />}
+                                {booking.status === "cancelled" && <XCircle className="w-3 h-3 mr-1" />}
                                 {booking.status}
                               </Badge>
                             </TableCell>
                             <TableCell>
-                              <div className="text-cyber-slate-200">
-                                <div>{new Date(booking.bookingDate).toLocaleDateString()}</div>
+                              <div className="text-cyber-slate-300">
+                                <div className="text-sm">{new Date(booking.bookingDate).toLocaleDateString()}</div>
                                 <div className="text-xs text-cyber-slate-400">{booking.bookingTime}</div>
                               </div>
                             </TableCell>
+                            <TableCell>
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSelectedBooking(booking)
+                                    setIsPrintReceiptOpen(true)
+                                  }}
+                                  className="border-white/20 text-cyber-slate-300 hover:bg-white/10"
+                                >
+                                  <Printer className="w-3 h-3" />
+                                </Button>
+                                {booking.status === "pending" && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => updateBookingStatus(booking._id, "confirmed")}
+                                    className="border-green-500/50 text-green-400 hover:bg-green-500/20"
+                                  >
+                                    <CheckCircle className="w-3 h-3" />
+                                  </Button>
+                                )}
+                                {booking.status !== "cancelled" && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => updateBookingStatus(booking._id, "cancelled")}
+                                    className="border-red-500/50 text-red-400 hover:bg-red-500/20"
+                                  >
+                                    <XCircle className="w-3 h-3" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
                           </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={7} className="text-center text-cyber-slate-400 py-8">
-                            No bookings found matching the selected filters.
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="halls">
+            <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card">
+              <CardHeader>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div>
+                    <CardTitle className="text-white text-xl font-bold">Halls Management</CardTitle>
+                    <CardDescription className="text-cyber-slate-300">
+                      Create, update, or delete cinema halls and venues
+                    </CardDescription>
+                  </div>
+                  <Dialog open={isCreateEditHallOpen} onOpenChange={setIsCreateEditHallOpen}>
+                    <DialogTrigger asChild>
+                      <Button className="bg-gradient-to-r from-cyber-purple-500 to-cyber-purple-600 hover:from-cyber-purple-600 hover:to-cyber-purple-700 text-white shadow-glow-purple rounded-2xl">
+                        <Plus className="w-4 h-4 mr-2" />
+                        Create Hall
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="bg-glass-white-strong backdrop-blur-xl border border-white/20">
+                      <DialogHeader>
+                        <DialogTitle className="text-white">
+                          {currentHall._id ? "Edit Hall" : "Create New Hall"}
+                        </DialogTitle>
+                        <DialogDescription className="text-cyber-slate-300">
+                          {currentHall._id ? "Update hall information" : "Add a new cinema hall to the system"}
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div>
+                          <Label htmlFor="hallName" className="text-cyber-slate-200">
+                            Hall Name
+                          </Label>
+                          <Input
+                            id="hallName"
+                            value={currentHall.name}
+                            onChange={(e) => setCurrentHall((prev) => ({ ...prev, name: e.target.value }))}
+                            className="bg-glass-white border-white/20 text-white"
+                            placeholder="Enter hall name"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="capacity" className="text-cyber-slate-200">
+                            Capacity
+                          </Label>
+                          <Input
+                            id="capacity"
+                            type="number"
+                            value={currentHall.capacity}
+                            onChange={(e) =>
+                              setCurrentHall((prev) => ({ ...prev, capacity: Number.parseInt(e.target.value) || 0 }))
+                            }
+                            className="bg-glass-white border-white/20 text-white"
+                            placeholder="Enter hall capacity"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="hallType" className="text-cyber-slate-200">
+                            Hall Type
+                          </Label>
+                          <Select
+                            value={currentHall.type}
+                            onValueChange={(value: "vip" | "standard") =>
+                              setCurrentHall((prev) => ({ ...prev, type: value }))
+                            }
+                          >
+                            <SelectTrigger className="bg-glass-white border-white/20 text-white">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-glass-white-strong backdrop-blur-xl border-white/20">
+                              <SelectItem value="standard">Standard</SelectItem>
+                              <SelectItem value="vip">VIP</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => setIsCreateEditHallOpen(false)}
+                          className="border-white/20 text-cyber-slate-300"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={createHall}
+                          className="bg-gradient-to-r from-cyber-purple-500 to-cyber-purple-600 text-white"
+                        >
+                          {currentHall._id ? "Update Hall" : "Create Hall"}
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {halls.map((hall) => (
+                    <Card
+                      key={hall._id}
+                      className="bg-glass-white backdrop-blur-xl border border-white/20 hover:border-cyber-purple-500/50 transition-all duration-300 group"
+                    >
+                      <CardHeader>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <CardTitle className="text-white text-lg">{hall.name}</CardTitle>
+                            <CardDescription className="text-cyber-slate-300 capitalize">
+                              {hall.type} Hall
+                            </CardDescription>
+                          </div>
+                          <Badge variant={hall.type === "vip" ? "default" : "secondary"} className="capitalize">
+                            {hall.type}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-2 text-cyber-slate-300">
+                            <Users className="w-4 h-4" />
+                            <span>{hall.capacity} seats</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-cyber-slate-300">
+                            <MapPin className="w-4 h-4" />
+                            <span>Cinema Hall</span>
+                          </div>
+                          <div className="flex gap-2 pt-4">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setCurrentHall(hall)
+                                setIsCreateEditHallOpen(true)
+                              }}
+                              className="border-white/20 text-cyber-slate-300 hover:bg-white/10 flex-1"
+                            >
+                              <Edit className="w-3 h-3 mr-2" />
+                              Edit
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-red-500/50 text-red-400 hover:bg-red-500/20 bg-transparent"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
 
           <TabsContent value="analytics">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-              <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card">
-                <CardHeader>
-                  <CardTitle className="text-white text-xl font-bold">Revenue Analytics</CardTitle>
-                  <CardDescription className="text-cyber-slate-300">
-                    Revenue breakdown by event category
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="mb-4">
-                    <Label htmlFor="revenue-timeframe" className="text-cyber-slate-200">
-                      Revenue Timeframe
-                    </Label>
-                    <Select
-                      value={revenueTimeFrame}
-                      onValueChange={(value: RevenueTimeFrame) => setRevenueTimeFrame(value)}
-                    >
-                      <SelectTrigger className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl">
-                        <SelectValue placeholder="All Time" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-glass-dark-strong border-white/20 backdrop-blur-xl rounded-2xl">
-                        <SelectItem value="all">All Time</SelectItem>
-                        <SelectItem value="day">Today</SelectItem>
-                        <SelectItem value="week">This Week</SelectItem>
-                        <SelectItem value="month">This Month</SelectItem>
-                        <SelectItem value="custom">Custom Range</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {revenueTimeFrame === "custom" && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                      <div className="grid gap-2">
-                        <Label htmlFor="custom-revenue-start-date" className="text-cyber-slate-200">
-                          Start Date
-                        </Label>
-                        <Input
-                          id="custom-revenue-start-date"
-                          type="date"
-                          value={customRevenueStartDate}
-                          onChange={(e) => setCustomRevenueStartDate(e.target.value)}
-                          className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl"
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="custom-revenue-end-date" className="text-cyber-slate-200">
-                          End Date
-                        </Label>
-                        <Input
-                          id="custom-revenue-end-date"
-                          type="date"
-                          value={customRevenueEndDate}
-                          onChange={(e) => setCustomRevenueEndDate(e.target.value)}
-                          className="bg-glass-dark border-white/20 text-white backdrop-blur-sm rounded-2xl"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="space-y-6">
-                    {Object.entries(revenueByCategory).length > 0 ? (
-                      Object.entries(revenueByCategory).map(([category, revenue]) => (
-                        <div key={category} className="flex justify-between items-center">
-                          <span className="text-cyber-slate-200">{category}</span>
-                          <span className="font-bold text-white text-lg">₦{revenue.toLocaleString()}</span>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-cyber-slate-400">No revenue data available.</p>
-                    )}
-                    <div className="border-t border-white/20 pt-6">
-                      <div className="flex justify-between items-center font-bold text-xl">
-                        <span className="bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
-                          Total
-                        </span>
-                        <span className="bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
-                          ₦{totalRevenue.toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card">
-                <CardHeader>
-                  <CardTitle className="text-white text-xl font-bold">Hall Performance</CardTitle>
-                  <CardDescription className="text-cyber-slate-300">Occupancy rates by venue type</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    {Object.entries(hallPerformance).length > 0 ? (
-                      Object.entries(hallPerformance).map(([hallName, data]) => {
-                        const occupancy = data.total > 0 ? (data.booked / data.total) * 100 : 0
-                        return (
-                          <div key={hallName}>
-                            <div className="flex justify-between mb-3">
-                              <span className="text-cyber-slate-200">{hallName}</span>
-                              <span className="text-white font-semibold">{occupancy.toFixed(0)}%</span>
-                            </div>
-                            <div className="w-full bg-cyber-slate-700/50 rounded-full h-3 overflow-hidden">
-                              <div
-                                className="bg-gradient-to-r from-brand-red-500 to-brand-red-400 h-3 rounded-full transition-all duration-500"
-                                style={{ width: `${occupancy}%` }}
-                              ></div>
-                            </div>
+            <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card">
+              <CardHeader>
+                <CardTitle className="text-white text-xl font-bold">Analytics Dashboard</CardTitle>
+                <CardDescription className="text-cyber-slate-300">View detailed analytics and reports</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  {/* Revenue Analytics */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <Card className="bg-glass-white backdrop-blur-xl border border-white/20">
+                      <CardHeader>
+                        <CardTitle className="text-white text-lg">Revenue Overview</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          <div className="flex justify-between items-center">
+                            <span className="text-cyber-slate-300">Total Revenue</span>
+                            <span className="text-2xl font-bold text-cyber-green-400">
+                              ₦{totalRevenue.toLocaleString()}
+                            </span>
                           </div>
-                        )
-                      })
-                    ) : (
-                      <p className="text-cyber-slate-400">No hall performance data available.</p>
-                    )}
+                          <div className="flex justify-between items-center">
+                            <span className="text-cyber-slate-300">Average per Booking</span>
+                            <span className="text-lg font-semibold text-white">
+                              ₦{totalBookings > 0 ? Math.round(totalRevenue / totalBookings).toLocaleString() : 0}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-cyber-slate-300">Total Bookings</span>
+                            <span className="text-lg font-semibold text-cyber-blue-400">{totalBookings}</span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="bg-glass-white backdrop-blur-xl border border-white/20">
+                      <CardHeader>
+                        <CardTitle className="text-white text-lg">Occupancy Statistics</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          <div className="flex justify-between items-center">
+                            <span className="text-cyber-slate-300">Overall Occupancy</span>
+                            <span className="text-2xl font-bold text-cyber-purple-400">
+                              {overallOccupancyRate.toFixed(1)}%
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-cyber-slate-300">Total Seats Booked</span>
+                            <span className="text-lg font-semibold text-white">{totalBookedSeatsCount}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-cyber-slate-300">Total Available Seats</span>
+                            <span className="text-lg font-semibold text-cyber-slate-400">
+                              {totalAvailableSeatsCount}
+                            </span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
+
+                  {/* Event Performance */}
+                  <Card className="bg-glass-white backdrop-blur-xl border border-white/20">
+                    <CardHeader>
+                      <CardTitle className="text-white text-lg">Event Performance</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {events.slice(0, 5).map((event) => {
+                          const eventBookings = actualBookings.filter((b) => b.eventId === event._id)
+                          const eventRevenue = eventBookings.reduce((sum, b) => sum + b.totalAmount, 0)
+                          const occupancyRate =
+                            event.total_seats > 0 ? ((event.bookedSeats?.length || 0) / event.total_seats) * 100 : 0
+
+                          return (
+                            <div
+                              key={event._id}
+                              className="flex justify-between items-center p-4 bg-glass-white/10 rounded-lg"
+                            >
+                              <div>
+                                <div className="font-medium text-white">{event.title}</div>
+                                <div className="text-sm text-cyber-slate-400">
+                                  {event.category} • {getHallDisplayName(halls, event.hall_id)}
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-cyber-green-400 font-semibold">
+                                  ₦{eventRevenue.toLocaleString()}
+                                </div>
+                                <div className="text-sm text-cyber-slate-400">{occupancyRate.toFixed(0)}% occupied</div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
-      </div>
 
-      {/* Hidden div for full report content for PDF export */}
-      <div id="full-report-content" className="hidden p-8 bg-white text-black print-only">
-        {/* Content will be dynamically generated by handleExportPdf */}
-      </div>
-
-      {/* Receipt Print Dialog */}
-      <Dialog open={isPrintReceiptOpen} onOpenChange={setIsPrintReceiptOpen}>
-        <DialogContent className="sm:max-w-[600px] bg-glass-dark-strong backdrop-blur-xl border border-white/20 text-white shadow-cyber-hover rounded-4xl">
-          <DialogHeader>
-            <DialogTitle className="text-white text-xl font-bold bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
-              Booking Receipt
-            </DialogTitle>
-            <DialogDescription className="text-cyber-slate-300">
-              Customer booking receipt ready for printing
-            </DialogDescription>
-          </DialogHeader>
-          {selectedBooking && (
-            <div className="receipt-content bg-white text-black p-8 rounded-lg mx-4" id="receipt">
-              <div className="text-center mb-6">
-                <Image
-                  src="/dexcinema-logo.jpeg"
-                  alt="Dex View Cinema Logo"
-                  width={150}
-                  height={150}
-                  className="mx-auto mb-4"
-                />
-                <h1 className="text-3xl font-bold text-brand-red-600 mb-2">Dex View Cinema</h1>
-                <p className="text-gray-600">Premium Entertainment Experience</p>
-                <div className="border-b-2 border-brand-red-600 mt-4"></div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-8 mb-6">
-                <div>
-                  <h3 className="font-bold text-lg mb-3 text-brand-red-600">Customer Information</h3>
-                  <p>
-                    <strong>Name:</strong> {selectedBooking.customerName}
-                  </p>
-                  <p>
-                    <strong>Email:</strong> {selectedBooking.customerEmail}
-                  </p>
-                  <p>
-                    <strong>Phone:</strong> {selectedBooking.customerPhone}
-                  </p>
+        {/* Receipt Print Dialog */}
+        <Dialog open={isPrintReceiptOpen} onOpenChange={setIsPrintReceiptOpen}>
+          <DialogContent className="bg-glass-white-strong backdrop-blur-xl border border-white/20 max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-white">Booking Receipt</DialogTitle>
+            </DialogHeader>
+            {selectedBooking && (
+              <div className="space-y-4 py-4">
+                <div className="text-center border-b border-white/20 pb-4">
+                  <h3 className="text-lg font-bold text-white">Dex View Cinema</h3>
+                  <p className="text-sm text-cyber-slate-400">Booking Confirmation</p>
                 </div>
-                <div>
-                  <h3 className="font-bold text-lg mb-3 text-brand-red-600">Booking Details</h3>
-                  <p>
-                    <strong>Booking ID:</strong> {selectedBooking._id}
-                  </p>
-                  <p>
-                    <strong>Date:</strong> {selectedBooking.bookingDate}
-                  </p>
-                  <p>
-                    <strong>Time:</strong> {selectedBooking.bookingTime}
-                  </p>
-                  <p>
-                    <strong>Payment:</strong> {selectedBooking.paymentMethod}
-                  </p>
-                </div>
-              </div>
 
-              <div className="mb-6">
-                <h3 className="font-bold text-lg mb-3 text-brand-red-600">Event Information</h3>
-                <p>
-                  <strong>Event:</strong> {selectedBooking.eventTitle}
-                </p>
-                <p>
-                  <strong>Type:</strong> {selectedBooking.eventType === "match" ? "Sports Match" : "Movie"}
-                </p>
-                <p>
-                  <strong>Seats:</strong> {selectedBooking.seats.join(", ")}
-                </p>
-                <p>
-                  <strong>Seat Type:</strong> {selectedBooking.seatType}
-                </p>
-              </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-cyber-slate-300">Booking ID:</span>
+                    <span className="text-white font-mono text-sm">{selectedBooking._id.slice(-8)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-cyber-slate-300">Customer:</span>
+                    <span className="text-white">{selectedBooking.customerName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-cyber-slate-300">Event:</span>
+                    <span className="text-white">{selectedBooking.eventTitle}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-cyber-slate-300">Seats:</span>
+                    <span className="text-white">{selectedBooking.seats.join(", ")}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-cyber-slate-300">Date:</span>
+                    <span className="text-white">{new Date(selectedBooking.bookingDate).toLocaleDateString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-cyber-slate-300">Time:</span>
+                    <span className="text-white">{selectedBooking.bookingTime}</span>
+                  </div>
+                </div>
 
-              <div className="border-t-2 border-gray-300 pt-4 mb-6">
-                <h3 className="font-bold text-lg mb-3 text-brand-red-600">Payment Summary</h3>
-                <div className="flex justify-between mb-2">
-                  <span>Base Amount:</span>
-                  <span>₦{selectedBooking.amount.toLocaleString()}</span>
+                <div className="border-t border-white/20 pt-4">
+                  <div className="flex justify-between">
+                    <span className="text-cyber-slate-300">Subtotal:</span>
+                    <span className="text-white">₦{selectedBooking.amount.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-cyber-slate-300">Processing Fee:</span>
+                    <span className="text-white">₦{selectedBooking.processingFee.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-lg border-t border-white/20 pt-2 mt-2">
+                    <span className="text-white">Total:</span>
+                    <span className="text-cyber-green-400">₦{selectedBooking.totalAmount.toLocaleString()}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between mb-2">
-                  <span>Processing Fee:</span>
-                  <span>₦{selectedBooking.processingFee}</span>
-                </div>
-                <div className="flex justify-between font-bold text-lg border-t border-gray-300 pt-2">
-                  <span>Total Amount:</span>
-                  <span>₦{selectedBooking.totalAmount.toLocaleString()}</span>
+
+                <div className="text-center text-xs text-cyber-slate-400 border-t border-white/20 pt-4">
+                  <p>Thank you for choosing Dex View Cinema!</p>
+                  <p>Please arrive 15 minutes before showtime.</p>
                 </div>
               </div>
-
-              <div className="text-center text-sm text-gray-500 border-t border-gray-300 pt-4">
-                <p>Thank you for choosing Dex View Cinema!</p>
-                <p>For support, visit us at support@dexviewcinema.com or call 08139614950</p>
-                <p className="mt-2">Developed by SydaTech - www.sydatech.com.ng</p>
-              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsPrintReceiptOpen(false)}
+                className="border-white/20 text-cyber-slate-300"
+              >
+                Close
+              </Button>
+              <Button
+                onClick={() => window.print()}
+                className="bg-gradient-to-r from-cyber-blue-500 to-cyber-blue-600 text-white"
+              >
+                <Printer className="w-4 h-4 mr-2" />
+                Print
+              </Button>
             </div>
-          )}
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsPrintReceiptOpen(false)}
-              className="border-white/30 text-cyber-slate-300 hover:bg-glass-white bg-transparent backdrop-blur-sm rounded-2xl"
-            >
-              Close
-            </Button>
-            <Button
-              onClick={printReceipt}
-              className="bg-gradient-to-r from-cyber-green-500 via-cyber-green-600 to-cyber-green-700 hover:from-cyber-green-600 hover:via-cyber-green-700 hover:to-cyber-green-800 text-white rounded-2xl"
-            >
-              <Printer className="w-4 h-4 mr-2" />
-              Print Receipt
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
 
-      {/* Footer */}
-      <footer className="bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 text-white py-12 relative overflow-hidden border-t border-white/10">
-        <div className="absolute inset-0 bg-gradient-to-r from-brand-red-900/10 via-transparent to-brand-red-900/10"></div>
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-500"></div>
-
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row justify-between items-center">
-            <p className="text-cyber-slate-300 text-lg mb-4 sm:mb-0">
-              &copy; 2025 Dex View Cinema Admin Dashboard. All rights reserved.
-            </p>
-          </div>
-        </div>
-      </footer>
-    </AdminAuthWrapper>
+        {/* Edit Event Dialog */}
+        <Dialog open={isEditEventOpen} onOpenChange={setIsEditEventOpen}>
+          <DialogContent className="bg-glass-white-strong backdrop-blur-xl border border-white/20 max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-white">Edit Event</DialogTitle>
+              <DialogDescription className="text-cyber-slate-300">Update event information</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              {/* Same form fields as create event */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-title" className="text-cyber-slate-200">
+                    Event Title
+                  </Label>
+                  <Input
+                    id="edit-title"
+                    value={newEvent.title}
+                    onChange={(e) => setNewEvent((prev) => ({ ...prev, title: e.target.value }))}
+                    className="bg-glass-white border-white/20 text-white"
+                    placeholder="Enter event title"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-event_type" className="text-cyber-slate-200">
+                    Event Type
+                  </Label>
+                  <Select
+                    value={newEvent.event_type}
+                    onValueChange={(value: EventType) => setNewEvent((prev) => ({ ...prev, event_type: value }))}
+                  >
+                    <SelectTrigger className="bg-glass-white border-white/20 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-glass-white-strong backdrop-blur-xl border-white/20">
+                      <SelectItem value="movie">Movie</SelectItem>
+                      <SelectItem value="match">Sports Match</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              {/* Add other form fields similar to create event */}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsEditEventOpen(false)}
+                className="border-white/20 text-cyber-slate-300"
+              >
+                Cancel
+              </Button>
+              <Button onClick={updateEvent} className="bg-gradient-to-r from-brand-red-500 to-brand-red-600 text-white">
+                Update Event
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </div>
   )
 }
