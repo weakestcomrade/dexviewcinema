@@ -8,27 +8,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
-import { Eye, EyeOff, Shield, UserPlus, Lock, Mail, User, Building } from "lucide-react"
+import { Eye, EyeOff, UserPlus, Lock, Mail } from "lucide-react"
 import Link from "next/link"
 
 interface AdminSignupData {
-  firstName: string
-  lastName: string
   email: string
   password: string
   confirmPassword: string
-  adminCode: string
-  department: string
 }
 
 const initialSignupState: AdminSignupData = {
-  firstName: "",
-  lastName: "",
   email: "",
   password: "",
   confirmPassword: "",
-  adminCode: "",
-  department: "",
 }
 
 export default function AdminSignup() {
@@ -46,24 +38,6 @@ export default function AdminSignup() {
   }
 
   const validateForm = (): boolean => {
-    if (!signupData.firstName.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "First name is required",
-        variant: "destructive",
-      })
-      return false
-    }
-
-    if (!signupData.lastName.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Last name is required",
-        variant: "destructive",
-      })
-      return false
-    }
-
     if (!signupData.email.trim() || !/\S+@\S+\.\S+/.test(signupData.email)) {
       toast({
         title: "Validation Error",
@@ -86,24 +60,6 @@ export default function AdminSignup() {
       toast({
         title: "Validation Error",
         description: "Passwords do not match",
-        variant: "destructive",
-      })
-      return false
-    }
-
-    if (!signupData.adminCode.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Admin access code is required",
-        variant: "destructive",
-      })
-      return false
-    }
-
-    if (!signupData.department.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Department is required",
         variant: "destructive",
       })
       return false
@@ -179,44 +135,6 @@ export default function AdminSignup() {
 
           <CardContent className="space-y-6">
             <form onSubmit={handleSignup} className="space-y-4">
-              {/* Name Fields */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="firstName" className="text-cyber-slate-200 font-medium">
-                    First Name
-                  </Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-cyber-slate-400" />
-                    <Input
-                      id="firstName"
-                      type="text"
-                      value={signupData.firstName}
-                      onChange={(e) => handleInputChange("firstName", e.target.value)}
-                      className="pl-10 bg-glass-white border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-500 rounded-2xl"
-                      placeholder="John"
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lastName" className="text-cyber-slate-200 font-medium">
-                    Last Name
-                  </Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-cyber-slate-400" />
-                    <Input
-                      id="lastName"
-                      type="text"
-                      value={signupData.lastName}
-                      onChange={(e) => handleInputChange("lastName", e.target.value)}
-                      className="pl-10 bg-glass-white border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-500 rounded-2xl"
-                      placeholder="Doe"
-                      required
-                    />
-                  </div>
-                </div>
-              </div>
-
               {/* Email Field */}
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-cyber-slate-200 font-medium">
@@ -231,25 +149,6 @@ export default function AdminSignup() {
                     onChange={(e) => handleInputChange("email", e.target.value)}
                     className="pl-10 bg-glass-white border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-500 rounded-2xl"
                     placeholder="admin@dexviewcinema.com"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Department Field */}
-              <div className="space-y-2">
-                <Label htmlFor="department" className="text-cyber-slate-200 font-medium">
-                  Department
-                </Label>
-                <div className="relative">
-                  <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-cyber-slate-400" />
-                  <Input
-                    id="department"
-                    type="text"
-                    value={signupData.department}
-                    onChange={(e) => handleInputChange("department", e.target.value)}
-                    className="pl-10 bg-glass-white border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-500 rounded-2xl"
-                    placeholder="Operations, IT, Management, etc."
                     required
                   />
                 </div>
@@ -308,26 +207,6 @@ export default function AdminSignup() {
                 </div>
               </div>
 
-              {/* Admin Code Field */}
-              <div className="space-y-2">
-                <Label htmlFor="adminCode" className="text-cyber-slate-200 font-medium">
-                  Admin Access Code
-                </Label>
-                <div className="relative">
-                  <Shield className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-cyber-slate-400" />
-                  <Input
-                    id="adminCode"
-                    type="password"
-                    value={signupData.adminCode}
-                    onChange={(e) => handleInputChange("adminCode", e.target.value)}
-                    className="pl-10 bg-glass-white border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-500 rounded-2xl"
-                    placeholder="Enter admin access code"
-                    required
-                  />
-                </div>
-                <p className="text-xs text-cyber-slate-400">Contact your system administrator for the access code</p>
-              </div>
-
               {/* Submit Button */}
               <Button
                 type="submit"
@@ -358,7 +237,7 @@ export default function AdminSignup() {
                   href="/"
                   className="text-cyber-slate-400 hover:text-white transition-colors flex items-center justify-center space-x-1"
                 >
-                  <Shield className="w-3 h-3" />
+                  <UserPlus className="w-3 h-3" />
                   <span>Back to Main Site</span>
                 </Link>
               </div>
