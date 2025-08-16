@@ -1848,9 +1848,9 @@ export default function AdminDashboard() {
                               </TableCell>
                               <TableCell>
                                 <div className="text-cyber-slate-200">
-                                  <div className="font-semibold">₦{booking.total_amount.toLocaleString()}</div>
+                                  <div className="font-semibold">₦{(booking.total_amount || 0).toLocaleString()}</div>
                                   <div className="text-xs text-cyber-slate-400">
-                                    Base: ₦{booking.amount.toLocaleString()} + Fee: ₦{booking.processingFee}
+                                    Base: ₦{(booking.amount || 0).toLocaleString()} + Fee: ₦{booking.processingFee || 0}
                                   </div>
                                 </div>
                               </TableCell>
