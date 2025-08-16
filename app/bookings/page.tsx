@@ -319,7 +319,7 @@ export default function BookingsPage() {
 
                   <div className="flex justify-between items-center mt-6">
                     <span className="text-2xl font-bold bg-gradient-to-r from-white to-brand-red-200 bg-clip-text text-transparent">
-                      ₦{booking.totalAmount.toLocaleString()}
+                      ₦{(booking.totalAmount || 0).toLocaleString()}
                     </span>
                     <div className="flex gap-2">
                       <Badge
@@ -469,15 +469,15 @@ export default function BookingsPage() {
                 <h3 className="font-bold text-lg mb-3 text-brand-red-600">Payment Summary</h3>
                 <div className="flex justify-between mb-2">
                   <span>Base Amount:</span>
-                  <span>₦{selectedBooking.amount.toLocaleString()}</span>
+                  <span>₦{(selectedBooking.amount || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between mb-2">
                   <span>Processing Fee:</span>
-                  <span>₦{selectedBooking.processingFee.toLocaleString()}</span>
+                  <span>₦{(selectedBooking.processingFee || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between font-bold text-lg border-t border-gray-300 pt-2">
                   <span>Total Amount:</span>
-                  <span>₦{selectedBooking.totalAmount.toLocaleString()}</span>
+                  <span>₦{(selectedBooking.totalAmount || 0).toLocaleString()}</span>
                 </div>
               </div>
 

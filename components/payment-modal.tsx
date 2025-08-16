@@ -77,8 +77,8 @@ export function PaymentModal({
         <DialogHeader>
           <DialogTitle>Confirm Payment</DialogTitle>
           <DialogDescription>
-            You are about to pay ₦{paymentData.amount.toLocaleString()} for {paymentData.eventTitle}. No additional fees
-            will be charged.
+            You are about to pay ₦{(paymentData.amount || 0).toLocaleString()} for {paymentData.eventTitle}. No
+            additional fees will be charged.
           </DialogDescription>
         </DialogHeader>
 
@@ -95,7 +95,7 @@ export function PaymentModal({
             <span className="font-medium text-foreground capitalize">{paymentData.seatType || "Standard"}</span>
           </p>
           <p className="text-muted-foreground">
-            Amount: <span className="font-bold text-foreground">₦{paymentData.amount.toLocaleString()}</span>
+            Amount: <span className="font-bold text-foreground">₦{(paymentData.amount || 0).toLocaleString()}</span>
           </p>
           <div className="flex items-center gap-2 text-emerald-600 text-xs mt-2">
             <Lock className="w-4 h-4" />
