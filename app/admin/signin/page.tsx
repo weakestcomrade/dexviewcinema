@@ -94,12 +94,12 @@ export default function AdminSignIn() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cyber-dark-900 via-cyber-dark-800 to-cyber-dark-900 flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4 relative overflow-hidden">
       {/* Background Effects */}
       <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-brand-red-500/20 to-cyber-purple-500/20 rounded-full blur-3xl animate-float"></div>
-        <div className="absolute top-1/2 -left-40 w-80 h-80 bg-gradient-to-br from-cyber-blue-500/15 to-brand-red-500/15 rounded-full blur-3xl animate-float delay-1000"></div>
-        <div className="absolute -bottom-40 right-1/3 w-72 h-72 bg-gradient-to-br from-cyber-green-500/15 to-cyber-purple-500/15 rounded-full blur-3xl animate-float delay-2000"></div>
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-red-500/20 to-purple-500/20 rounded-full blur-3xl animate-float"></div>
+        <div className="absolute top-1/2 -left-40 w-80 h-80 bg-gradient-to-br from-blue-500/15 to-red-500/15 rounded-full blur-3xl animate-float delay-1000"></div>
+        <div className="absolute -bottom-40 right-1/3 w-72 h-72 bg-gradient-to-br from-green-500/15 to-purple-500/15 rounded-full blur-3xl animate-float delay-2000"></div>
       </div>
 
       <div className="w-full max-w-md relative z-10">
@@ -107,16 +107,16 @@ export default function AdminSignIn() {
           <CardHeader className="text-center space-y-4">
             <div className="flex justify-center">
               <div className="relative group">
-                <div className="w-16 h-16 bg-gradient-to-br from-brand-red-500 via-brand-red-600 to-brand-red-700 rounded-4xl flex items-center justify-center shadow-glow-red transform group-hover:scale-110 transition-all duration-300">
+                <div className="w-16 h-16 bg-gradient-to-br from-red-500 via-red-600 to-red-700 rounded-4xl flex items-center justify-center shadow-glow-red transform group-hover:scale-110 transition-all duration-300">
                   <LogIn className="w-8 h-8 text-white group-hover:rotate-12 transition-transform duration-500" />
                 </div>
-                <div className="absolute inset-0 bg-gradient-to-br from-brand-red-500/30 to-brand-red-600/30 rounded-4xl blur-xl animate-glow"></div>
+                <div className="absolute inset-0 bg-gradient-to-br from-red-500/30 to-red-600/30 rounded-4xl blur-xl animate-glow"></div>
               </div>
             </div>
-            <CardTitle className="text-2xl font-bold bg-gradient-to-r from-white via-brand-red-200 to-white bg-clip-text text-transparent">
+            <CardTitle className="text-2xl font-bold bg-gradient-to-r from-white via-red-200 to-white bg-clip-text text-transparent">
               Admin Sign In
             </CardTitle>
-            <CardDescription className="text-cyber-slate-300">
+            <CardDescription className="text-slate-300">
               Access your admin account for Dex View Cinema Management System
             </CardDescription>
           </CardHeader>
@@ -125,17 +125,17 @@ export default function AdminSignIn() {
             <form onSubmit={handleSignin} className="space-y-4">
               {/* Email Field */}
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-cyber-slate-200 font-medium">
+                <Label htmlFor="email" className="text-slate-200 font-medium">
                   Email Address
                 </Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-cyber-slate-400" />
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <Input
                     id="email"
                     type="email"
                     value={signinData.email}
                     onChange={(e) => handleInputChange("email", e.target.value)}
-                    className="pl-10 bg-glass-white border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-500 rounded-2xl"
+                    className="pl-10 bg-glass-white border-white/20 text-white placeholder:text-slate-400 focus:border-red-500 rounded-2xl"
                     placeholder="admin@dexviewcinema.com"
                     required
                   />
@@ -144,24 +144,24 @@ export default function AdminSignIn() {
 
               {/* Password Field */}
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-cyber-slate-200 font-medium">
+                <Label htmlFor="password" className="text-slate-200 font-medium">
                   Password
                 </Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-cyber-slate-400" />
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
                     value={signinData.password}
                     onChange={(e) => handleInputChange("password", e.target.value)}
-                    className="pl-10 pr-10 bg-glass-white border-white/20 text-white placeholder:text-cyber-slate-400 focus:border-brand-red-500 rounded-2xl"
+                    className="pl-10 pr-10 bg-glass-white border-white/20 text-white placeholder:text-slate-400 focus:border-red-500 rounded-2xl"
                     placeholder="Enter your password"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-cyber-slate-400 hover:text-white transition-colors"
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -172,7 +172,7 @@ export default function AdminSignIn() {
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 shadow-glow-red text-white font-semibold rounded-2xl h-12 group"
+                className="w-full bg-gradient-to-r from-red-500 via-red-600 to-red-700 hover:from-red-600 hover:via-red-700 hover:to-red-800 shadow-glow-red text-white font-semibold rounded-2xl h-12 group"
               >
                 {isLoading ? (
                   <div className="flex items-center space-x-2">
@@ -191,12 +191,12 @@ export default function AdminSignIn() {
             {/* Footer Links */}
             <div className="text-center space-y-4 pt-4 border-t border-white/10">
               <div className="flex flex-col space-y-2 text-sm">
-                <Link href="/admin/signup" className="text-cyber-slate-300 hover:text-brand-red-400 transition-colors">
+                <Link href="/admin/signup" className="text-slate-300 hover:text-red-400 transition-colors">
                   Don't have an account? Sign up
                 </Link>
                 <Link
                   href="/"
-                  className="text-cyber-slate-400 hover:text-white transition-colors flex items-center justify-center space-x-1"
+                  className="text-slate-400 hover:text-white transition-colors flex items-center justify-center space-x-1"
                 >
                   <LogIn className="w-3 h-3" />
                   <span>Back to Main Site</span>
