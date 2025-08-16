@@ -222,8 +222,8 @@ const initialNewBookingState = {
   seats: [] as string[],
   seatType: "",
   amount: 0,
-  processingFee: 500,
-  totalAmount: 500,
+  processingFee: 0,
+  totalAmount: 0,
   status: "confirmed" as "confirmed" | "pending" | "cancelled",
   bookingDate: new Date().toISOString().split("T")[0],
   bookingTime: new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" }),
@@ -567,7 +567,7 @@ export default function AdminDashboard() {
           setNewBooking((prev) => ({
             ...prev,
             amount: firstAvailableSeat.price,
-            totalAmount: firstAvailableSeat.price + prev.processingFee,
+            totalAmount: firstAvailableSeat.price,
           }))
         }
       } catch (error) {
@@ -610,7 +610,7 @@ export default function AdminDashboard() {
     setNewBooking((prev) => ({
       ...prev,
       amount: totalAmount,
-      totalAmount: totalAmount + prev.processingFee,
+      totalAmount: totalAmount,
       seatType: seatType,
     }))
   }
@@ -1631,7 +1631,7 @@ export default function AdminDashboard() {
                                 setNewBooking((prev) => ({
                                   ...prev,
                                   amount,
-                                  totalAmount: amount + prev.processingFee,
+                                  totalAmount: amount,
                                 }))
                               }}
                               className="bg-glass-white border-white/20 text-white"
@@ -1984,15 +1984,7 @@ export default function AdminDashboard() {
                         </div>
 
                         <div className="bg-glass-white/10 p-4 rounded-lg">
-                          <div className="flex justify-between text-cyber-slate-300">
-                            <span>Subtotal:</span>
-                            <span>₦{newBooking.amount.toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between text-cyber-slate-300">
-                            <span>Processing Fee:</span>
-                            <span>₦{newBooking.processingFee.toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between text-white font-bold border-t border-white/20 pt-2 mt-2">
+                          <div className="flex justify-between text-white font-bold">
                             <span>Total:</span>
                             <span>₦{newBooking.totalAmount.toLocaleString()}</span>
                           </div>
@@ -2477,15 +2469,7 @@ export default function AdminDashboard() {
                 </div>
 
                 <div className="border-t border-white/20 pt-4">
-                  <div className="flex justify-between">
-                    <span className="text-cyber-slate-300">Subtotal:</span>
-                    <span className="text-white">₦{selectedBooking.amount.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-cyber-slate-300">Processing Fee:</span>
-                    <span className="text-white">₦{selectedBooking.processingFee.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between font-bold text-lg border-t border-white/20 pt-2 mt-2">
+                  <div className="flex justify-between font-bold text-lg">
                     <span className="text-white">Total:</span>
                     <span className="text-cyber-green-400">₦{selectedBooking.totalAmount.toLocaleString()}</span>
                   </div>
