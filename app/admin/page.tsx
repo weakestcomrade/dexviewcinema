@@ -1537,10 +1537,25 @@ export default function AdminDashboard() {
           <TabsContent value="events">
             <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card">
               <CardHeader>
-                <CardTitle className="text-white text-xl font-bold">Upcoming Shows Management</CardTitle>
-                <CardDescription className="text-cyber-slate-300">
-                  Manage your movies and sports events with detailed seating arrangements and pricing
-                </CardDescription>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div>
+                    <CardTitle className="text-white text-xl font-bold">Upcoming Shows Management</CardTitle>
+                    <CardDescription className="text-cyber-slate-300">
+                      Manage your movies and sports events with detailed seating arrangements and pricing
+                    </CardDescription>
+                  </div>
+                  <Dialog open={isCreateEventOpen} onOpenChange={setIsCreateEventOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        size="sm"
+                        className="bg-gradient-to-r from-brand-red-500 via-brand-red-600 to-brand-red-700 hover:from-brand-red-600 hover:via-brand-red-700 hover:to-brand-red-800 shadow-glow-red text-white group rounded-2xl"
+                      >
+                        <Plus className="w-4 h-4 mr-2 group-hover:rotate-180 transition-transform duration-300" />
+                        Create Event
+                      </Button>
+                    </DialogTrigger>
+                  </Dialog>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
@@ -1721,10 +1736,25 @@ export default function AdminDashboard() {
           <TabsContent value="bookings">
             <Card className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card">
               <CardHeader>
-                <CardTitle className="text-white text-xl font-bold">Customer Bookings</CardTitle>
-                <CardDescription className="text-cyber-slate-300">
-                  View and manage customer bookings with receipt printing capability
-                </CardDescription>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div>
+                    <CardTitle className="text-white text-xl font-bold">Customer Bookings</CardTitle>
+                    <CardDescription className="text-cyber-slate-300">
+                      View and manage customer bookings with receipt printing capability
+                    </CardDescription>
+                  </div>
+                  <Dialog open={isCreateBookingOpen} onOpenChange={setIsCreateBookingOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        size="sm"
+                        className="bg-gradient-to-r from-cyber-green-500 via-cyber-green-600 to-cyber-green-700 hover:from-cyber-green-600 hover:via-cyber-green-700 hover:to-cyber-green-800 shadow-glow-green text-white group rounded-2xl"
+                      >
+                        <Plus className="w-4 h-4 mr-2 group-hover:rotate-180 transition-transform duration-300" />
+                        Create Booking
+                      </Button>
+                    </DialogTrigger>
+                  </Dialog>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
