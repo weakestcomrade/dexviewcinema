@@ -73,6 +73,7 @@ export default function ReportsPage() {
   const [customEndDate, setCustomEndDate] = useState<string>("")
   const [isLoading, setIsLoading] = useState(true)
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
+  const [showAllBookings, setShowAllBookings] = useState(false)
   const reportRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -603,10 +604,20 @@ export default function ReportsPage() {
           {/* Recent Bookings */}
           {filteredBookings.length > 0 && (
             <div className="mb-8">
-              <h3 className="text-xl font-bold text-brand-red-600 mb-4 flex items-center gap-2">
-                <Ticket className="w-5 h-5" />
-                Recent Bookings
-              </h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-brand-red-600 flex items-center gap-2">
+                  <Ticket className="w-5 h-5" />
+                  Recent Bookings
+                </h3>
+                {filteredBookings.length > 10 && (
+                  <button
+                    onClick={() => setShowAllBookings(!showAllBookings)}
+                    className="px-4 py-2 bg-brand-red-600 text-white rounded-lg hover:bg-brand-red-700 transition-colors text-sm font-medium"
+                  >
+                    {showAllBookings ? "Show Summary (10)" : `Show All (${filteredBookings.length})`}
+                  </button>
+                )}
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse border border-gray-300">
                   <thead>
@@ -620,7 +631,7 @@ export default function ReportsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredBookings.slice(0, 10).map((booking) => (
+                    {(showAllBookings ? filteredBookings : filteredBookings.slice(0, 10)).map((booking) => (
                       <tr key={booking._id} className="hover:bg-gray-50">
                         <td className="border border-gray-300 px-4 py-2 font-mono text-sm">{booking.bookingCode}</td>
                         <td className="border border-gray-300 px-4 py-2">{booking.customerName}</td>
@@ -636,11 +647,11 @@ export default function ReportsPage() {
                     ))}
                   </tbody>
                 </table>
-                {filteredBookings.length > 10 && (
-                  <p className="text-sm text-gray-500 mt-2">
-                    Showing 10 of {filteredBookings.length} bookings. Full list available in detailed view.
-                  </p>
-                )}
+                <p className="text-sm text-gray-500 mt-2">
+                  {showAllBookings
+                    ? `Showing all ${filteredBookings.length} bookings.`
+                    : `Showing ${Math.min(10, filteredBookings.length)} of ${filteredBookings.length} bookings. ${filteredBookings.length > 10 ? 'Click "Show All" to view complete list.' : ""}`}
+                </p>
               </div>
             </div>
           )}
