@@ -29,11 +29,11 @@ export async function getNextSequence(db: Db, name: string): Promise<number> {
 }
 
 /**
- * Format a human-friendly booking code, e.g., DEX000123.
- * Adjust prefix or padding length to your preference.
+ * Format a booking code with combination of strings and integers, e.g., BK12345.
+ * Reverted from branded DEX000001 format to simpler string+integer combination.
  */
-export function formatBookingCode(seq: number, prefix = "DEX", pad = 6): string {
-  const formatted = `${prefix}${String(seq).padStart(pad, "0")}`
+export function formatBookingCode(seq: number, prefix = "BK", pad = 0): string {
+  const formatted = pad > 0 ? `${prefix}${String(seq).padStart(pad, "0")}` : `${prefix}${seq}`
   console.log(`[v0] Formatted booking code: ${formatted} (from sequence: ${seq})`)
   return formatted
 }
