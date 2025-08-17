@@ -208,105 +208,35 @@ export default function ReceiptPage() {
       console.log("[v0] PDF created, handling download for iOS:", isIOS())
 
       if (isIOS()) {
-        try {
-          // Strategy 1: Try direct download first (works on newer iOS versions)
-          const pdfBlob = pdf.output("blob")
-          const pdfUrl = URL.createObjectURL(pdfBlob)
+        // For iOS, convert to blob and open in new tab
+        const pdfBlob = pdf.output("blob")
+        const pdfUrl = URL.createObjectURL(pdfBlob)
 
-          // Create a temporary link element
-          const downloadLink = document.createElement("a")
-          downloadLink.href = pdfUrl
-          downloadLink.download = fileName
-          downloadLink.style.display = "none"
+        // Open in new tab - this works reliably on iOS
+        const newWindow = window.open(pdfUrl, "_blank")
 
-          // Add to DOM, click, and remove immediately
-          document.body.appendChild(downloadLink)
-
-          // Use setTimeout to ensure the link is properly added to DOM
-          setTimeout(() => {
-            try {
-              downloadLink.click()
-              console.log("[v0] Direct download attempted")
-
-              toast({
-                title: "Download Started",
-                description: "Your receipt should start downloading. If not, try the 'Open PDF' option below.",
-              })
-
-              // Clean up after a short delay
-              setTimeout(() => {
-                document.body.removeChild(downloadLink)
-                URL.revokeObjectURL(pdfUrl)
-              }, 1000)
-            } catch (clickError) {
-              console.log("[v0] Direct download failed, trying window.open:", clickError)
-
-              // Strategy 2: Open in new window/tab
-              const newWindow = window.open(pdfUrl, "_blank", "noopener,noreferrer")
-
-              if (newWindow) {
-                toast({
-                  title: "PDF Opened",
-                  description: "Your receipt opened in a new tab. Use Safari's share button to save it.",
-                })
-
-                // Clean up after delay
-                setTimeout(() => {
-                  document.body.removeChild(downloadLink)
-                  URL.revokeObjectURL(pdfUrl)
-                }, 5000)
-              } else {
-                // Strategy 3: Show manual download instructions
-                document.body.removeChild(downloadLink)
-
-                toast({
-                  title: "Download Ready",
-                  description: "Tap and hold the link below, then select 'Download Linked File' or 'Save to Files'",
-                  duration: 8000,
-                })
-
-                // Create a visible download link as last resort
-                const manualLink = document.createElement("a")
-                manualLink.href = pdfUrl
-                manualLink.download = fileName
-                manualLink.textContent = "Download Receipt PDF"
-                manualLink.style.cssText = `
-                  position: fixed;
-                  top: 50%;
-                  left: 50%;
-                  transform: translate(-50%, -50%);
-                  background: #ef4444;
-                  color: white;
-                  padding: 12px 24px;
-                  border-radius: 8px;
-                  text-decoration: none;
-                  font-weight: bold;
-                  z-index: 9999;
-                  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-                `
-
-                document.body.appendChild(manualLink)
-
-                // Remove the manual link after 15 seconds
-                setTimeout(() => {
-                  if (document.body.contains(manualLink)) {
-                    document.body.removeChild(manualLink)
-                  }
-                  URL.revokeObjectURL(pdfUrl)
-                }, 15000)
-              }
-            }
-          }, 100)
-        } catch (iosError) {
-          console.error("[v0] All iOS download strategies failed:", iosError)
-
+        if (newWindow) {
           toast({
-            title: "Download Not Supported",
-            description: "Please use the Print option or try opening this page in Chrome/Firefox app.",
+            title: "PDF Ready!",
+            description: "Your receipt opened in a new tab. Use the share button in Safari to save or share it.",
+            duration: 6000,
+          })
+        } else {
+          // If popup blocked, show instructions
+          toast({
+            title: "Popup Blocked",
+            description: "Please allow popups for this site, then try again. Or use the Print option instead.",
             variant: "destructive",
+            duration: 8000,
           })
         }
+
+        // Clean up after 10 seconds
+        setTimeout(() => {
+          URL.revokeObjectURL(pdfUrl)
+        }, 10000)
       } else {
+        // Standard download for non-iOS devices
         try {
           pdf.save(fileName)
           console.log("[v0] Standard download completed")
@@ -324,7 +254,9 @@ export default function ReceiptPage() {
           const link = document.createElement("a")
           link.href = pdfUrl
           link.download = fileName
+          document.body.appendChild(link)
           link.click()
+          document.body.removeChild(link)
 
           setTimeout(() => URL.revokeObjectURL(pdfUrl), 1000)
 
