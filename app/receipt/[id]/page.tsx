@@ -34,6 +34,20 @@ interface Booking {
   updatedAt: string
 }
 
+interface Event {
+  _id: string
+  title: string
+  event_type: "movie" | "match"
+  category: string
+  event_date: string
+  event_time: string
+  hall_id: string
+  status: "active" | "draft" | "cancelled"
+  image_url?: string
+  description?: string
+  duration?: string
+}
+
 interface Hall {
   _id: string
   name: string
@@ -45,6 +59,7 @@ export default function ReceiptPage() {
   const { id } = useParams()
   const [booking, setBooking] = useState<Booking | null>(null)
   const [hall, setHall] = useState<Hall | null>(null)
+  const [event, setEvent] = useState<Event | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isDownloading, setIsDownloading] = useState(false)
@@ -106,6 +121,7 @@ export default function ReceiptPage() {
             throw new Error(`Failed to fetch event for hall: ${eventRes.statusText}`)
           }
           const eventData = await eventRes.json()
+          setEvent(eventData)
 
           const hallRes = await fetch(`/api/halls/${eventData.hall_id}`)
           if (!hallRes.ok) {
@@ -406,13 +422,16 @@ export default function ReceiptPage() {
                 <p className="flex items-start gap-2">
                   <CalendarIcon className="w-4 h-4 sm:w-5 sm:h-5 text-brand-red-500 mt-0.5 flex-shrink-0" />
                   <span>
-                    <strong>Event Date:</strong> {new Date(booking.bookingDate).toLocaleDateString()}
+                    <strong>Event Date:</strong>{" "}
+                    {event?.event_date
+                      ? new Date(event.event_date).toLocaleDateString()
+                      : new Date(booking.bookingDate).toLocaleDateString()}
                   </span>
                 </p>
                 <p className="flex items-start gap-2">
                   <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-brand-red-500 mt-0.5 flex-shrink-0" />
                   <span>
-                    <strong>Event Time:</strong> {formatTo12Hour(booking.bookingTime)}
+                    <strong>Event Time:</strong> {formatTo12Hour(event?.event_time || booking.bookingTime)}
                   </span>
                 </p>
               </div>
