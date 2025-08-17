@@ -65,12 +65,12 @@ export default function ReceiptPage() {
   const [isDownloading, setIsDownloading] = useState(false)
   const { toast } = useToast()
 
-  // Detect iOS devices
   const isIOS = () => {
     if (typeof window === "undefined") return false
     return (
       /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ||
+      /iPhone|iPad|iPod|Mac/.test(navigator.platform)
     )
   }
 
@@ -150,13 +150,22 @@ export default function ReceiptPage() {
     try {
       setIsDownloading(true)
       const element = document.getElementById("receipt-print-area") as HTMLElement | null
-      if (!element) return
+      if (!element) {
+        toast({
+          title: "Error",
+          description: "Receipt content not found. Please refresh and try again.",
+          variant: "destructive",
+        })
+        return
+      }
 
       // Show loading toast
       toast({
         title: "Generating PDF...",
         description: "Please wait while we prepare your receipt.",
       })
+
+      console.log("[v0] Starting PDF generation, iOS detected:", isIOS())
 
       const canvas = await html2canvas(element, {
         scale: 2,
@@ -165,7 +174,13 @@ export default function ReceiptPage() {
         allowTaint: true,
         foreignObjectRendering: true,
         logging: false,
+        width: element.scrollWidth,
+        height: element.scrollHeight,
+        scrollX: 0,
+        scrollY: 0,
       })
+
+      console.log("[v0] Canvas generated successfully")
 
       const imgData = canvas.toDataURL("image/png")
       const pdf = new jsPDF("p", "mm", "a4")
@@ -190,57 +205,145 @@ export default function ReceiptPage() {
 
       const fileName = `dex-view-cinema-${booking?.bookingCode || booking?._id || "receipt"}.pdf`
 
-      // Handle iOS devices differently
+      console.log("[v0] PDF created, handling download for iOS:", isIOS())
+
       if (isIOS()) {
-        // For iOS, open PDF in new window
-        const pdfBlob = pdf.output("blob")
-        const pdfUrl = URL.createObjectURL(pdfBlob)
+        try {
+          // Strategy 1: Try direct download first (works on newer iOS versions)
+          const pdfBlob = pdf.output("blob")
+          const pdfUrl = URL.createObjectURL(pdfBlob)
 
-        // Try to open in new window
-        const newWindow = window.open(pdfUrl, "_blank")
+          // Create a temporary link element
+          const downloadLink = document.createElement("a")
+          downloadLink.href = pdfUrl
+          downloadLink.download = fileName
+          downloadLink.style.display = "none"
 
-        if (newWindow) {
+          // Add to DOM, click, and remove immediately
+          document.body.appendChild(downloadLink)
+
+          // Use setTimeout to ensure the link is properly added to DOM
+          setTimeout(() => {
+            try {
+              downloadLink.click()
+              console.log("[v0] Direct download attempted")
+
+              toast({
+                title: "Download Started",
+                description: "Your receipt should start downloading. If not, try the 'Open PDF' option below.",
+              })
+
+              // Clean up after a short delay
+              setTimeout(() => {
+                document.body.removeChild(downloadLink)
+                URL.revokeObjectURL(pdfUrl)
+              }, 1000)
+            } catch (clickError) {
+              console.log("[v0] Direct download failed, trying window.open:", clickError)
+
+              // Strategy 2: Open in new window/tab
+              const newWindow = window.open(pdfUrl, "_blank", "noopener,noreferrer")
+
+              if (newWindow) {
+                toast({
+                  title: "PDF Opened",
+                  description: "Your receipt opened in a new tab. Use Safari's share button to save it.",
+                })
+
+                // Clean up after delay
+                setTimeout(() => {
+                  document.body.removeChild(downloadLink)
+                  URL.revokeObjectURL(pdfUrl)
+                }, 5000)
+              } else {
+                // Strategy 3: Show manual download instructions
+                document.body.removeChild(downloadLink)
+
+                toast({
+                  title: "Download Ready",
+                  description: "Tap and hold the link below, then select 'Download Linked File' or 'Save to Files'",
+                  duration: 8000,
+                })
+
+                // Create a visible download link as last resort
+                const manualLink = document.createElement("a")
+                manualLink.href = pdfUrl
+                manualLink.download = fileName
+                manualLink.textContent = "Download Receipt PDF"
+                manualLink.style.cssText = `
+                  position: fixed;
+                  top: 50%;
+                  left: 50%;
+                  transform: translate(-50%, -50%);
+                  background: #ef4444;
+                  color: white;
+                  padding: 12px 24px;
+                  border-radius: 8px;
+                  text-decoration: none;
+                  font-weight: bold;
+                  z-index: 9999;
+                  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                `
+
+                document.body.appendChild(manualLink)
+
+                // Remove the manual link after 15 seconds
+                setTimeout(() => {
+                  if (document.body.contains(manualLink)) {
+                    document.body.removeChild(manualLink)
+                  }
+                  URL.revokeObjectURL(pdfUrl)
+                }, 15000)
+              }
+            }
+          }, 100)
+        } catch (iosError) {
+          console.error("[v0] All iOS download strategies failed:", iosError)
+
           toast({
-            title: "PDF Ready!",
-            description: "Your receipt has opened in a new tab. Use the share button to save or send it.",
+            title: "Download Not Supported",
+            description: "Please use the Print option or try opening this page in Chrome/Firefox app.",
+            variant: "destructive",
           })
-        } else {
-          // Fallback: create download link
+        }
+      } else {
+        try {
+          pdf.save(fileName)
+          console.log("[v0] Standard download completed")
+
+          toast({
+            title: "Download Complete!",
+            description: "Your receipt has been downloaded successfully.",
+          })
+        } catch (downloadError) {
+          console.error("[v0] Standard download failed:", downloadError)
+
+          // Fallback for non-iOS devices
+          const pdfBlob = pdf.output("blob")
+          const pdfUrl = URL.createObjectURL(pdfBlob)
           const link = document.createElement("a")
           link.href = pdfUrl
           link.download = fileName
-          link.style.display = "none"
-          document.body.appendChild(link)
-
-          // Try to trigger download
           link.click()
-          document.body.removeChild(link)
+
+          setTimeout(() => URL.revokeObjectURL(pdfUrl), 1000)
 
           toast({
             title: "Download Started",
-            description: "If the download didn't start, please check your browser's download settings.",
+            description: "Your receipt download has been initiated.",
           })
         }
-
-        // Clean up URL after a delay
-        setTimeout(() => URL.revokeObjectURL(pdfUrl), 10000)
-      } else {
-        // For other devices, use normal download
-        pdf.save(fileName)
-        toast({
-          title: "Download Complete!",
-          description: "Your receipt has been downloaded successfully.",
-        })
       }
     } catch (err) {
-      console.error("Failed to generate PDF:", err)
+      console.error("[v0] PDF generation failed:", err)
       toast({
         title: "Download Failed",
-        description: "There was an error generating your receipt. Please try again or use the print option.",
+        description: "There was an error generating your receipt. Please try the print option or refresh the page.",
         variant: "destructive",
       })
     } finally {
       setIsDownloading(false)
+      console.log("[v0] Download process completed")
     }
   }
 
