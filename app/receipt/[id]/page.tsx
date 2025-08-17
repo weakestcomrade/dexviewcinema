@@ -59,6 +59,33 @@ export default function ReceiptPage() {
     )
   }
 
+  const formatTo12Hour = (time: string) => {
+    if (!time) return time
+
+    // Handle different time formats
+    const timeStr = time.trim()
+
+    // If already in 12-hour format, return as is
+    if (timeStr.toLowerCase().includes("am") || timeStr.toLowerCase().includes("pm")) {
+      return timeStr
+    }
+
+    // Parse 24-hour format (HH:MM or H:MM)
+    const timeParts = timeStr.split(":")
+    if (timeParts.length !== 2) return time
+
+    let hours = Number.parseInt(timeParts[0])
+    const minutes = timeParts[1]
+
+    if (isNaN(hours)) return time
+
+    const ampm = hours >= 12 ? "PM" : "AM"
+    hours = hours % 12
+    hours = hours ? hours : 12 // 0 should be 12
+
+    return `${hours}:${minutes} ${ampm}`
+  }
+
   useEffect(() => {
     const fetchBookingAndHall = async () => {
       if (!id) return
@@ -337,7 +364,7 @@ export default function ReceiptPage() {
                     <strong>Date:</strong> {booking.bookingDate}
                   </p>
                   <p>
-                    <strong>Time:</strong> {booking.bookingTime}
+                    <strong>Time:</strong> {formatTo12Hour(booking.bookingTime)}
                   </p>
                   <p>
                     <strong>Payment:</strong> {booking.paymentMethod}
@@ -385,7 +412,7 @@ export default function ReceiptPage() {
                 <p className="flex items-start gap-2">
                   <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-brand-red-500 mt-0.5 flex-shrink-0" />
                   <span>
-                    <strong>Event Time:</strong> {booking.bookingTime}
+                    <strong>Event Time:</strong> {formatTo12Hour(booking.bookingTime)}
                   </span>
                 </p>
               </div>
