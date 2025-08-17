@@ -1,5 +1,11 @@
 "use client"
 
+import { Alert } from "@/components/ui/alert"
+
+import { AlertDescription } from "@/components/ui/alert"
+
+import type React from "react"
+
 import { useState, useEffect, useCallback } from "react"
 import { useSession, signOut } from "next-auth/react"
 import { Button } from "@/components/ui/button"
@@ -43,11 +49,15 @@ import {
   CreditCard,
   CheckCircle,
   XCircle,
-  AlertCircle,
   Printer,
   Download,
   Ticket,
   CalendarIcon,
+  Lock,
+  Eye,
+  EyeOff,
+  Loader2,
+  AlertCircle,
 } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/components/ui/use-toast"
@@ -370,11 +380,117 @@ export default function AdminDashboard() {
   const [customRevenueStartDate, setCustomRevenueStartDate] = useState<string>("")
   const [customRevenueEndDate, setCustomRevenueEndDate] = useState<string>("")
   const [selectedSeats, setSelectedSeats] = useState<string[]>([])
-  const [availableSeats, setAvailableSeats] = useState<string[]>([])
 
+  const [availableSeats, setAvailableSeats] = useState<string[]>([])
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
   const [availableSeatsMap, setAvailableSeatsMap] = useState<Seat[]>([])
   const [selectedSeatType, setSelectedSeatType] = useState<string>("")
+
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false)
+  const [passwordChangeData, setPasswordChangeData] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  })
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [isPasswordChangeLoading, setIsPasswordChangeLoading] = useState(false)
+  const [passwordChangeErrors, setPasswordChangeErrors] = useState<{
+    currentPassword?: string
+    newPassword?: string
+    confirmPassword?: string
+  }>({})
+
+  const validatePasswordChange = (): boolean => {
+    const errors: typeof passwordChangeErrors = {}
+
+    if (!passwordChangeData.currentPassword) {
+      errors.currentPassword = "Current password is required"
+    }
+
+    if (!passwordChangeData.newPassword) {
+      errors.newPassword = "New password is required"
+    } else if (passwordChangeData.newPassword.length < 8) {
+      errors.newPassword = "Password must be at least 8 characters long"
+    } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(passwordChangeData.newPassword)) {
+      errors.newPassword = "Password must contain uppercase, lowercase, and number"
+    }
+
+    if (!passwordChangeData.confirmPassword) {
+      errors.confirmPassword = "Please confirm your new password"
+    } else if (passwordChangeData.newPassword !== passwordChangeData.confirmPassword) {
+      errors.confirmPassword = "Passwords do not match"
+    }
+
+    if (passwordChangeData.currentPassword === passwordChangeData.newPassword) {
+      errors.newPassword = "New password must be different from current password"
+    }
+
+    setPasswordChangeErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!validatePasswordChange()) {
+      return
+    }
+
+    setIsPasswordChangeLoading(true)
+
+    try {
+      const response = await fetch("/api/auth/change-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          currentPassword: passwordChangeData.currentPassword,
+          newPassword: passwordChangeData.newPassword,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to change password")
+      }
+
+      // Show success message
+      toast({
+        title: "Password Changed Successfully!",
+        description: "Your password has been updated successfully.",
+      })
+
+      // Reset form and close dialog
+      setPasswordChangeData({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      })
+      setPasswordChangeErrors({})
+      setIsChangePasswordOpen(false)
+    } catch (error) {
+      console.error("Password change error:", error)
+      toast({
+        title: "Password Change Failed",
+        description: (error as Error).message,
+        variant: "destructive",
+      })
+    } finally {
+      setIsPasswordChangeLoading(false)
+    }
+  }
+
+  const handlePasswordInputChange = (field: keyof typeof passwordChangeData, value: string) => {
+    setPasswordChangeData((prev) => ({ ...prev, [field]: value }))
+    // Clear error when user starts typing
+    if (passwordChangeErrors[field]) {
+      setPasswordChangeErrors((prev) => ({ ...prev, [field]: undefined }))
+    }
+  }
 
   const fetchHalls = useCallback(async () => {
     try {
@@ -839,6 +955,15 @@ export default function AdminDashboard() {
               </div>
             </div>
             <div className="flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
+              <Button
+                onClick={() => setIsChangePasswordOpen(true)}
+                variant="outline"
+                size="sm"
+                className="border-cyber-blue-500/50 text-cyber-blue-300 hover:bg-cyber-blue-500/20 bg-glass-white backdrop-blur-sm shadow-cyber-card hover:shadow-cyber-hover transition-all duration-300 group rounded-2xl w-full sm:w-auto h-10 sm:h-9"
+              >
+                <Lock className="w-4 h-4 mr-2 group-hover:rotate-12 transition-transform" />
+                Change Password
+              </Button>
               <Link href="/" className="w-full sm:w-auto">
                 <Button
                   variant="outline"
@@ -2991,6 +3116,179 @@ export default function AdminDashboard() {
                 Update Event
               </Button>
             </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={isChangePasswordOpen} onOpenChange={setIsChangePasswordOpen}>
+          <DialogContent className="bg-glass-white-strong backdrop-blur-xl border border-white/20 shadow-cyber-card max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-white text-xl font-bold flex items-center gap-2">
+                <Lock className="w-5 h-5 text-cyber-blue-400" />
+                Change Password
+              </DialogTitle>
+              <DialogDescription className="text-cyber-slate-300">
+                Update your account password. Make sure to use a strong password.
+              </DialogDescription>
+            </DialogHeader>
+
+            <form onSubmit={handlePasswordChange} className="space-y-4">
+              {/* Current Password */}
+              <div className="space-y-2">
+                <Label htmlFor="currentPassword" className="text-white font-semibold">
+                  Current Password
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="currentPassword"
+                    type={showCurrentPassword ? "text" : "password"}
+                    placeholder="Enter your current password"
+                    value={passwordChangeData.currentPassword}
+                    onChange={(e) => handlePasswordInputChange("currentPassword", e.target.value)}
+                    className={`bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl h-12 pr-12 focus:border-cyber-blue-500/50 focus:ring-cyber-blue-500/20 ${
+                      passwordChangeErrors.currentPassword ? "border-red-500" : ""
+                    }`}
+                    disabled={isPasswordChangeLoading}
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0 text-cyber-slate-400 hover:text-white hover:bg-transparent"
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                    disabled={isPasswordChangeLoading}
+                  >
+                    {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+                {passwordChangeErrors.currentPassword && (
+                  <p className="text-red-400 text-sm flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {passwordChangeErrors.currentPassword}
+                  </p>
+                )}
+              </div>
+
+              {/* New Password */}
+              <div className="space-y-2">
+                <Label htmlFor="newPassword" className="text-white font-semibold">
+                  New Password
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="newPassword"
+                    type={showNewPassword ? "text" : "password"}
+                    placeholder="Enter your new password"
+                    value={passwordChangeData.newPassword}
+                    onChange={(e) => handlePasswordInputChange("newPassword", e.target.value)}
+                    className={`bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl h-12 pr-12 focus:border-cyber-blue-500/50 focus:ring-cyber-blue-500/20 ${
+                      passwordChangeErrors.newPassword ? "border-red-500" : ""
+                    }`}
+                    disabled={isPasswordChangeLoading}
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0 text-cyber-slate-400 hover:text-white hover:bg-transparent"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    disabled={isPasswordChangeLoading}
+                  >
+                    {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+                {passwordChangeErrors.newPassword && (
+                  <p className="text-red-400 text-sm flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {passwordChangeErrors.newPassword}
+                  </p>
+                )}
+              </div>
+
+              {/* Confirm New Password */}
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword" className="text-white font-semibold">
+                  Confirm New Password
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="confirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    placeholder="Confirm your new password"
+                    value={passwordChangeData.confirmPassword}
+                    onChange={(e) => handlePasswordInputChange("confirmPassword", e.target.value)}
+                    className={`bg-glass-dark border-white/20 text-white placeholder:text-cyber-slate-400 backdrop-blur-sm rounded-2xl h-12 pr-12 focus:border-cyber-blue-500/50 focus:ring-cyber-blue-500/20 ${
+                      passwordChangeErrors.confirmPassword ? "border-red-500" : ""
+                    }`}
+                    disabled={isPasswordChangeLoading}
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0 text-cyber-slate-400 hover:text-white hover:bg-transparent"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    disabled={isPasswordChangeLoading}
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+                {passwordChangeErrors.confirmPassword && (
+                  <p className="text-red-400 text-sm flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {passwordChangeErrors.confirmPassword}
+                  </p>
+                )}
+              </div>
+
+              {/* Password Requirements */}
+              <Alert className="bg-glass-white border-cyber-blue-500/30">
+                <AlertCircle className="h-4 w-4 text-cyber-blue-400" />
+                <AlertDescription className="text-cyber-slate-300 text-sm">
+                  Password must be at least 8 characters long and contain uppercase, lowercase, and number.
+                </AlertDescription>
+              </Alert>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsChangePasswordOpen(false)
+                    setPasswordChangeData({
+                      currentPassword: "",
+                      newPassword: "",
+                      confirmPassword: "",
+                    })
+                    setPasswordChangeErrors({})
+                  }}
+                  className="flex-1 border-white/20 text-cyber-slate-300 hover:bg-white/10 rounded-2xl h-12"
+                  disabled={isPasswordChangeLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 bg-gradient-to-r from-cyber-blue-500 via-cyber-blue-600 to-cyber-blue-700 hover:from-cyber-blue-600 hover:via-cyber-blue-700 hover:to-cyber-blue-800 text-white shadow-glow-blue rounded-2xl h-12 font-semibold"
+                  disabled={isPasswordChangeLoading}
+                >
+                  {isPasswordChangeLoading ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Changing...
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4" />
+                      Change Password
+                    </div>
+                  )}
+                </Button>
+              </div>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
