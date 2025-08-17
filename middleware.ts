@@ -6,7 +6,7 @@ export default withAuth(
     console.log("[v0] NextAuth middleware running for:", req.nextUrl.pathname)
     console.log("[v0] User token:", req.nextauth.token)
 
-    if (req.nextUrl.pathname.startsWith("/admin/login") || req.nextUrl.pathname.startsWith("/admin/signup")) {
+    if (req.nextUrl.pathname.startsWith("/admin/login")) {
       console.log("[v0] Allowing access to auth pages")
       return NextResponse.next()
     }
@@ -26,8 +26,8 @@ export default withAuth(
         console.log("[v0] Authorization check for:", req.nextUrl.pathname)
         console.log("[v0] Token exists:", !!token)
 
-        // Allow access to login and signup pages without authentication
-        if (req.nextUrl.pathname.startsWith("/admin/login") || req.nextUrl.pathname.startsWith("/admin/signup")) {
+        // Allow access to login page without authentication
+        if (req.nextUrl.pathname.startsWith("/admin/login")) {
           return true
         }
 

@@ -228,15 +228,7 @@ export default function AdminLoginPage() {
             </form>
 
             <div className="text-center pt-4 border-t border-white/10">
-              <p className="text-cyber-slate-400 text-sm">
-                Don't have an account?{" "}
-                <Link
-                  href="/admin/signup"
-                  className="text-brand-red-400 hover:text-brand-red-300 font-semibold hover:underline transition-colors"
-                >
-                  Sign up here
-                </Link>
-              </p>
+              <p className="text-cyber-slate-400 text-sm">Secure admin access only</p>
             </div>
           </CardContent>
         </Card>
