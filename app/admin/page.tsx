@@ -893,6 +893,44 @@ export default function AdminDashboard() {
     return matchesType
   })
 
+  const getFilteredBookings = () => {
+    let filtered = actualBookings
+
+    // Filter by event
+    if (selectedEventIdForReports !== "all") {
+      filtered = filtered.filter((booking) => booking.eventId === selectedEventIdForReports)
+    }
+
+    // Filter by date
+    if (revenueTimeFrame === "day") {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const tomorrow = new Date(today)
+      tomorrow.setDate(tomorrow.getDate() + 1)
+
+      filtered = filtered.filter((booking) => {
+        const bookingDate = new Date(booking.createdAt)
+        return bookingDate >= today && bookingDate < tomorrow
+      })
+    } else if (revenueTimeFrame === "custom" && customRevenueStartDate) {
+      const startDate = new Date(customRevenueStartDate)
+      startDate.setHours(0, 0, 0, 0)
+      const endDate = customRevenueEndDate ? new Date(customRevenueEndDate) : new Date(startDate)
+      endDate.setHours(23, 59, 59, 999)
+
+      filtered = filtered.filter((booking) => {
+        const bookingDate = new Date(booking.createdAt)
+        return bookingDate >= startDate && bookingDate <= endDate
+      })
+    }
+
+    return filtered
+  }
+
+  const filteredBookingsData = getFilteredBookings()
+  const filteredRevenue = filteredBookingsData.reduce((sum, booking) => sum + booking.totalAmount, 0)
+  const filteredBookingsCount = filteredBookingsData.length
+
   if (status === "loading") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-cyber-slate-900 via-cyber-slate-800 to-cyber-slate-900 flex items-center justify-center">
@@ -2461,97 +2499,209 @@ export default function AdminDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
-                  {/* Revenue Analytics */}
+                  <Card className="bg-glass-white/10 backdrop-blur-xl border border-white/10">
+                    <CardHeader>
+                      <CardTitle className="text-white text-lg flex items-center gap-2">
+                        <BarChart3 className="w-5 h-5" />
+                        Analytics Filters
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {/* Date Filter */}
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-cyber-slate-300">Time Period</label>
+                          <Select
+                            value={revenueTimeFrame}
+                            onValueChange={(value: RevenueTimeFrame) => setRevenueTimeFrame(value)}
+                          >
+                            <SelectTrigger className="bg-glass-white/20 border-white/20 text-white">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-cyber-dark-800 border-white/20">
+                              <SelectItem value="all" className="text-white hover:bg-white/10">
+                                All Time
+                              </SelectItem>
+                              <SelectItem value="day" className="text-white hover:bg-white/10">
+                                Today
+                              </SelectItem>
+                              <SelectItem value="custom" className="text-white hover:bg-white/10">
+                                Custom Date
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Custom Date Inputs */}
+                        {revenueTimeFrame === "custom" && (
+                          <>
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium text-cyber-slate-300">Start Date</label>
+                              <input
+                                type="date"
+                                value={customRevenueStartDate}
+                                onChange={(e) => setCustomRevenueStartDate(e.target.value)}
+                                className="w-full px-3 py-2 bg-glass-white/20 border border-white/20 rounded-md text-white placeholder-cyber-slate-400 focus:outline-none focus:ring-2 focus:ring-cyber-green-500"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium text-cyber-slate-300">End Date (Optional)</label>
+                              <input
+                                type="date"
+                                value={customRevenueEndDate}
+                                onChange={(e) => setCustomRevenueEndDate(e.target.value)}
+                                className="w-full px-3 py-2 bg-glass-white/20 border border-white/20 rounded-md text-white placeholder-cyber-slate-400 focus:outline-none focus:ring-2 focus:ring-cyber-green-500"
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        {/* Event Filter */}
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-cyber-slate-300">Event</label>
+                          <Select value={selectedEventIdForReports} onValueChange={setSelectedEventIdForReports}>
+                            <SelectTrigger className="bg-glass-white/20 border-white/20 text-white">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-cyber-dark-800 border-white/20">
+                              <SelectItem value="all" className="text-white hover:bg-white/10">
+                                All Events
+                              </SelectItem>
+                              {events.map((event) => (
+                                <SelectItem key={event._id} value={event._id} className="text-white hover:bg-white/10">
+                                  {event.title}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      {(revenueTimeFrame !== "all" || selectedEventIdForReports !== "all") && (
+                        <div className="mt-4 p-3 bg-cyber-green-500/10 border border-cyber-green-500/20 rounded-lg">
+                          <div className="flex items-center gap-2 text-cyber-green-400 text-sm">
+                            <Activity className="w-4 h-4" />
+                            <span className="font-medium">Active Filters:</span>
+                            {revenueTimeFrame === "day" && <span>Today's data</span>}
+                            {revenueTimeFrame === "custom" && customRevenueStartDate && (
+                              <span>
+                                {customRevenueStartDate}
+                                {customRevenueEndDate && ` to ${customRevenueEndDate}`}
+                              </span>
+                            )}
+                            {selectedEventIdForReports !== "all" && (
+                              <span>• {events.find((e) => e._id === selectedEventIdForReports)?.title}</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <Card className="bg-glass-white backdrop-blur-xl border border-white/20">
                       <CardHeader>
-                        <CardTitle className="text-white text-lg">Revenue Overview</CardTitle>
+                        <CardTitle className="text-white text-lg flex items-center gap-2">
+                          <TrendingUp className="w-5 h-5" />
+                          Revenue Overview
+                          {(revenueTimeFrame !== "all" || selectedEventIdForReports !== "all") && (
+                            <span className="text-xs bg-cyber-green-500/20 text-cyber-green-400 px-2 py-1 rounded-full">
+                              Filtered
+                            </span>
+                          )}
+                        </CardTitle>
                       </CardHeader>
                       <CardContent>
                         <div className="space-y-4">
                           <div className="flex justify-between items-center">
                             <span className="text-cyber-slate-300">Total Revenue</span>
                             <span className="text-2xl font-bold text-cyber-green-400">
-                              ₦{totalRevenue.toLocaleString()}
+                              ₦{filteredRevenue.toLocaleString()}
                             </span>
                           </div>
                           <div className="flex justify-between items-center">
                             <span className="text-cyber-slate-300">Average per Booking</span>
                             <span className="text-lg font-semibold text-white">
-                              ₦{totalBookings > 0 ? Math.round(totalRevenue / totalBookings).toLocaleString() : 0}
+                              ₦
+                              {filteredBookingsCount > 0
+                                ? Math.round(filteredRevenue / filteredBookingsCount).toLocaleString()
+                                : 0}
                             </span>
                           </div>
                           <div className="flex justify-between items-center">
                             <span className="text-cyber-slate-300">Total Bookings</span>
-                            <span className="text-lg font-semibold text-cyber-blue-400">{totalBookings}</span>
+                            <span className="text-lg font-semibold text-cyber-blue-400">{filteredBookingsCount}</span>
                           </div>
+                          {(revenueTimeFrame !== "all" || selectedEventIdForReports !== "all") && (
+                            <div className="pt-2 border-t border-white/10">
+                              <div className="flex justify-between items-center text-sm">
+                                <span className="text-cyber-slate-400">All-time Revenue</span>
+                                <span className="text-cyber-slate-400">₦{totalRevenue.toLocaleString()}</span>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
 
                     <Card className="bg-glass-white backdrop-blur-xl border border-white/20">
                       <CardHeader>
-                        <CardTitle className="text-white text-lg">Occupancy Statistics</CardTitle>
+                        <CardTitle className="text-white text-lg flex items-center gap-2">
+                          <BarChart3 className="w-5 h-5" />
+                          Event Performance
+                          {selectedEventIdForReports !== "all" && (
+                            <span className="text-xs bg-cyber-blue-500/20 text-cyber-blue-400 px-2 py-1 rounded-full">
+                              Single Event
+                            </span>
+                          )}
+                        </CardTitle>
                       </CardHeader>
                       <CardContent>
                         <div className="space-y-4">
-                          <div className="flex justify-between items-center">
-                            <span className="text-cyber-slate-300">Overall Occupancy</span>
-                            <span className="text-2xl font-bold text-cyber-purple-400">
-                              {overallOccupancyRate.toFixed(1)}%
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-cyber-slate-300">Total Seats Booked</span>
-                            <span className="text-lg font-semibold text-white">{totalBookedSeatsCount}</span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-cyber-slate-300">Total Available Seats</span>
-                            <span className="text-lg font-semibold text-cyber-slate-400">
-                              {totalAvailableSeatsCount}
-                            </span>
-                          </div>
+                          {(selectedEventIdForReports === "all"
+                            ? events.slice(0, 5)
+                            : events.filter((e) => e._id === selectedEventIdForReports)
+                          ).map((event) => {
+                            const eventBookings = filteredBookings.filter((b) => b.eventId === event._id)
+                            const eventRevenue = eventBookings.reduce((sum, b) => sum + b.totalAmount, 0)
+                            const occupancyRate =
+                              event.total_seats > 0 ? ((event.bookedSeats?.length || 0) / event.total_seats) * 100 : 0
+
+                            return (
+                              <div
+                                key={event._id}
+                                className="flex justify-between items-center p-4 bg-glass-white/10 rounded-lg"
+                              >
+                                <div>
+                                  <div className="font-medium text-white">{event.title}</div>
+                                  <div className="text-sm text-cyber-slate-400">
+                                    {event.category} • {getHallDisplayName(halls, event.hall_id)}
+                                  </div>
+                                  <div className="text-xs text-cyber-slate-500 mt-1">
+                                    {eventBookings.length} booking{eventBookings.length !== 1 ? "s" : ""} in period
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <div className="text-cyber-green-400 font-semibold">
+                                    ₦{eventRevenue.toLocaleString()}
+                                  </div>
+                                  <div className="text-sm text-cyber-slate-400">
+                                    {occupancyRate.toFixed(0)}% occupied
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          })}
+                          {filteredBookings.length === 0 && (
+                            <div className="text-center py-8 text-cyber-slate-400">
+                              <BarChart3 className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                              <p>No bookings found for the selected filters</p>
+                            </div>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
                   </div>
-
-                  {/* Event Performance */}
-                  <Card className="bg-glass-white backdrop-blur-xl border border-white/20">
-                    <CardHeader>
-                      <CardTitle className="text-white text-lg">Event Performance</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        {events.slice(0, 5).map((event) => {
-                          const eventBookings = actualBookings.filter((b) => b.eventId === event._id)
-                          const eventRevenue = eventBookings.reduce((sum, b) => sum + b.totalAmount, 0)
-                          const occupancyRate =
-                            event.total_seats > 0 ? ((event.bookedSeats?.length || 0) / event.total_seats) * 100 : 0
-
-                          return (
-                            <div
-                              key={event._id}
-                              className="flex justify-between items-center p-4 bg-glass-white/10 rounded-lg"
-                            >
-                              <div>
-                                <div className="font-medium text-white">{event.title}</div>
-                                <div className="text-sm text-cyber-slate-400">
-                                  {event.category} • {getHallDisplayName(halls, event.hall_id)}
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <div className="text-cyber-green-400 font-semibold">
-                                  ₦{eventRevenue.toLocaleString()}
-                                </div>
-                                <div className="text-sm text-cyber-slate-400">{occupancyRate.toFixed(0)}% occupied</div>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </CardContent>
-                  </Card>
                 </div>
               </CardContent>
             </Card>
