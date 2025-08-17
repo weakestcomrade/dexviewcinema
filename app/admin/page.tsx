@@ -348,6 +348,33 @@ const generateMovieSeats = (eventPricing: any, hallId: string, halls: Hall[], bo
   return seats
 }
 
+const formatTo12Hour = (time: string) => {
+  if (!time) return time
+
+  // Handle different time formats
+  const timeStr = time.trim()
+
+  // If already in 12-hour format, return as is
+  if (timeStr.toLowerCase().includes("am") || timeStr.toLowerCase().includes("pm")) {
+    return timeStr
+  }
+
+  // Parse 24-hour format (HH:MM or H:MM)
+  const timeParts = timeStr.split(":")
+  if (timeParts.length !== 2) return time
+
+  let hours = Number.parseInt(timeParts[0])
+  const minutes = timeParts[1]
+
+  if (isNaN(hours)) return time
+
+  const ampm = hours >= 12 ? "PM" : "AM"
+  hours = hours % 12
+  hours = hours ? hours : 12 // 0 should be 12
+
+  return `${hours}:${minutes} ${ampm}`
+}
+
 export default function AdminDashboard() {
   const { data: session, status } = useSession()
   const { toast } = useToast()
@@ -2810,7 +2837,12 @@ export default function AdminDashboard() {
                       <p className="flex items-start gap-2">
                         <Clock className="w-5 h-5 text-brand-red-500 mt-0.5 flex-shrink-0" />
                         <span>
-                          <strong>Event Time:</strong> {selectedBooking.bookingTime}
+                          <strong>Event Time:</strong> {(() => {
+                            // Find the event data for this booking to get the actual event time
+                            const eventData = events.find((e) => e._id === selectedBooking.eventId)
+                            const eventTime = eventData?.event_time || selectedBooking.bookingTime
+                            return formatTo12Hour(eventTime)
+                          })()}
                         </span>
                       </p>
                     </div>
@@ -3035,6 +3067,7 @@ export default function AdminDashboard() {
                     value={newEvent.event_time}
                     onChange={(e) => setNewEvent((prev) => ({ ...prev, event_time: e.target.value }))}
                     className="bg-glass-white border-white/20 text-white"
+                    placeholder="Enter event time"
                   />
                 </div>
               </div>
