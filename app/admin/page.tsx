@@ -820,6 +820,31 @@ export default function AdminDashboard() {
 
       if (!res.ok) {
         const errorData = await res.json()
+
+        if (res.status === 409) {
+          console.log("[v0] Seat conflict detected, refreshing seat availability")
+
+          // Refresh bookings and events to get latest seat availability
+          await fetchBookings()
+          await fetchEvents()
+
+          // Regenerate seats for the current event to show updated availability
+          if (newBooking.eventId) {
+            await generateAvailableSeats(newBooking.eventId)
+          }
+
+          // Clear selected seats since they're no longer available
+          setSelectedSeats([])
+          setSelectedSeatType("")
+
+          toast({
+            title: "Seats No Longer Available",
+            description: "The selected seats have been booked by another customer. Please select different seats.",
+            variant: "destructive",
+          })
+          return
+        }
+
         throw new Error(errorData.message || `HTTP error! status: ${res.status}`)
       }
 
@@ -835,7 +860,9 @@ export default function AdminDashboard() {
       setSelectedSeats([])
       setAvailableSeats([])
       setIsCreateBookingOpen(false)
-      fetchBookings()
+
+      await fetchBookings()
+      await fetchEvents()
     } catch (error) {
       console.error("[v0] Failed to create booking:", error)
       toast({
@@ -844,7 +871,7 @@ export default function AdminDashboard() {
         variant: "destructive",
       })
     }
-  }, [newBooking, selectedSeats, toast, fetchBookings])
+  }, [newBooking, selectedSeats, toast, fetchBookings, fetchEvents, generateAvailableSeats])
 
   const updateBookingStatus = useCallback(
     async (bookingId: string, status: Booking["status"]) => {
