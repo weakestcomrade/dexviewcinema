@@ -9,6 +9,8 @@ import Image from "next/image"
 import { useToast } from "@/components/ui/use-toast"
 import Link from "next/link"
 import { Loader2 } from "lucide-react"
+import html2canvas from "html2canvas"
+import jsPDF from "jspdf"
 
 interface Booking {
   _id: string
@@ -147,39 +149,83 @@ export default function ReceiptPage() {
   const handleDownload = async () => {
     try {
       setIsDownloading(true)
+      const element = document.getElementById("receipt-print-area") as HTMLElement | null
+      if (!element) {
+        toast({
+          title: "Error",
+          description: "Receipt content not found. Please refresh and try again.",
+          variant: "destructive",
+        })
+        return
+      }
 
+      // Show loading toast
       toast({
         title: "Generating PDF...",
         description: "Please wait while we prepare your receipt.",
       })
 
-      console.log("[v0] Starting server-side PDF generation")
+      console.log("[v0] Starting PDF generation, iOS detected:", isIOS())
 
-      const response = await fetch(`/api/receipt/${id}/pdf`)
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        allowTaint: true,
+        foreignObjectRendering: true,
+        logging: false,
+        width: element.scrollWidth,
+        height: element.scrollHeight,
+        scrollX: 0,
+        scrollY: 0,
+      })
 
-      if (!response.ok) {
-        throw new Error("Failed to generate PDF")
+      console.log("[v0] Canvas generated successfully")
+
+      const imgData = canvas.toDataURL("image/png")
+      const pdf = new jsPDF("p", "mm", "a4")
+      const pdfWidth = pdf.internal.pageSize.getWidth()
+      const pdfHeight = pdf.internal.pageSize.getHeight()
+
+      const imgWidth = pdfWidth
+      const imgHeight = (canvas.height * imgWidth) / canvas.width
+
+      let heightLeft = imgHeight
+      let position = 0
+
+      pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight)
+      heightLeft -= pdfHeight
+
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight
+        pdf.addPage()
+        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight)
+        heightLeft -= pdfHeight
       }
 
-      const blob = await response.blob()
       const fileName = `dex-view-cinema-${booking?.bookingCode || booking?._id || "receipt"}.pdf`
 
-      console.log("[v0] PDF generated successfully, handling download")
+      console.log("[v0] PDF created, handling download for iOS:", isIOS())
 
       if (isIOS()) {
-        const pdfUrl = URL.createObjectURL(blob)
+        // For iOS, convert to blob and open in new tab
+        const pdfBlob = pdf.output("blob")
+        const pdfUrl = URL.createObjectURL(pdfBlob)
+
+        // Open in new tab - this works reliably on iOS
         const newWindow = window.open(pdfUrl, "_blank")
 
         if (newWindow) {
           toast({
             title: "PDF Ready!",
-            description: "Your receipt opened in a new tab. Use Safari's share button to save it.",
+            description: "Your receipt opened in a new tab. Use the share button in Safari to save or share it.",
             duration: 6000,
           })
         } else {
+          // If popup blocked, show instructions
           toast({
             title: "Popup Blocked",
-            description: "Please allow popups for this site and try again.",
+            description: "Please allow popups for this site, then try again. Or use the Print option instead.",
             variant: "destructive",
             duration: 8000,
           })
@@ -190,20 +236,35 @@ export default function ReceiptPage() {
           URL.revokeObjectURL(pdfUrl)
         }, 10000)
       } else {
-        const pdfUrl = URL.createObjectURL(blob)
-        const link = document.createElement("a")
-        link.href = pdfUrl
-        link.download = fileName
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
+        // Standard download for non-iOS devices
+        try {
+          pdf.save(fileName)
+          console.log("[v0] Standard download completed")
 
-        setTimeout(() => URL.revokeObjectURL(pdfUrl), 1000)
+          toast({
+            title: "Download Complete!",
+            description: "Your receipt has been downloaded successfully.",
+          })
+        } catch (downloadError) {
+          console.error("[v0] Standard download failed:", downloadError)
 
-        toast({
-          title: "Download Complete!",
-          description: "Your receipt has been downloaded successfully.",
-        })
+          // Fallback for non-iOS devices
+          const pdfBlob = pdf.output("blob")
+          const pdfUrl = URL.createObjectURL(pdfBlob)
+          const link = document.createElement("a")
+          link.href = pdfUrl
+          link.download = fileName
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+
+          setTimeout(() => URL.revokeObjectURL(pdfUrl), 1000)
+
+          toast({
+            title: "Download Started",
+            description: "Your receipt download has been initiated.",
+          })
+        }
       }
     } catch (err) {
       console.error("[v0] PDF generation failed:", err)
