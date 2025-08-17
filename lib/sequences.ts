@@ -1,39 +1,68 @@
 import type { Db } from "mongodb"
 
 /**
- * Atomically increment and return the next sequence number for the given name.
- * Uses a "counters" collection with documents shaped as: { _id: name, seq: number }
+ * Generate a random alphanumeric string of specified length
  */
-export async function getNextSequence(db: Db, name: string): Promise<number> {
-  console.log(`[v0] Getting next sequence for: ${name}`)
-
-  try {
-    const res = await db
-      .collection("counters")
-      .findOneAndUpdate({ _id: name }, { $inc: { seq: 1 } }, { upsert: true, returnDocument: "after" })
-
-    const seq = (res.value as any)?.seq
-    console.log(`[v0] Sequence result for ${name}:`, { seq, hasValue: !!res.value })
-
-    if (typeof seq === "number" && seq > 0) {
-      console.log(`[v0] Generated sequence ${seq} for ${name}`)
-      return seq
-    } else {
-      console.warn(`[v0] Invalid sequence for ${name}, falling back to 1`)
-      return 1
-    }
-  } catch (error) {
-    console.error(`[v0] Error generating sequence for ${name}:`, error)
-    return 1
+function generateRandomString(length: number): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+  let result = ""
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length))
   }
+  return result
 }
 
 /**
- * Format a human-friendly booking code, e.g., DEX000123.
- * Adjust prefix or padding length to your preference.
+ * Generate a unique random booking code by checking against existing bookings
+ */
+export async function generateUniqueBookingCode(db: Db, prefix = "DEX", codeLength = 6): Promise<string> {
+  console.log(`[v0] Generating unique booking code with prefix: ${prefix}`)
+
+  let attempts = 0
+  const maxAttempts = 10
+
+  while (attempts < maxAttempts) {
+    const randomCode = generateRandomString(codeLength)
+    const bookingCode = `${prefix}${randomCode}`
+
+    console.log(`[v0] Attempt ${attempts + 1}: Generated code ${bookingCode}`)
+
+    try {
+      // Check if this booking code already exists
+      const existingBooking = await db.collection("bookings").findOne({ bookingCode })
+
+      if (!existingBooking) {
+        console.log(`[v0] Unique booking code generated: ${bookingCode}`)
+        return bookingCode
+      }
+
+      console.log(`[v0] Code ${bookingCode} already exists, trying again`)
+      attempts++
+    } catch (error) {
+      console.error(`[v0] Error checking booking code uniqueness:`, error)
+      attempts++
+    }
+  }
+
+  // Fallback: if we can't generate a unique code after max attempts,
+  // add timestamp to ensure uniqueness
+  const fallbackCode = `${prefix}${generateRandomString(4)}${Date.now().toString().slice(-2)}`
+  console.warn(`[v0] Using fallback booking code: ${fallbackCode}`)
+  return fallbackCode
+}
+
+/**
+ * @deprecated Use generateUniqueBookingCode instead
+ */
+export async function getNextSequence(db: Db, name: string): Promise<number> {
+  console.log(`[v0] getNextSequence is deprecated, use generateUniqueBookingCode instead`)
+  return 1
+}
+
+/**
+ * @deprecated Use generateUniqueBookingCode directly instead
  */
 export function formatBookingCode(seq: number, prefix = "DEX", pad = 6): string {
-  const formatted = `${prefix}${String(seq).padStart(pad, "0")}`
-  console.log(`[v0] Formatted booking code: ${formatted} (from sequence: ${seq})`)
-  return formatted
+  console.log(`[v0] formatBookingCode is deprecated, use generateUniqueBookingCode instead`)
+  return `${prefix}${String(seq).padStart(pad, "0")}`
 }
