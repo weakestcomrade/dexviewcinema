@@ -243,13 +243,20 @@ async function sendBookingConfirmationEmail(booking: any, event: any, hall: any)
   const BREVO_API_KEY = process.env.BREVO_API_KEY
   const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || "no-reply@dexviewcinema.com"
 
+  console.log("[v0] Email sending attempt:", {
+    hasApiKey: !!BREVO_API_KEY,
+    senderEmail: BREVO_SENDER_EMAIL,
+    customerEmail: booking.customerEmail,
+    bookingId: booking._id,
+  })
+
   if (!BREVO_API_KEY) {
-    console.warn("Brevo API key not configured. Skipping email sending.")
+    console.error("[v0] BREVO_API_KEY is not configured in environment variables")
     return { success: false, error: "API key not configured" }
   }
 
   if (!booking.customerEmail) {
-    console.error("Customer email not provided for booking:", booking._id)
+    console.error("[v0] Customer email not provided for booking:", booking._id)
     return { success: false, error: "Customer email not provided" }
   }
 
@@ -271,6 +278,11 @@ async function sendBookingConfirmationEmail(booking: any, event: any, hall: any)
       replyTo: { email: "support@dexviewcinema.com", name: "Dex View Cinema Support" },
     }
 
+    console.log("[v0] Sending email to Brevo API:", {
+      to: emailData.to[0].email,
+      subject: emailData.subject,
+    })
+
     const brevoResponse = await fetch("https://api.brevo.com/v3/smtp/email", {
       method: "POST",
       headers: {
@@ -283,7 +295,7 @@ async function sendBookingConfirmationEmail(booking: any, event: any, hall: any)
     const responseData = await brevoResponse.json()
 
     if (!brevoResponse.ok) {
-      console.error("Brevo API error:", {
+      console.error("[v0] Brevo API error:", {
         status: brevoResponse.status,
         statusText: brevoResponse.statusText,
         data: responseData,
@@ -291,9 +303,14 @@ async function sendBookingConfirmationEmail(booking: any, event: any, hall: any)
       return { success: false, error: responseData }
     }
 
+    console.log("[v0] Email sent successfully:", {
+      messageId: responseData.messageId,
+      customerEmail: booking.customerEmail,
+    })
+
     return { success: true, messageId: responseData.messageId }
   } catch (emailError) {
-    console.error("Error sending booking confirmation email:", emailError)
+    console.error("[v0] Error sending booking confirmation email:", emailError)
     return { success: false, error: emailError }
   }
 }
@@ -427,9 +444,17 @@ export async function POST(request: Request) {
       if (event && event.hall_id) {
         hall = await db.collection("halls").findOne({ _id: new ObjectId(event.hall_id) })
       }
-      await sendBookingConfirmationEmail(createdBooking, event, hall)
+
+      console.log("[v0] Attempting to send booking confirmation email for booking:", createdBooking._id)
+      const emailResult = await sendBookingConfirmationEmail(createdBooking, event, hall)
+
+      if (emailResult.success) {
+        console.log("[v0] Booking confirmation email sent successfully:", emailResult.messageId)
+      } else {
+        console.error("[v0] Failed to send booking confirmation email:", emailResult.error)
+      }
     } catch (emailError) {
-      console.error("Exception while sending booking confirmation email:", emailError)
+      console.error("[v0] Exception while sending booking confirmation email:", emailError)
     }
 
     revalidatePath("/admin")

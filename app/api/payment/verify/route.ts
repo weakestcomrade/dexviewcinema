@@ -374,8 +374,22 @@ function generateReceiptHtml(booking: any, event: any, hall: any) {
 async function sendBookingConfirmationEmail(booking: any, event: any, hall: any) {
   const BREVO_API_KEY = process.env.BREVO_API_KEY
   const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || "no-reply@dexviewcinema.com"
-  if (!BREVO_API_KEY) return { success: false, error: "API key not configured" }
-  if (!booking.customerEmail) return { success: false, error: "Customer email not provided" }
+
+  console.log("[v0] Payment verification email attempt:", {
+    hasApiKey: !!BREVO_API_KEY,
+    senderEmail: BREVO_SENDER_EMAIL,
+    customerEmail: booking.customerEmail,
+    bookingId: booking._id,
+  })
+
+  if (!BREVO_API_KEY) {
+    console.error("[v0] BREVO_API_KEY not configured for payment verification email")
+    return { success: false, error: "API key not configured" }
+  }
+  if (!booking.customerEmail) {
+    console.error("[v0] Customer email not provided for payment verification email")
+    return { success: false, error: "Customer email not provided" }
+  }
 
   try {
     const htmlContent = generateReceiptHtml(booking, event, hall)
@@ -384,6 +398,11 @@ Booking Code: ${booking.bookingCode || booking._id}
 Date & Time: ${event?.date || booking.bookingDate} at ${event?.time || booking.bookingTime}
 Seats: ${(booking.seats || []).join(", ")}
 Total: ₦${Number(booking.totalAmount || 0).toLocaleString()}`
+
+    console.log("[v0] Sending payment verification email to Brevo API:", {
+      to: booking.customerEmail,
+      subject: `🎬 Booking Confirmed - ${booking.eventTitle} | Dex View Cinema`,
+    })
 
     const res = await fetch("https://api.brevo.com/v3/smtp/email", {
       method: "POST",
@@ -398,10 +417,19 @@ Total: ₦${Number(booking.totalAmount || 0).toLocaleString()}`
       }),
     })
     const data = await res.json()
-    if (!res.ok) return { success: false, error: data }
+    if (!res.ok) {
+      console.error("[v0] Payment verification email failed:", data)
+      return { success: false, error: data }
+    }
+
+    console.log("[v0] Payment verification email sent successfully:", {
+      messageId: data.messageId,
+      customerEmail: booking.customerEmail,
+    })
+
     return { success: true, messageId: data.messageId }
   } catch (err) {
-    console.error("Error sending booking confirmation email:", err)
+    console.error("[v0] Error sending payment verification email:", err)
     return { success: false, error: err }
   }
 }
