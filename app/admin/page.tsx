@@ -348,33 +348,6 @@ const generateMovieSeats = (eventPricing: any, hallId: string, halls: Hall[], bo
   return seats
 }
 
-const formatTo12Hour = (time: string) => {
-  if (!time) return time
-
-  // Handle different time formats
-  const timeStr = time.trim()
-
-  // If already in 12-hour format, return as is
-  if (timeStr.toLowerCase().includes("am") || timeStr.toLowerCase().includes("pm")) {
-    return timeStr
-  }
-
-  // Parse 24-hour format (HH:MM or H:MM)
-  const timeParts = timeStr.split(":")
-  if (timeParts.length !== 2) return time
-
-  let hours = Number.parseInt(timeParts[0])
-  const minutes = timeParts[1]
-
-  if (isNaN(hours)) return time
-
-  const ampm = hours >= 12 ? "PM" : "AM"
-  hours = hours % 12
-  hours = hours ? hours : 12 // 0 should be 12
-
-  return `${hours}:${minutes} ${ampm}`
-}
-
 export default function AdminDashboard() {
   const { data: session, status } = useSession()
   const { toast } = useToast()
@@ -427,6 +400,9 @@ export default function AdminDashboard() {
     newPassword?: string
     confirmPassword?: string
   }>({})
+
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
 
   const validatePasswordChange = (): boolean => {
     const errors: typeof passwordChangeErrors = {}
@@ -820,31 +796,6 @@ export default function AdminDashboard() {
 
       if (!res.ok) {
         const errorData = await res.json()
-
-        if (res.status === 409) {
-          console.log("[v0] Seat conflict detected, refreshing seat availability")
-
-          // Refresh bookings and events to get latest seat availability
-          await fetchBookings()
-          await fetchEvents()
-
-          // Regenerate seats for the current event to show updated availability
-          if (newBooking.eventId) {
-            await generateAvailableSeats(newBooking.eventId)
-          }
-
-          // Clear selected seats since they're no longer available
-          setSelectedSeats([])
-          setSelectedSeatType("")
-
-          toast({
-            title: "Seats No Longer Available",
-            description: "The selected seats have been booked by another customer. Please select different seats.",
-            variant: "destructive",
-          })
-          return
-        }
-
         throw new Error(errorData.message || `HTTP error! status: ${res.status}`)
       }
 
@@ -860,9 +811,7 @@ export default function AdminDashboard() {
       setSelectedSeats([])
       setAvailableSeats([])
       setIsCreateBookingOpen(false)
-
-      await fetchBookings()
-      await fetchEvents()
+      fetchBookings()
     } catch (error) {
       console.error("[v0] Failed to create booking:", error)
       toast({
@@ -871,7 +820,7 @@ export default function AdminDashboard() {
         variant: "destructive",
       })
     }
-  }, [newBooking, selectedSeats, toast, fetchBookings, fetchEvents, generateAvailableSeats])
+  }, [newBooking, selectedSeats, toast, fetchBookings])
 
   const updateBookingStatus = useCallback(
     async (bookingId: string, status: Booking["status"]) => {
@@ -940,6 +889,15 @@ export default function AdminDashboard() {
 
     return matchesCustomer && matchesEvent && matchesStatus
   })
+
+  const totalPages = Math.ceil(filteredBookings.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedBookings = filteredBookings.slice(startIndex, endIndex)
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [customerSearchQuery, selectedEventIdForBookings, reportStatus])
 
   const filteredEvents = events.filter((event) => {
     const matchesType = reportEventType === "all" || event.event_type === reportEventType
@@ -2276,6 +2234,88 @@ export default function AdminDashboard() {
                     </Select>
                   </div>
 
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                    <div className="flex items-center gap-4">
+                      <div className="text-sm text-cyber-slate-300">
+                        Showing {startIndex + 1} to {Math.min(endIndex, filteredBookings.length)} of{" "}
+                        {filteredBookings.length} bookings
+                      </div>
+                      <Select
+                        value={itemsPerPage.toString()}
+                        onValueChange={(value) => {
+                          setItemsPerPage(Number(value))
+                          setCurrentPage(1)
+                        }}
+                      >
+                        <SelectTrigger className="bg-glass-white border-white/20 text-white w-20">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-glass-white-strong backdrop-blur-xl border-white/20">
+                          <SelectItem value="5">5</SelectItem>
+                          <SelectItem value="10">10</SelectItem>
+                          <SelectItem value="25">25</SelectItem>
+                          <SelectItem value="50">50</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <span className="text-sm text-cyber-slate-400">per page</span>
+                    </div>
+
+                    {totalPages > 1 && (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                          disabled={currentPage === 1}
+                          className="border-white/20 text-cyber-slate-300 hover:bg-white/10 disabled:opacity-50"
+                        >
+                          Previous
+                        </Button>
+
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                            let pageNum
+                            if (totalPages <= 5) {
+                              pageNum = i + 1
+                            } else if (currentPage <= 3) {
+                              pageNum = i + 1
+                            } else if (currentPage >= totalPages - 2) {
+                              pageNum = totalPages - 4 + i
+                            } else {
+                              pageNum = currentPage - 2 + i
+                            }
+
+                            return (
+                              <Button
+                                key={pageNum}
+                                variant={currentPage === pageNum ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setCurrentPage(pageNum)}
+                                className={
+                                  currentPage === pageNum
+                                    ? "bg-brand-red-500 text-white border-brand-red-500"
+                                    : "border-white/20 text-cyber-slate-300 hover:bg-white/10"
+                                }
+                              >
+                                {pageNum}
+                              </Button>
+                            )
+                          })}
+                        </div>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                          disabled={currentPage === totalPages}
+                          className="border-white/20 text-cyber-slate-300 hover:bg-white/10 disabled:opacity-50"
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
                   {/* Bookings Table */}
                   <div className="rounded-lg border border-white/20 overflow-hidden">
                     <Table>
@@ -2291,7 +2331,7 @@ export default function AdminDashboard() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredBookings.map((booking) => (
+                        {paginatedBookings.map((booking) => (
                           <TableRow key={booking._id} className="border-white/20 hover:bg-white/5">
                             <TableCell>
                               <div>
@@ -2390,6 +2430,13 @@ export default function AdminDashboard() {
                       </TableBody>
                     </Table>
                   </div>
+
+                  {paginatedBookings.length === 0 && filteredBookings.length === 0 && (
+                    <div className="text-center py-8 text-cyber-slate-400">
+                      <BarChart3 className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      <p>No bookings found for the selected filters</p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -2864,12 +2911,7 @@ export default function AdminDashboard() {
                       <p className="flex items-start gap-2">
                         <Clock className="w-5 h-5 text-brand-red-500 mt-0.5 flex-shrink-0" />
                         <span>
-                          <strong>Event Time:</strong> {(() => {
-                            // Find the event data for this booking to get the actual event time
-                            const eventData = events.find((e) => e._id === selectedBooking.eventId)
-                            const eventTime = eventData?.event_time || selectedBooking.bookingTime
-                            return formatTo12Hour(eventTime)
-                          })()}
+                          <strong>Event Time:</strong> {selectedBooking.bookingTime}
                         </span>
                       </p>
                     </div>
@@ -3094,7 +3136,6 @@ export default function AdminDashboard() {
                     value={newEvent.event_time}
                     onChange={(e) => setNewEvent((prev) => ({ ...prev, event_time: e.target.value }))}
                     className="bg-glass-white border-white/20 text-white"
-                    placeholder="Enter event time"
                   />
                 </div>
               </div>
